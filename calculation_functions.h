@@ -57,10 +57,8 @@ bool isMouseInRect(int mouse_x, int mouse_y, int rect_x, int rect_y, int rect_w,
 void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, double multiplier);
 void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control_t* speed_control, double* TIME_STEP, double* meters_per_pixel);
 
-void drawStatsBox(SDL_Renderer* renderer, body_properties_t b1, body_properties_t b2);
+void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies);
 
 void addOrbitalBody(double mass, double x_pos, double y_pos, double x_vel, double y_vel);
-
-void calculateZoom();
 
 #endif

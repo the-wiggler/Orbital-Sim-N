@@ -37,7 +37,7 @@ TTF_Font* g_font = NULL;
 
 // holds the information on the bodies
 int num_bodies = 0;
-body_properties_t *global_bodies = NULL;
+body_properties_t* global_bodies = NULL;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN
@@ -67,6 +67,8 @@ int main(int argc, char* argv[]) {
 
     // Moon orbiting Earth
     addOrbitalBody(7.342e22, 3.844e8, 0, 0, 1022);
+
+    addOrbitalBody(7.342e22, -3.844e8, 0, 0, -1022);
 
     while (sim_running) {
         // checks inputs into the window
@@ -117,6 +119,9 @@ int main(int argc, char* argv[]) {
 
         // draw speed control box
         drawSpeedControl(renderer, &speed_control, TIME_STEP);
+
+        // draw stats box
+        if (global_bodies != NULL) drawStatsBox(renderer, global_bodies, num_bodies);
 
         // present the renderer to the screen
         SDL_RenderPresent(renderer);

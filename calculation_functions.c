@@ -106,6 +106,7 @@ void drawScaleBar(SDL_Renderer* renderer, double meters_per_pixel, int window_wi
 
 int calculateVisualRadius(body_properties_t body) {
     int r = (int)(body.radius / meters_per_pixel);
+    return r;
 }
 
 
@@ -191,23 +192,22 @@ void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control
 }
 
 // the stats box that shows stats yay
-void drawStatsBox(SDL_Renderer* renderer, body_properties_t b1, body_properties_t b2) {
+void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies) {
+    SDL_Color text_color = {255, 255, 255, 255};
 
     // all calculations for things to go inside the box:
-    float distance = b1.r_from_body;
+    for (int i = 0; i < num_bodies; i++) {
+        char vel_text[32];
+        snprintf(vel_text, sizeof(vel_text), "Vel of Body %d: %.1f", i, bodies[i].vel);
 
-    // draw the box
-    char distance_text[32];
-    snprintf(distance_text, sizeof(distance_text), "Distance: %.2f km", distance / 1000.0);
-    
-    // render text
-    SDL_Color text_color = {255, 255, 255, 255};
-    SDL_Surface* text_surface = TTF_RenderText_Solid(g_font, distance_text, 0, text_color);
-    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-    SDL_FRect text_rect = {20, 70, (float)text_surface->w, (float)text_surface->h};
-    SDL_RenderTexture(renderer, text_texture, NULL, &text_rect);
-    SDL_DestroyTexture(text_texture);
-    SDL_DestroySurface(text_surface);
+        // render text
+        SDL_Surface* text_surface = TTF_RenderText_Solid(g_font, vel_text, 0, text_color);
+        SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+        SDL_FRect text_rect = {20, 70 + i * 20, (float)text_surface->w, (float)text_surface->h};
+        SDL_RenderTexture(renderer, text_texture, NULL, &text_rect);
+        SDL_DestroyTexture(text_texture);
+        SDL_DestroySurface(text_surface);
+    }
 }
 
 
