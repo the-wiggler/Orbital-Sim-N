@@ -9,6 +9,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "calculation_functions.h"
+#include "sdl_elements.h"
 
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
 

@@ -10,7 +10,10 @@
         "istream": "c",
         "stdlib.h": "c",
         "string.h": "c",
-        "sdl.h": "c"
+        "sdl.h": "c",
+        "sdl_elements.h": "c",
+        "config.h": "c",
+        "math.h": "c"
     },
     "C_Cpp.default.compilerPath": "C:/msys64/mingw64/bin/g++.exe"
 }
