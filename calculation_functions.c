@@ -159,6 +159,19 @@ void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control
         if (event->type == SDL_EVENT_QUIT) {
             *loop_running_condition = false;
         }
+        // check if window is resized
+        else if (event->type == SDL_EVENT_WINDOW_RESIZED) {
+            // get new window dimensions
+            wp->window_size_x = event->window.data1;
+            wp->window_size_y = event->window.data2;
+
+            // recalculate screen origin to keep it centered
+            wp->screen_origin_x = wp->window_size_x / 2;
+            wp->screen_origin_y = wp->window_size_y / 2;
+
+            // recalculate font size based on new window size
+            wp->font_size = wp->window_size_x / (wp->window_size_x * 0.05);
+        }
         // check if scroll
         else if (event->type == SDL_EVENT_MOUSE_WHEEL) {
             int mouse_x = (int)event->wheel.mouse_x;
