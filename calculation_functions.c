@@ -63,22 +63,42 @@ void SDL_RenderFillCircle(SDL_Renderer* renderer, int centerX, int centerY, int 
     }
 }
 
+// helper functiont to write text to the screen
+void SDL_WriteText(SDL_Renderer* renderer, TTF_Font* font, const char* text, float x, float y, SDL_Color color) {
+    if (!text || !font || !renderer) return;
+    
+    SDL_Surface* text_surface = TTF_RenderText_Solid(font, text, 0, color);
+    if (!text_surface) return;
+    
+    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+    if (!text_texture) {
+        SDL_DestroySurface(text_surface);
+        return;
+    }
+    
+    SDL_FRect text_rect = {x, y, (float)text_surface->w, (float)text_surface->h};
+    SDL_RenderTexture(renderer, text_texture, NULL, &text_rect);
+    
+    SDL_DestroyTexture(text_texture);
+    SDL_DestroySurface(text_surface);
+}
+
 // draw a distance scale bar on the sreen
 void drawScaleBar(SDL_Renderer* renderer, double meters_per_pixel, int window_width, int window_height) {
     const int BAR_HEIGHT = 3, MARGIN = 20, BAR_WIDTH_PIXELS = 150;
     
     double distance_meters = BAR_WIDTH_PIXELS * meters_per_pixel;
     
-    // Determine magnitude and round to nice value
+    // determine magnitude and round to nice value
     double magnitude = pow(10.0, floor(log10(distance_meters)));
     double scale_value = round(distance_meters / magnitude) * magnitude;
     
-    // Format text based on scale
+    // format text based on scale
     char scale_text[50];
     sprintf(scale_text, distance_meters >= 1000000 ? "%.0f km" : "%.0f m", 
             distance_meters >= 1000000 ? scale_value / 1000.0 : scale_value);
     
-    // Draw scale bar
+    // draw scale bar
     int bar_x = MARGIN, bar_y = window_height - MARGIN - BAR_HEIGHT;
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     
@@ -93,32 +113,23 @@ void drawScaleBar(SDL_Renderer* renderer, double meters_per_pixel, int window_wi
     }
     
     // Render text
-    SDL_Surface* text_surface = TTF_RenderText_Blended(g_font, scale_text, 0, (SDL_Color){255, 255, 255, 255});
-    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-    SDL_FRect text_rect = {bar_x, bar_y - text_surface->h - 5, text_surface->w, text_surface->h};
-    SDL_RenderTexture(renderer, text_texture, NULL, &text_rect);
-    SDL_DestroyTexture(text_texture);
-    SDL_DestroySurface(text_surface);
+    SDL_WriteText(renderer, g_font, scale_text, bar_x, bar_y, (SDL_Color){255, 255, 255, 255});
 }
 
 
 // calculates the size (in pixels) that the planet should appear on the screen based on its mass
-
 int calculateVisualRadius(body_properties_t body) {
     int r = (int)(body.radius / meters_per_pixel);
     return r;
 }
 
-
-
-//////////////////////////////////////////////////////
-// thing that calculates changing sim speed         //
-//////////////////////////////////////////////////////
+// thing that calculates changing sim speed
 bool isMouseInRect(int mouse_x, int mouse_y, int rect_x, int rect_y, int rect_w, int rect_h) {
     return (mouse_x >= rect_x && mouse_x <= rect_x + rect_w &&
             mouse_y >= rect_y && mouse_y <= rect_y + rect_h);
 }
 
+// the speed control box
 void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, double multiplier) {
     // background color
     SDL_SetRenderDrawColor(renderer, 80, 80, 120, 255);
@@ -131,28 +142,13 @@ void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, double m
     };
     SDL_RenderFillRect(renderer, &bg_rect);
     
-    // border
-    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
-    SDL_RenderRect(renderer, &bg_rect);
-    
     // text showing current speed
-    char speed_text[64];
+    char speed_text[32];
     snprintf(speed_text, sizeof(speed_text), "Speed: %.2f s/frame", multiplier);
     
     SDL_Color text_color = {255, 255, 255, 255};
-    SDL_Surface* text_surface = TTF_RenderText_Solid(g_font, speed_text, 0, text_color); 
-    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-    
-    SDL_FRect text_rect = {
-        (float)(control->x + 10),
-        (float)(control->y + 10),
-        (float)text_surface->w,
-        (float)text_surface->h
-    };
-    
-    SDL_RenderTexture(renderer, text_texture, NULL, &text_rect);
-    SDL_DestroyTexture(text_texture);
-    SDL_DestroySurface(text_surface);
+
+    SDL_WriteText(renderer, g_font, speed_text, control->x + 10, control->y + 10, text_color);
 
 }
 
@@ -192,7 +188,7 @@ void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control
 }
 
 // the stats box that shows stats yay
-void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies) {
+void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies, double sim_time) {
     SDL_Color text_color = {255, 255, 255, 255};
 
     // all calculations for things to go inside the box:
@@ -201,13 +197,25 @@ void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bod
         snprintf(vel_text, sizeof(vel_text), "Vel of Body %d: %.1f", i, bodies[i].vel);
 
         // render text
-        SDL_Surface* text_surface = TTF_RenderText_Solid(g_font, vel_text, 0, text_color);
-        SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-        SDL_FRect text_rect = {20, 70 + i * 20, (float)text_surface->w, (float)text_surface->h};
-        SDL_RenderTexture(renderer, text_texture, NULL, &text_rect);
-        SDL_DestroyTexture(text_texture);
-        SDL_DestroySurface(text_surface);
+
+        SDL_WriteText(renderer, g_font, vel_text, 20, 70+i*20, text_color);
     }
+
+    // show sim time in the top corner
+    char time[32];
+    if (sim_time < 60) {
+        snprintf(time, sizeof(time), "Sim time: %.f s", sim_time); // sim time in seconds
+    }
+    else if (sim_time > 60 && sim_time < 3600) {
+        snprintf(time, sizeof(time), "Sim time: %.f mins", sim_time/60); // sim time in minutes
+    }
+    else if (sim_time > 3600 && sim_time < 86400) {
+        snprintf(time, sizeof(time), "Sim time: %.1f hrs", sim_time/3600); // sim time in hours
+    }
+    else {
+        snprintf(time, sizeof(time), "Sim time: %.1f days", sim_time/86400); // sim time in days
+    }
+    SDL_WriteText(renderer, g_font, time, WINDOW_SIZE_X - (WINDOW_SIZE_X * 0.2), 15, text_color);
 }
 
 

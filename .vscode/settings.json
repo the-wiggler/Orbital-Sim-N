@@ -4,7 +4,10 @@
         "iterator": "c",
         "sdl_main.h": "c",
         "stdio.h": "c",
-        "sdl_ttf.h": "c"
+        "sdl_ttf.h": "c",
+        "atomic": "c",
+        "format": "c",
+        "istream": "c"
     },
     "C_Cpp.default.compilerPath": "C:/msys64/mingw64/bin/g++.exe"
 }
