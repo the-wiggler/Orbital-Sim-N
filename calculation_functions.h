@@ -56,7 +56,7 @@ void SDL_WriteText(SDL_Renderer* renderer, TTF_Font* font, const char* text, flo
 
 bool isMouseInRect(int mouse_x, int mouse_y, int rect_x, int rect_y, int rect_w, int rect_h);
 void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, double multiplier);
-void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control_t* speed_control, double* TIME_STEP, double* meters_per_pixel);
+void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control_t* speed_control, double* TIME_STEP, double* meters_per_pixel, bool* sim_running);
 
 void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies, double sim_time);
 

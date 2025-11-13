@@ -3,6 +3,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #define SDL_MAIN_HANDLED
 #include "calculation_functions.h"
+SDL_Color text_color = {255, 255, 255, 255};
+
 // at the end of each sim loop, this function should be run to calculate the changes in
 // the force values based on other parameters. for example, using F to find a based on m.
 // b is the body that has the force applied to it, whilst b2 is the body applying force to b
@@ -146,14 +148,12 @@ void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, double m
     char speed_text[32];
     snprintf(speed_text, sizeof(speed_text), "Speed: %.2f s/frame", multiplier);
     
-    SDL_Color text_color = {255, 255, 255, 255};
-
     SDL_WriteText(renderer, g_font, speed_text, control->x + 10, control->y + 10, text_color);
 
 }
 
 // the event handling code... checks if events are happening for input and does a task based on that input
-void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control_t* speed_control, double* TIME_STEP, double* meters_per_pixel) {
+void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control_t* speed_control, double* TIME_STEP, double* meters_per_pixel, bool* sim_running) {
     while (SDL_PollEvent(event)) {
         // check if x button is pressed to quit
         if (event->type == SDL_EVENT_QUIT) {
@@ -183,14 +183,23 @@ void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control
                 }
             }
         }
+        // check if keyboard key is pressed
+        else if (event->type == SDL_EVENT_KEY_DOWN) {
+            if(event->key.key == SDLK_SPACE) {
+                if (*sim_running == false) {
+                    *sim_running = true;
+                }
+                else if (*sim_running == true) {
+                    *sim_running = false;
+                }
+            }
+        }
 
     }
 }
 
 // the stats box that shows stats yay
 void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies, double sim_time) {
-    SDL_Color text_color = {255, 255, 255, 255};
-
     // all calculations for things to go inside the box:
     for (int i = 0; i < num_bodies; i++) {
         char vel_text[32];

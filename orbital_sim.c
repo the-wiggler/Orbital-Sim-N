@@ -34,6 +34,7 @@ double meters_per_pixel         = 100000; // 1m in space will equal x number of 
 const int FONT_SIZE             = WINDOW_SIZE_Y / (WINDOW_SIZE_X * 0.05);
 
 TTF_Font* g_font = NULL;
+SDL_Color white_text = {255, 255, 255, 255};
 
 // holds the information on the bodies
 int num_bodies = 0;
@@ -57,8 +58,8 @@ int main(int argc, char* argv[]) {
 
     // set to false to stop the sim program
     bool window_open = true;
-    bool sim_running = true;
-    double sim_time  = 0;
+    bool sim_running = true; // set to false to pause simulation, set to true to resume
+    double sim_time  = 0; // tracks the passed time in simulation
 
     ////////////////////////////////////////////////////////
     // simulation loop                                    //
@@ -80,7 +81,7 @@ int main(int argc, char* argv[]) {
     while (window_open) {
         // checks inputs into the window
         SDL_Event event;
-        runEventCheck(&event, &window_open, &speed_control, &TIME_STEP, &meters_per_pixel);
+        runEventCheck(&event, &window_open, &speed_control, &TIME_STEP, &meters_per_pixel, &sim_running);
 
         // clears previous frame from the screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -93,7 +94,6 @@ int main(int argc, char* argv[]) {
         // START OF SIMULATION LOGIC                      //
         ////////////////////////////////////////////////////
         if (sim_running) {
-            if (sim_time > 10000) sim_running = false;
             // calculate forces between all body pairs
             if (global_bodies != NULL) {
                 for (int i = 0; i < num_bodies; i++) {
@@ -112,13 +112,17 @@ int main(int argc, char* argv[]) {
                     updateMotion(&global_bodies[i], TIME_STEP);
                     // transform real-space coordinate to pixel coordinates on screen (scaling)
                     transformCoordinates(&global_bodies[i]);
-                    // draw bodies
-                    SDL_RenderFillCircle(renderer, global_bodies[i].pixel_coordinates_x,
-                                    global_bodies[i].pixel_coordinates_y, 
-                                    calculateVisualRadius(global_bodies[i]));
                 }
             }
             sim_time += TIME_STEP;
+        }
+
+        // render the bodies
+        for (int i = 0; i < num_bodies; i++) {
+            // draw bodies
+            SDL_RenderFillCircle(renderer, global_bodies[i].pixel_coordinates_x,
+                            global_bodies[i].pixel_coordinates_y, 
+                            calculateVisualRadius(global_bodies[i]));
         }
 
         // draw scale reference bar
@@ -129,6 +133,9 @@ int main(int argc, char* argv[]) {
 
         // draw stats box
         if (global_bodies != NULL) drawStatsBox(renderer, global_bodies, num_bodies, sim_time);
+
+        // help text at the bottom
+        SDL_WriteText(renderer, g_font, "Press space to pause/resume", 500, 20, white_text);
 
         // present the renderer to the screen
         SDL_RenderPresent(renderer);
