@@ -8,6 +8,10 @@ typedef struct {
     int screen_origin_x, screen_origin_y;
     double meters_per_pixel;
     int font_size;
+    bool reset_sim;
+    bool window_open;
+    bool sim_running;
+    double sim_time;
 } window_params_t;
 
 typedef struct {

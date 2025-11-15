@@ -20,4 +20,6 @@ int calculateVisualRadius(body_properties_t body, window_params_t wp);
 void addOrbitalBody(body_properties_t** gb, int* num_bodies, double mass, double x_pos, double y_pos, double x_vel, double y_vel);
 void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies);
 
+void runCalculations(body_properties_t** gb, window_params_t* wp, int num_bodies); // MAIN CALCULATION LOOP -- DOES ALL THE MATH
+
 #endif

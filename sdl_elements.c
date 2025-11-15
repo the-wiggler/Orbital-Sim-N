@@ -46,12 +46,12 @@ void SDL_WriteText(SDL_Renderer* renderer, TTF_Font* font, const char* text, flo
 }
 
 // draw a distance scale bar on the sreen
-void drawScaleBar(SDL_Renderer* renderer, double meters_per_pixel, int window_width, int window_height) {
-    const int BAR_HEIGHT = window_height * 0.003;
-    const int MARGIN = window_width * 0.02;
-    const int BAR_WIDTH_PIXELS = window_width * 0.15;
+void drawScaleBar(SDL_Renderer* renderer, window_params_t wp) {
+    const int BAR_HEIGHT = wp.window_size_y * 0.003;
+    const int MARGIN = wp.window_size_x * 0.02;
+    const int BAR_WIDTH_PIXELS = wp.window_size_x * 0.15;
 
-    double distance_meters = BAR_WIDTH_PIXELS * meters_per_pixel;
+    double distance_meters = BAR_WIDTH_PIXELS * wp.meters_per_pixel;
     
     // determine magnitude and round to nice value
     double magnitude = pow(10.0, floor(log10(distance_meters)));
@@ -64,7 +64,7 @@ void drawScaleBar(SDL_Renderer* renderer, double meters_per_pixel, int window_wi
     
     // draw scale bar
     int bar_x = MARGIN; 
-    int bar_y = window_height - MARGIN - BAR_HEIGHT;
+    int bar_y = wp.window_size_y - MARGIN - BAR_HEIGHT;
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     
     SDL_FRect rects[3] = {
@@ -88,7 +88,7 @@ bool isMouseInRect(int mouse_x, int mouse_y, int rect_x, int rect_y, int rect_w,
 }
 
 // the speed control box
-void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, double multiplier, window_params_t wp) {
+void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, window_params_t wp) {
     // background color
     SDL_SetRenderDrawColor(renderer, 80, 80, 120, 255);
 
@@ -102,89 +102,12 @@ void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, double m
 
     // text showing current speed
     char speed_text[32];
-    snprintf(speed_text, sizeof(speed_text), "Speed: %.2f s/frame", multiplier);
+    snprintf(speed_text, sizeof(speed_text), "Speed: %.2f s/frame", wp.time_step);
 
     int padding_x = wp.window_size_x * 0.01;
     int padding_y = wp.window_size_y * 0.01;
     SDL_WriteText(renderer, g_font, speed_text, control->x + padding_x, control->y + padding_y, text_color);
 
-}
-
-// the event handling code... checks if events are happening for input and does a task based on that input
-void runEventCheck(SDL_Event* event, bool* loop_running_condition, speed_control_t* speed_control, window_params_t* wp, bool* sim_running, body_properties_t** bodies, int* num_bodies, double* sim_time) {
-    while (SDL_PollEvent(event)) {
-        // check if x button is pressed to quit
-        if (event->type == SDL_EVENT_QUIT) {
-            *loop_running_condition = false;
-        }
-        // check if mouse button is clicked
-        else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-            if (event->button.button == SDL_BUTTON_LEFT) {
-                // convert pixel coordinates to world coordinates
-                double world_x = (event->button.x - wp->screen_origin_x) * wp->meters_per_pixel;
-                double world_y = -(event->button.y - wp->screen_origin_y) * wp->meters_per_pixel;
-
-                // add a new body at the clicked location
-                double default_mass = 1e25;  // default mass for new bodies
-                addOrbitalBody(bodies, num_bodies, default_mass, world_x, world_y, 0.0, 0.0);
-            }
-        }
-        // check if scroll
-        else if (event->type == SDL_EVENT_MOUSE_WHEEL) {
-            int mouse_x = (int)event->wheel.mouse_x;
-            int mouse_y = (int)event->wheel.mouse_y;
-            
-            // if its in the speed change box
-            if (isMouseInRect(mouse_x, mouse_y,
-                speed_control->x, speed_control->y,
-                speed_control->width, speed_control->height)) {
-                
-                if (event->wheel.y > 0) {
-                    wp->time_step *= 1.05;
-                } else if (event->wheel.y < 0) {
-                    wp->time_step /= 1.05;
-                }
-            }
-            else {
-                if (event->wheel.y > 0) {
-                    wp->meters_per_pixel *= 1.05;
-                } else if (event->wheel.y < 0) {
-                    wp->meters_per_pixel /= 1.05;
-                }
-            }
-        }
-        // check if keyboard key is pressed
-        else if (event->type == SDL_EVENT_KEY_DOWN) {
-            if(event->key.key == SDLK_SPACE) {
-                if (*sim_running == false) {
-                    *sim_running = true;
-                }
-                else if (*sim_running == true) {
-                    *sim_running = false;
-                }
-            }
-            else if (event->key.key == SDLK_R) {
-                resetSim(sim_time, bodies, num_bodies);
-            }
-        }
-        // check if window is resized
-        else if (event->type == SDL_EVENT_WINDOW_RESIZED) {
-            wp->window_size_x = event->window.data1;
-            wp->window_size_y = event->window.data2;
-            wp->screen_origin_x = wp->window_size_x / 2;
-            wp->screen_origin_y = wp->window_size_y / 2;
-
-            // update font size proportionally
-            wp->font_size = wp->window_size_x / 75;
-            if (g_font) TTF_CloseFont(g_font);
-            g_font = TTF_OpenFont("CascadiaCode.ttf", wp->font_size);
-
-            // update speed control box position and size
-            speed_control->width = wp->window_size_x * 0.15;
-            speed_control->height = wp->window_size_y * 0.04;
-        }
-
-    }
 }
 
 
@@ -218,4 +141,76 @@ void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bod
         snprintf(time, sizeof(time), "Sim time: %.1f days", sim_time/86400); // sim time in days
     }
     SDL_WriteText(renderer, g_font, time, wp.window_size_x * 0.75, wp.window_size_y * 0.04, text_color);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// EVENT CHECKING FUNCTION
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// the event handling code... checks if events are happening for input and does a task based on that input
+void runEventCheck(SDL_Event* event, speed_control_t* speed_control, window_params_t* wp, body_properties_t** bodies, int* num_bodies) {
+    while (SDL_PollEvent(event)) {
+        // check if x button is pressed to quit        
+        if (event->type == SDL_EVENT_QUIT) {
+            wp->window_open = false;
+        }
+        // check if mouse button is clicked
+        else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+
+        }
+        // check if scroll
+        else if (event->type == SDL_EVENT_MOUSE_WHEEL) {
+            int mouse_x = (int)event->wheel.mouse_x;
+            int mouse_y = (int)event->wheel.mouse_y;
+            
+            // if its in the speed change box
+            if (isMouseInRect(mouse_x, mouse_y,
+                speed_control->x, speed_control->y,
+                speed_control->width, speed_control->height)) {
+                
+                if (event->wheel.y > 0) {
+                    wp->time_step *= 1.05;
+                } else if (event->wheel.y < 0) {
+                    wp->time_step /= 1.05;
+                }
+            }
+            else {
+                if (event->wheel.y > 0) {
+                    wp->meters_per_pixel *= 1.05;
+                } else if (event->wheel.y < 0) {
+                    wp->meters_per_pixel /= 1.05;
+                }
+            }
+        }
+        // check if keyboard key is pressed
+        else if (event->type == SDL_EVENT_KEY_DOWN) {
+            if(event->key.key == SDLK_SPACE) {
+                if (wp->sim_running == false) {
+                    wp->sim_running = true;
+                }
+                else if (wp->sim_running == true) {
+                    wp->sim_running = false;
+                }
+            }
+            else if (event->key.key == SDLK_R) {
+                resetSim(&wp->sim_time, bodies, num_bodies);
+            }
+        }
+        // check if window is resized
+        else if (event->type == SDL_EVENT_WINDOW_RESIZED) {
+            wp->window_size_x = event->window.data1;
+            wp->window_size_y = event->window.data2;
+            wp->screen_origin_x = wp->window_size_x / 2;
+            wp->screen_origin_y = wp->window_size_y / 2;
+
+            // update font size proportionally
+            wp->font_size = wp->window_size_x / 75;
+            if (g_font) TTF_CloseFont(g_font);
+            g_font = TTF_OpenFont("CascadiaCode.ttf", wp->font_size);
+
+            // update speed control box position and size
+            speed_control->width = wp->window_size_x * 0.15;
+            speed_control->height = wp->window_size_y * 0.04;
+        }
+
+    }
 }

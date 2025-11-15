@@ -38,6 +38,11 @@ int main(int argc, char* argv[]) {
     wp.meters_per_pixel = 100000;
     wp.font_size = wp.window_size_x / 50;
 
+    // set to false to stop the sim program
+    wp.window_open = true;
+    wp.sim_running = true; // set to false to pause simulation, set to true to resume
+    wp.sim_time  = 0; // tracks the passed time in simulation
+
     speed_control_t speed_control = {
         wp.window_size_x * 0.01,  // x position
         wp.window_size_y * 0.01,  // y position
@@ -65,19 +70,16 @@ int main(int argc, char* argv[]) {
     TTF_Init();
     g_font = TTF_OpenFont("CascadiaCode.ttf", wp.font_size);
 
-    // set to false to stop the sim program
-    bool window_open = true;
-    bool sim_running = true; // set to false to pause simulation, set to true to resume
-    double sim_time  = 0; // tracks the passed time in simulation
+    addOrbitalBody(&global_bodies, &num_bodies, 1e24, 3e8, 0, 0, -1000);
+    addOrbitalBody(&global_bodies, &num_bodies, 5e24, 0, 0, 0, 0);
 
     ////////////////////////////////////////////////////////
     // simulation loop                                    //
     ////////////////////////////////////////////////////////
-
-    while (window_open) {
+    while (wp.window_open) {
         // checks inputs into the window
         SDL_Event event;
-        runEventCheck(&event, &window_open, &speed_control, &wp, &sim_running, &global_bodies, &num_bodies, &sim_time);
+        runEventCheck(&event, &speed_control, &wp, &global_bodies, &num_bodies);
 
         // clears previous frame from the screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -89,29 +91,8 @@ int main(int argc, char* argv[]) {
         ////////////////////////////////////////////////////
         // START OF SIMULATION LOGIC                      //
         ////////////////////////////////////////////////////
-        if (sim_running) {
-            // calculate forces between all body pairs
-            if (global_bodies != NULL) {
-                for (int i = 0; i < num_bodies; i++) {
-                    global_bodies[i].force_x = 0;
-                    global_bodies[i].force_y = 0;
-                    for (int j = 0; j < num_bodies; j++) {
-                        if (i != j) {
-                            calculateForce(&global_bodies[i], global_bodies[j]);
-                        }
-                    }
-                }
-                
-                // update the motion for each body and draw
-                for (int i = 0; i < num_bodies; i++) {
-                    // updates the kinematic properties of each body (velocity, accelertion, position, etc)
-                    updateMotion(&global_bodies[i], wp.time_step);
-                    // transform real-space coordinate to pixel coordinates on screen (scaling)
-                    transformCoordinates(&global_bodies[i], wp);
-                }
-            }
-            sim_time += wp.time_step;
-        }
+        // IMPORTANT -- DOES ALL OF THE BODY CALCULATIONS:
+        runCalculations(&global_bodies, &wp, num_bodies);
 
         // render the bodies
         for (int i = 0; i < num_bodies; i++) {
@@ -125,18 +106,18 @@ int main(int argc, char* argv[]) {
         // UI ELEMENTS                                    //
         ////////////////////////////////////////////////////
         // draw scale reference bar
-        drawScaleBar(renderer, wp.meters_per_pixel, wp.window_size_x, wp.window_size_y);
+        drawScaleBar(renderer, wp);
 
         // draw speed control box
-        drawSpeedControl(renderer, &speed_control, wp.time_step, wp);
+        drawSpeedControl(renderer, &speed_control, wp);
 
         // draw stats box
-        if (global_bodies != NULL) drawStatsBox(renderer, global_bodies, num_bodies, sim_time, wp);
+        if (global_bodies != NULL) drawStatsBox(renderer, global_bodies, num_bodies, wp.sim_time, wp);
 
         // help text at the bottom
         SDL_WriteText(renderer, g_font, "Space: pause/resume | Left Click: add body | R: Reset", wp.window_size_x * 0.4, wp.window_size_y - wp.window_size_x * 0.02 - wp.font_size, white_text);
         // pause indicator
-        if (sim_running) SDL_WriteText(renderer, g_font, "Sim Running...", wp.window_size_x * 0.75, wp.window_size_y * 0.015, white_text);
+        if (wp.sim_running) SDL_WriteText(renderer, g_font, "Sim Running...", wp.window_size_x * 0.75, wp.window_size_y * 0.015, white_text);
         else SDL_WriteText(renderer, g_font, "Sim Paused", wp.window_size_x * 0.75, wp.window_size_y * 0.015, white_text);
 
         // present the renderer to the screen

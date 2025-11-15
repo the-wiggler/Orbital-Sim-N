@@ -83,3 +83,33 @@ void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies) {
 }
 
 // calculate the optimum velocity for an object to orbit a given body based on the orbit radius
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// MAIN CALCULATION LOOP
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void runCalculations(body_properties_t** gb, window_params_t* wp, int num_bodies) {
+    if (wp->sim_running) {
+        // calculate forces between all body pairs
+        if (gb != NULL && *gb != NULL) {
+            for (int i = 0; i < num_bodies; i++) {
+                (*gb)[i].force_x = 0;
+                (*gb)[i].force_y = 0;
+                for (int j = 0; j < num_bodies; j++) {
+                    if (i != j) {
+                        calculateForce(&(*gb)[i], (*gb)[j]);
+                    }
+                }
+            }
+
+            // update the motion for each body and draw
+            for (int i = 0; i < num_bodies; i++) {
+                // updates the kinematic properties of each body (velocity, accelertion, position, etc)
+                updateMotion(&(*gb)[i], wp->time_step);
+                // transform real-space coordinate to pixel coordinates on screen (scaling)
+                transformCoordinates(&(*gb)[i], *wp);
+            }
+        }
+        wp->sim_time += wp->time_step;
+    }
+}
