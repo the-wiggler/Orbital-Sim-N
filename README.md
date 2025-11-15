@@ -1,4 +1,4 @@
-# Orbital Mechanics Simulator
+# Orbital Simulation Software N
 
 A real-time gravitational physics simulator built in C with SDL3.
 
