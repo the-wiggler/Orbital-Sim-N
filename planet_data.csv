@@ -1,0 +1,6 @@
+Planet Name,mass,pos_x,pos_y,vel_x,vel_y
+Jupiter,1.898e27,0,0,0,0
+Io,8.93e22,4.217e8,0,0,17340
+Europa,4.80e22,6.710e8,0,0,13740
+Ganymede,1.48e23,1.070e9,0,0,10880
+Callisto,1.08e23,1.883e9,0,0,8204

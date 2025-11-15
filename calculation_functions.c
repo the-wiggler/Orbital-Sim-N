@@ -84,6 +84,56 @@ void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies) {
 
 // calculate the optimum velocity for an object to orbit a given body based on the orbit radius
 
+// CSV handling logic for implementing orbital bodies via CSV file
+void createCSV(char* FILENAME) {
+    FILE *fp = fopen(FILENAME, "w");
+    fprintf(fp, "Planet Name,mass,pos_x,pos_y,vel_x,vel_y\n");
+    fclose(fp);
+}
+
+void readCSV(char* FILENAME, body_properties_t** gb, int* num_bodies) {
+    FILE *fp = fopen(FILENAME, "r");
+    if (fp == NULL) {
+        printf("Error: Could not open file %s\n", FILENAME);
+        return;
+    }
+
+    char buffer[1024];
+    int line_count = 0;
+
+    // read the file line by line
+    while (fgets(buffer, sizeof(buffer), fp)) {
+        line_count++;
+
+        // skip the header line
+        if (line_count == 1) {
+            continue;
+        }
+
+        // parse the CSV line
+        char planet_name[256];
+        double mass, pos_x, pos_y, vel_x, vel_y;
+
+        // use sscanf to parse the comma-separated values
+        int fields_read = sscanf(buffer, "%[^,],%lf,%lf,%lf,%lf,%lf",
+                                 planet_name, &mass, &pos_x, &pos_y, &vel_x, &vel_y);
+
+        // check if all fields were successfully read
+        if (fields_read == 6) {
+            // add the orbital body to the system
+            addOrbitalBody(gb, num_bodies, mass, pos_x, pos_y, vel_x, vel_y);
+            printf("Loaded body: %s (mass=%.2e, pos=(%.2e,%.2e), vel=(%.2e,%.2e))\n",
+                   planet_name, mass, pos_x, pos_y, vel_x, vel_y);
+        } else {
+            printf("Warning: Skipping malformed line %d (only %d fields read)\n",
+                   line_count, fields_read);
+        }
+    }
+
+    fclose(fp);
+    printf("CSV loading complete. Total bodies loaded: %d\n", *num_bodies);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN CALCULATION LOOP
