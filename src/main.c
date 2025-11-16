@@ -47,22 +47,12 @@ int main(int argc, char* argv[]) {
     wp.sim_time  = 0; // tracks the passed time in simulation
 
     button_storage_t buttons;
-    // initialize speed control button
-    buttons.sc_button.x = wp.window_size_x * 0.01;
-    buttons.sc_button.y = wp.window_size_y * 0.007;
-    buttons.sc_button.width = wp.window_size_x * 0.25;
-    buttons.sc_button.height = wp.window_size_y * 0.04;
-    buttons.sc_button.is_hovered = false;
-    buttons.sc_button.normal_color = (SDL_Color){80, 80, 120, 255};
-    buttons.sc_button.hover_color = (SDL_Color){50, 50, 90, 255};
-    // initialize csv loading button
-    buttons.csv_load_button.x = wp.window_size_x - wp.window_size_x * 0.01 - wp.window_size_x * 0.04;
-    buttons.csv_load_button.y = wp.window_size_y - wp.window_size_y * 0.007 - wp.window_size_x * 0.04;
-    buttons.csv_load_button.width = wp.window_size_x * 0.04;
-    buttons.csv_load_button.height = wp.window_size_y * 0.04;
-    buttons.csv_load_button.is_hovered = false;
-    buttons.csv_load_button.normal_color = (SDL_Color){80, 80, 120, 255};
-    buttons.csv_load_button.hover_color = (SDL_Color){50, 50, 90, 255};
+    initButtons(&buttons, wp);
+
+    // initialize text input dialog
+    text_input_dialog_t dialog = {0};
+    dialog.active = false;
+    dialog.state = INPUT_NONE;
 
     SDL_Color white_text = {255, 255, 255, 255};
 
@@ -89,7 +79,7 @@ int main(int argc, char* argv[]) {
     while (wp.window_open) {
         // checks inputs into the window
         SDL_Event event;
-        runEventCheck(&event, &wp, &global_bodies, &num_bodies, &buttons);
+        runEventCheck(&event, &wp, &global_bodies, &num_bodies, &buttons, &dialog);
 
         // clears previous frame from the screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -120,6 +110,9 @@ int main(int argc, char* argv[]) {
 
         // help text at the bottom
         SDL_WriteText(renderer, g_font, "Space: pause/resume | R: Reset", wp.window_size_x * 0.4, wp.window_size_y - wp.window_size_x * 0.02 - wp.font_size, white_text);
+
+        // render text input dialog if active
+        renderBodyTextInputDialog(renderer, &dialog, wp);
 
         // present the renderer to the screen
         SDL_RenderPresent(renderer);

@@ -1,0 +1,2 @@
+- added a button to add new bodies with text input
+- fixed button scaling when window resized

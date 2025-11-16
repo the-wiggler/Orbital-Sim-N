@@ -22,7 +22,30 @@ typedef struct {
 typedef struct {
     button_t sc_button;
     button_t csv_load_button;
+    button_t add_body_button;
 } button_storage_t;
+
+typedef enum {
+    INPUT_NONE,
+    INPUT_NAME,
+    INPUT_MASS,
+    INPUT_X_POS,
+    INPUT_Y_POS,
+    INPUT_X_VEL,
+    INPUT_Y_VEL
+} input_state_t;
+
+typedef struct {
+    bool active;
+    input_state_t state;
+    char input_buffer[256];
+    char name[256];
+    double mass;
+    double x_pos;
+    double y_pos;
+    double x_vel;
+    double y_vel;
+} text_input_dialog_t;
 
 void SDL_RenderFillCircle(SDL_Renderer* renderer, int centerX, int centerY, int radius);
 void drawScaleBar(SDL_Renderer* renderer, window_params_t wp);
@@ -32,8 +55,11 @@ void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bod
 void SDL_WriteText(SDL_Renderer* renderer, TTF_Font* font, const char* text, float x, float y, SDL_Color color);
 void renderButton(SDL_Renderer* renderer, button_t* button, const char* text, window_params_t wp);
 void renderUIButtons(SDL_Renderer* renderer, button_storage_t* buttons, window_params_t* wp);
+void initButtons(button_storage_t* buttons, window_params_t wp);
+void displayError(const char* title, const char* message);
 
-void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** bodies, int* num_bodies, button_storage_t* buttons);
+void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** bodies, int* num_bodies, button_storage_t* buttons, text_input_dialog_t* dialog);
+void renderTextInputDialog(SDL_Renderer* renderer, text_input_dialog_t* dialog, window_params_t wp);
 
 
 #endif
