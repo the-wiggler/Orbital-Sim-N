@@ -15,17 +15,24 @@ extern TTF_Font* g_font;
 typedef struct {
     int x, y, width, height;
     bool is_hovered;
-} speed_control_t;
+    SDL_Color normal_color;
+    SDL_Color hover_color;
+} button_t;
+
+typedef struct {
+    button_t sc_button;
+} button_storage_t;
 
 void SDL_RenderFillCircle(SDL_Renderer* renderer, int centerX, int centerY, int radius);
 void drawScaleBar(SDL_Renderer* renderer, window_params_t wp);
 bool isMouseInRect(int mouse_x, int mouse_y, int rect_x, int rect_y, int rect_w, int rect_h);
 void renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, int num_bodies, window_params_t wp);
-void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, window_params_t wp);
 void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies, double sim_time, window_params_t wp);
 void SDL_WriteText(SDL_Renderer* renderer, TTF_Font* font, const char* text, float x, float y, SDL_Color color);
+void renderButton(SDL_Renderer* renderer, button_t* button, const char* text, window_params_t wp);
+void renderUIButtons(SDL_Renderer* renderer, button_storage_t* buttons, window_params_t* wp);
 
-void runEventCheck(SDL_Event* event, speed_control_t* speed_control, window_params_t* wp, body_properties_t** bodies, int* num_bodies);
+void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** bodies, int* num_bodies, button_storage_t* buttons);
 
 
 #endif

@@ -46,13 +46,15 @@ int main(int argc, char* argv[]) {
     wp.sim_running = true; // set to false to pause simulation, set to true to resume
     wp.sim_time  = 0; // tracks the passed time in simulation
 
-    speed_control_t speed_control = {
-        wp.window_size_x * 0.01,  // x position
-        wp.window_size_y * 0.007,  // y position
-        wp.window_size_x * 0.25,  // width
-        wp.window_size_y * 0.04,  // height
-        false                                // is_hovered
-    };
+    button_storage_t buttons;
+    // initialize speed control button
+    buttons.sc_button.x = wp.window_size_x * 0.01;
+    buttons.sc_button.y = wp.window_size_y * 0.007;
+    buttons.sc_button.width = wp.window_size_x * 0.25;
+    buttons.sc_button.height = wp.window_size_y * 0.04;
+    buttons.sc_button.is_hovered = false;
+    buttons.sc_button.normal_color = (SDL_Color){80, 80, 120, 255};
+    buttons.sc_button.hover_color = (SDL_Color){50, 50, 90, 255};
 
     SDL_Color white_text = {255, 255, 255, 255};
 
@@ -82,7 +84,7 @@ int main(int argc, char* argv[]) {
     while (wp.window_open) {
         // checks inputs into the window
         SDL_Event event;
-        runEventCheck(&event, &speed_control, &wp, &global_bodies, &num_bodies);
+        runEventCheck(&event, &wp, &global_bodies, &num_bodies, &buttons);
 
         // clears previous frame from the screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -106,9 +108,8 @@ int main(int argc, char* argv[]) {
         // draw scale reference bar
         drawScaleBar(renderer, wp);
 
-        // draw speed control box
-        drawSpeedControl(renderer, &speed_control, wp);
-
+        // draw speed control button
+        renderUIButtons(renderer, &buttons, &wp);
         // draw stats box
         drawStatsBox(renderer, global_bodies, num_bodies, wp.sim_time, wp);
 

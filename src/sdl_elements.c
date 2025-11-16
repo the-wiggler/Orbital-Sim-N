@@ -96,31 +96,6 @@ void renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, int num_bo
     }
 }
 
-// the speed control box
-void drawSpeedControl(SDL_Renderer* renderer, speed_control_t* control, window_params_t wp) {
-    // background color
-    SDL_SetRenderDrawColor(renderer, 80, 80, 120, 255);
-    if (control->is_hovered) SDL_SetRenderDrawColor(renderer, 50, 50, 90, 255);
-
-    SDL_FRect bg_rect = {
-        (float)control->x,
-        (float)control->y,
-        (float)control->width,
-        (float)control->height
-    };
-    SDL_RenderFillRect(renderer, &bg_rect);
-
-    // text showing current speed
-    char speed_text[32];
-    snprintf(speed_text, sizeof(speed_text), "Speed: %.2f s/frame", wp.time_step);
-
-    int padding_x = wp.window_size_x * 0.01;
-    int padding_y = wp.window_size_y * 0.01;
-    SDL_WriteText(renderer, g_font, speed_text, control->x + padding_x, control->y + padding_y, text_color);
-
-}
-
-
 // the stats box that shows stats yay
 void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies, double sim_time, window_params_t wp) {
     int margin_x = wp.window_size_x * 0.02;
@@ -159,11 +134,40 @@ void drawStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bod
     else SDL_WriteText(renderer, g_font, "Sim Paused", wp.window_size_x * 0.75, wp.window_size_y * 0.015, text_color);
 }
 
+// generic button renderer
+void renderButton(SDL_Renderer* renderer, button_t* button, const char* text, window_params_t wp) {
+    // set background color based on hover state
+    SDL_Color bg_color = button->is_hovered ? button->hover_color : button->normal_color;
+    SDL_SetRenderDrawColor(renderer, bg_color.r, bg_color.g, bg_color.b, bg_color.a);
+
+    // draw button background
+    SDL_FRect bg_rect = {
+        (float)button->x,
+        (float)button->y,
+        (float)button->width,
+        (float)button->height
+    };
+    SDL_RenderFillRect(renderer, &bg_rect);
+
+    // center text in button
+    int padding_x = wp.window_size_x * 0.01;
+    int padding_y = wp.window_size_y * 0.01;
+    SDL_WriteText(renderer, g_font, text, button->x + padding_x, button->y + padding_y, text_color);
+}
+
+// renders all of the buttons on the screen, this function holds all button drawing logic
+void renderUIButtons(SDL_Renderer* renderer, button_storage_t* buttons, window_params_t* wp) {
+    // speed control button
+    char speed_text[32];
+    snprintf(speed_text, sizeof(speed_text), "Speed: %.2f s/frame", wp->time_step);
+    renderButton(renderer, &buttons->sc_button, speed_text, *wp);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // EVENT CHECKING FUNCTION
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // the event handling code... checks if events are happening for input and does a task based on that input
-void runEventCheck(SDL_Event* event, speed_control_t* speed_control, window_params_t* wp, body_properties_t** bodies, int* num_bodies) {
+void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** bodies, int* num_bodies, button_storage_t* buttons) {
     while (SDL_PollEvent(event)) {
         // check if x button is pressed to quit
         if (event->type == SDL_EVENT_QUIT) {
@@ -178,20 +182,20 @@ void runEventCheck(SDL_Event* event, speed_control_t* speed_control, window_para
             int mouse_x = (int)event->motion.x;
             int mouse_y = (int)event->motion.y;
 
-            // update hover state for speed control
-            speed_control->is_hovered = isMouseInRect(mouse_x, mouse_y,
-                speed_control->x, speed_control->y,
-                speed_control->width, speed_control->height);
+            // update hover state for speed control button
+            buttons->sc_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
+                buttons->sc_button.x, buttons->sc_button.y,
+                buttons->sc_button.width, buttons->sc_button.height);
         }
         // check if scroll
         else if (event->type == SDL_EVENT_MOUSE_WHEEL) {
             int mouse_x = (int)event->wheel.mouse_x;
             int mouse_y = (int)event->wheel.mouse_y;
-            
-            // if its in the speed change box
+
+            // if its in the speed control button area
             if (isMouseInRect(mouse_x, mouse_y,
-                speed_control->x, speed_control->y,
-                speed_control->width, speed_control->height)) {
+                buttons->sc_button.x, buttons->sc_button.y,
+                buttons->sc_button.width, buttons->sc_button.height)) {
                 
                 if (event->wheel.y > 0) {
                     wp->time_step *= 1.05;
@@ -233,9 +237,11 @@ void runEventCheck(SDL_Event* event, speed_control_t* speed_control, window_para
             if (g_font) TTF_CloseFont(g_font);
             g_font = TTF_OpenFont("CascadiaCode.ttf", wp->font_size);
 
-            // update speed control box position and size
-            speed_control->width = wp->window_size_x * 0.15;
-            speed_control->height = wp->window_size_y * 0.04;
+            // update speed control button position and size
+            buttons->sc_button.width = wp->window_size_x * 0.25;
+            buttons->sc_button.height = wp->window_size_y * 0.04;
+            buttons->sc_button.x = wp->window_size_x * 0.01;
+            buttons->sc_button.y = wp->window_size_y * 0.007;
         }
 
     }
