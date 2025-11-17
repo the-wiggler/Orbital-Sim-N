@@ -24,6 +24,7 @@ void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies);
 
 void createCSV(char* FILENAME);
 void readCSV(char* FILENAME, body_properties_t** gb, int* num_bodies);
+void exportOrbitalEnergyData(char* FILENAME, body_properties_t* gb, int num_bodies, double sim_time);
 
 void runCalculations(body_properties_t** gb, window_params_t* wp, int num_bodies); // MAIN CALCULATION LOOP -- DOES ALL THE MATH
 
