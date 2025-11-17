@@ -1,9 +1,0 @@
-- added a button to add new bodies with text input
-- fixed button scaling when window resized
-- added error messages
-- added identifier name below each body
-- fixed help text information
-- improved speed slider not matching size of text
-- added CSV loading button so that the CSV file can be edited mid-simulation and parameters re-tried
-- fixed memory leak associated with the name of planet bodies
-- slightly improved performance and program modularity
