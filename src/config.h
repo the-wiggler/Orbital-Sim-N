@@ -2,6 +2,8 @@
 #define CONFIG_H
 
 #include <stdbool.h>
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 typedef struct {
     double time_step;
@@ -33,5 +35,12 @@ typedef struct {
     double force_y;
     double kinetic_energy;
 } body_properties_t;
+
+typedef struct {
+    SDL_Window* window;
+    SDL_Renderer* renderer;
+    SDL_WindowID window_ID;
+    bool is_shown;
+} stats_window_t;
 
 #endif

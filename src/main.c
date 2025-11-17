@@ -1,3 +1,5 @@
+#include "config.h"
+#include "stats_window.h"
 #ifdef _WIN32
     #include <windows.h>
 #else
@@ -68,6 +70,10 @@ int main(int argc, char* argv[]) {
     SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
+
+    // toggleable stats window
+    stats_window_t stats_window = {0};
+
     // SDL ttf font stuff
     TTF_Init();
     g_font = TTF_OpenFont("CascadiaCode.ttf", wp.font_size);
@@ -79,7 +85,7 @@ int main(int argc, char* argv[]) {
     while (wp.window_open) {
         // checks inputs into the window
         SDL_Event event;
-        runEventCheck(&event, &wp, &global_bodies, &num_bodies, &buttons, &dialog);
+        runEventCheck(&event, &wp, &global_bodies, &num_bodies, &buttons, &dialog, &stats_window);
 
         // clears previous frame from the screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -105,14 +111,17 @@ int main(int argc, char* argv[]) {
 
         // draw speed control button
         renderUIButtons(renderer, &buttons, &wp);
-        // draw stats box
-        drawStatsBox(renderer, global_bodies, num_bodies, wp.sim_time, wp);
 
         // help text at the bottom
         SDL_WriteText(renderer, g_font, "Space: pause/resume | R: Reset", wp.window_size_x * 0.4, wp.window_size_y - wp.window_size_x * 0.02 - wp.font_size, white_text);
 
         // render text input dialog if active
         renderBodyTextInputDialog(renderer, &dialog, wp);
+
+        // render the stats window if active
+        if (stats_window.is_shown) {
+            StatsWindow_render(&stats_window, 60, 0, 0, global_bodies, num_bodies, wp);
+        }
 
         // present the renderer to the screen
         SDL_RenderPresent(renderer);
@@ -122,8 +131,11 @@ int main(int argc, char* argv[]) {
     free(global_bodies);
     global_bodies = NULL;
     num_bodies = 0;
+    StatsWindow_destroy(&stats_window);
     if (g_font) TTF_CloseFont(g_font);
+    if (g_font_small) TTF_CloseFont(g_font_small);
     TTF_Quit();
+    SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;

@@ -21,6 +21,7 @@ typedef struct {
     button_t sc_button;
     button_t csv_load_button;
     button_t add_body_button;
+    button_t show_stats_button;
 } button_storage_t;
 
 typedef enum {
@@ -56,7 +57,7 @@ void renderUIButtons(SDL_Renderer* renderer, button_storage_t* buttons, window_p
 void initButtons(button_storage_t* buttons, window_params_t wp);
 void displayError(const char* title, const char* message);
 
-void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** bodies, int* num_bodies, button_storage_t* buttons, text_input_dialog_t* dialog);
+void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** bodies, int* num_bodies, button_storage_t* buttons, text_input_dialog_t* dialog, stats_window_t* stats_window);
 void renderBodyTextInputDialog(SDL_Renderer* renderer, text_input_dialog_t* dialog, window_params_t wp);
 
 

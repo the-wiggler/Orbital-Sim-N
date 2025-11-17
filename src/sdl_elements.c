@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "config.h"
+#include "stats_window.h"
 
 SDL_Color TEXT_COLOR = {255, 255, 255, 255};
 SDL_Color BUTTON_COLOR = {80, 80, 80, 255};
@@ -196,6 +198,17 @@ void initButtons(button_storage_t* buttons, window_params_t wp) {
         .normal_color = BUTTON_COLOR,
         .hover_color = BUTTON_HOVER_COLOR
     };
+
+    // show stats window button
+    buttons->show_stats_button = (button_t){
+        .x = buttons->add_body_button.x,
+        .y = buttons->add_body_button.y - buttons->add_body_button.height,
+        .width = buttons->add_body_button.width,
+        .height = buttons->add_body_button.height,
+        .is_hovered = false,
+        .normal_color = BUTTON_COLOR,
+        .hover_color = BUTTON_HOVER_COLOR
+    };
 }
 
 // renders all of the buttons on the screen, this function holds all button drawing logic
@@ -208,12 +221,13 @@ void renderUIButtons(SDL_Renderer* renderer, button_storage_t* buttons, window_p
     renderButton(renderer, &buttons->sc_button, speed_text, *wp);
 
     // csv loading button
-    char csv_text[16] = "Load CSV";
-    renderButton(renderer, &buttons->csv_load_button, csv_text, *wp);
+    renderButton(renderer, &buttons->csv_load_button, "Load CSV", *wp);
 
     // add orbital body button
-    char add_body_text[16] = "Add Body";
-    renderButton(renderer, &buttons->add_body_button, add_body_text, *wp);
+    renderButton(renderer, &buttons->add_body_button, "Add Body", *wp);
+
+    // show stats window button
+    renderButton(renderer, &buttons->show_stats_button, "Stats", *wp);
 }
 
 // renders the text input dialog box
@@ -313,7 +327,7 @@ bool isValidNumber(const char* str, double* out_value) {
 // EVENT CHECKING FUNCTION
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // the event handling code... checks if events are happening for input and does a task based on that input
-void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, button_storage_t* buttons, text_input_dialog_t* dialog) {
+void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, button_storage_t* buttons, text_input_dialog_t* dialog, stats_window_t* stats_window) {
     while (SDL_PollEvent(event)) {
         // if dialog is active, handle text input events
         if (dialog->active) {
@@ -438,6 +452,10 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
             buttons->add_body_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
                 buttons->add_body_button.x, buttons->add_body_button.y,
                 buttons->add_body_button.width, buttons->add_body_button.height);
+            // update hover state for stats button
+            buttons->show_stats_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
+                buttons->show_stats_button.x, buttons->show_stats_button.y,
+                buttons->show_stats_button.width, buttons->show_stats_button.height);
         }
         // check if mouse button is clicked
         else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
@@ -451,6 +469,11 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
                 dialog->state = INPUT_NAME;
                 dialog->input_buffer[0] = '\0';
                 SDL_StartTextInput(SDL_GetKeyboardFocus());
+            }
+            else if(buttons->show_stats_button.is_hovered) {
+                if (statsWindowInit(stats_window)) {
+                    stats_window->is_shown = true;
+                }
             }
         }
         // check if scroll
@@ -507,5 +530,8 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
             initButtons(buttons, *wp);
         }
 
+        if (stats_window->is_shown) {
+            StatsWindow_handleEvent(stats_window, event);
+        }
     }
 }
