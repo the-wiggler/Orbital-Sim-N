@@ -1,13 +1,10 @@
 #ifndef SDL_ELEMENTS_H
 #define SDL_ELEMENTS_H
 
-#include <stdio.h>
 #include <math.h>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include <string.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include "config.h"
 
 extern TTF_Font* g_font;
@@ -60,7 +57,7 @@ void initButtons(button_storage_t* buttons, window_params_t wp);
 void displayError(const char* title, const char* message);
 
 void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** bodies, int* num_bodies, button_storage_t* buttons, text_input_dialog_t* dialog);
-void renderTextInputDialog(SDL_Renderer* renderer, text_input_dialog_t* dialog, window_params_t wp);
+void renderBodyTextInputDialog(SDL_Renderer* renderer, text_input_dialog_t* dialog, window_params_t wp);
 
 
 #endif

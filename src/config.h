@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdbool.h>
+
 typedef struct {
     double time_step;
     int window_size_x, window_size_y;

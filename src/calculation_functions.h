@@ -1,13 +1,10 @@
 #ifndef CALCULATION_FUNCTIONS_H
 #define CALCULATION_FUNCTIONS_H
 
-#include <stdio.h>
 #include <math.h>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include <string.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include "config.h"
 
 extern const double G;

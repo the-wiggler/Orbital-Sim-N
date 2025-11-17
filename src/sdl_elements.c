@@ -1,6 +1,9 @@
 #include "sdl_elements.h"
 #include "calculation_functions.h"
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 SDL_Color TEXT_COLOR = {255, 255, 255, 255};
 SDL_Color BUTTON_COLOR = {80, 80, 80, 255};

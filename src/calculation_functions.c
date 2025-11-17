@@ -2,6 +2,9 @@
 // SIMULATION CALCULATION FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "calculation_functions.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // at the end of each sim loop, this function should be run to calculate the changes in
 // the force values based on other parameters. for example, using F to find a based on m.

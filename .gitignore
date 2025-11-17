@@ -11,6 +11,7 @@ cmake_install.cmake
 Makefile
 *.cmake
 !CMakeLists.txt
+.clangd
 
 # CMake generated files
 compile_commands.json
