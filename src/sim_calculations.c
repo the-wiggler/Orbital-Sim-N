@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // SIMULATION CALCULATION FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-#include "calculation_functions.h"
+#include "sim_calculations.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -185,81 +185,6 @@ void readCSV(char* FILENAME, body_properties_t** gb, int* num_bodies) {
     fclose(fp);
 }
 
-// create a data file
-void storeOrbitalData(body_properties_t* gb) {
-
-}
-
-// export orbital energy data between all bodies to a CSV file
-// This function appends data to the file, creating it with headers if it doesn't exist
-void exportOrbitalEnergyData(char* FILENAME, body_properties_t* gb, int num_bodies, double sim_time) {
-    // check if file exists to determine if we need to write headers
-    bool file_exists = false;
-    FILE *fp_check = fopen(FILENAME, "r");
-    if (fp_check != NULL) {
-        file_exists = true;
-        fclose(fp_check);
-    }
-
-    // open file in append mode
-    FILE *fp = fopen(FILENAME, "a");
-
-    if (fp == NULL) {
-        char error_message[512];
-        snprintf(error_message, sizeof(error_message), "Failed to create file: %s\n\nCheck file permissions.", FILENAME);
-        SDL_ShowSimpleMessageBox(
-            SDL_MESSAGEBOX_ERROR,
-            "CSV Export Error",
-            error_message,
-            NULL
-        );
-        return;
-    }
-
-    // write CSV header only if file is new
-    if (!file_exists) {
-        fprintf(fp, "Body1,Body2,Body1_Mass,Body2_Mass,Distance,Body1_KineticEnergy,Body2_KineticEnergy,PotentialEnergy,TotalOrbitalEnergy,SimTime\n");
-    }
-
-    // calculate kinetic energy for all bodies first
-    for (int i = 0; i < num_bodies; i++) {
-        calculateKineticEnergy(&gb[i]);
-    }
-
-    // iterate through all unique pairs of bodies
-    for (int i = 0; i < num_bodies; i++) {
-        for (int j = i + 1; j < num_bodies; j++) {
-            // calculate distance between bodies
-            double delta_pos_x = gb[j].pos_x - gb[i].pos_x;
-            double delta_pos_y = gb[j].pos_y - gb[i].pos_y;
-            double distance = sqrt(delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y);
-
-            // calculate potential energy between the pair (U = -GMm/r)
-            double potential_energy = 0.0;
-            if (distance > 0.0) {
-                potential_energy = -(G * gb[i].mass * gb[j].mass) / distance;
-            }
-
-            // total orbital energy = KE1 + KE2 + PE
-            double total_energy = gb[i].kinetic_energy + gb[j].kinetic_energy + potential_energy;
-
-            // write data row
-            fprintf(fp, "%s,%s,%.6e,%.6e,%.6e,%.6e,%.6e,%.6e,%.6e,%.6e\n",
-                    gb[i].name,
-                    gb[j].name,
-                    gb[i].mass,
-                    gb[j].mass,
-                    distance,
-                    gb[i].kinetic_energy,
-                    gb[j].kinetic_energy,
-                    potential_energy,
-                    total_energy,
-                    sim_time);
-        }
-    }
-
-    fclose(fp);
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN CALCULATION LOOP
@@ -285,9 +210,6 @@ void runCalculations(body_properties_t** gb, window_params_t* wp, int num_bodies
                 // transform real-space coordinate to pixel coordinates on screen (scaling)
                 transformCoordinates(&(*gb)[i], *wp);
             }
-
-            // log orbital energy data every iteration
-            //exportOrbitalEnergyData("orbital_energy.csv", *gb, num_bodies, wp->sim_time);
             wp->sim_time += wp->time_step;
         }
     }

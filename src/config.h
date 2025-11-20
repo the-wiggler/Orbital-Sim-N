@@ -32,10 +32,35 @@ typedef struct {
     double vel;
     double acc_x;
     double acc_y;
-    double force_x;
+    double force_x; // the forces acting on such body
     double force_y;
     double kinetic_energy;
 } body_properties_t;
+
+typedef struct {
+    char* name;
+    double pos_x;
+    double pos_y;
+    int pixel_coordinates_x;
+    int pixel_coordinates_y;
+    double vel_x;
+    double vel_y;
+    double vel;
+    double acc_x;
+    double acc_y;
+    double force_x; // force acting on the body due to the planets' gravitational influence
+    double force_y;
+
+    double heading;
+    double dry_mass;
+    double fuel_mass;
+    double total_mass;
+    double mass_flow_rate;
+    double thrust;
+    double specific_impulse;
+    float throttle;
+    bool engine_on;
+} spacecraft_properties_t;
 
 typedef struct {
     SDL_Window* window;

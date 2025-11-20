@@ -19,7 +19,7 @@ find_package(SDL3_ttf CONFIG REQUIRED)
 # Source files
 set(SOURCES
     src/main.c
-    src/calculation_functions.c
+    src/sim_calculations.c
     src/sdl_elements.c
     src/stats_window.c
 )
@@ -27,7 +27,7 @@ set(SOURCES
 # Header files
 set(HEADERS
     src/config.h
-    src/calculation_functions.h
+    src/sim_calculations.h
     src/sdl_elements.h
     src/stats_window.h
 )

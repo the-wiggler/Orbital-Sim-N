@@ -16,7 +16,8 @@
         "math.h": "c",
         "stdbool.h": "c",
         "errno.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "sim_calculations.h": "c"
     },
 }
 

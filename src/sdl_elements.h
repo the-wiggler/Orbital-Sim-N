@@ -21,6 +21,7 @@ typedef struct {
     button_t sc_button;
     button_t csv_load_button;
     button_t add_body_button;
+    button_t add_craft_button;
     button_t show_stats_button;
 } button_storage_t;
 

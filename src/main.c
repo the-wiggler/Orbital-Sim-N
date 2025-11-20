@@ -11,7 +11,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdbool.h>
-#include "calculation_functions.h"
+#include "sim_calculations.h"
 #include "sdl_elements.h"
 
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
@@ -26,41 +26,25 @@ TTF_Font* g_font_small = NULL;
 // MAIN
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
-    ////////////////////////////////////////////////////////
-    // sim variables                                      //
-    ////////////////////////////////////////////////////////
+    // initialize simulation parameters
     window_params_t wp = {0};
+    init_window_params(&wp);
 
-    wp.time_step = 1; // amount of time in seconds each step in the simulation should be
-                                // i.e. each new updated position shown is after x seconds
-                                // this value can be changed to adjust the speed/accuracy of the simulation
-    // SDL window sizing numbers
-    wp.window_size_x = 1000;
-    wp.window_size_y = 1000;
-    wp.screen_origin_x = wp.window_size_x / 2;
-    wp.screen_origin_y = wp.window_size_y / 2;
-    wp.meters_per_pixel = 100000;
-    wp.font_size = wp.window_size_x / 50;
-
-    // set to false to stop the sim program
-    wp.window_open = true;
-    wp.sim_running = true; // set to false to pause simulation, set to true to resume
-    wp.sim_time  = 0; // tracks the passed time in simulation
-
+    // initialize UI elements
     button_storage_t buttons;
     initButtons(&buttons, wp);
 
-    // initialize text input dialog
     text_input_dialog_t dialog = {0};
-    dialog.active = false;
-    dialog.state = INPUT_NONE;
+    init_text_dialog(&dialog);
 
     SDL_Color white_text = {255, 255, 255, 255};
 
-    // holds the information on the bodies
-    int num_bodies;
-    body_properties_t* global_bodies = NULL;
-    if (global_bodies == NULL) num_bodies = 0;
+    // initialize simulation objects
+    int num_bodies = 0;
+    body_properties_t* gb = NULL;
+
+    int num_craft = 0;
+    spacecraft_properties_t* sc = NULL;
 
     // initialize SDL3
     SDL_Init(SDL_INIT_VIDEO);
@@ -86,7 +70,7 @@ int main(int argc, char* argv[]) {
     while (wp.window_open) {
         // checks inputs into the window
         SDL_Event event;
-        runEventCheck(&event, &wp, &global_bodies, &num_bodies, &buttons, &dialog, &stats_window);
+        runEventCheck(&event, &wp, &gb, &num_bodies, &buttons, &dialog, &stats_window);
 
         // clears previous frame from the screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -99,10 +83,10 @@ int main(int argc, char* argv[]) {
         // START OF SIMULATION LOGIC                      //
         ////////////////////////////////////////////////////
         // IMPORTANT -- DOES ALL OF THE BODY CALCULATIONS:
-        runCalculations(&global_bodies, &wp, num_bodies);
+        runCalculations(&gb, &wp, num_bodies);
 
         // render the bodies
-        renderOrbitBodies(renderer, global_bodies, num_bodies, wp);
+        renderOrbitBodies(renderer, gb, num_bodies, wp);
 
         ////////////////////////////////////////////////////
         // UI ELEMENTS                                    //
@@ -124,7 +108,7 @@ int main(int argc, char* argv[]) {
 
         // render the stats window if active
         if (stats_window.is_shown) {
-            StatsWindow_render(&stats_window, 60, 0, 0, global_bodies, num_bodies, wp);
+            StatsWindow_render(&stats_window, 60, 0, 0, gb, num_bodies, wp);
         }
 
         // present the renderer to the screen
@@ -132,8 +116,8 @@ int main(int argc, char* argv[]) {
     }
 
     // clean up
-    free(global_bodies);
-    global_bodies = NULL;
+    free(gb);
+    gb = NULL;
     num_bodies = 0;
     StatsWindow_destroy(&stats_window);
     if (g_font) TTF_CloseFont(g_font);

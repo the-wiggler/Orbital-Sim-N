@@ -1,5 +1,5 @@
 #include "sdl_elements.h"
-#include "calculation_functions.h"
+#include "sim_calculations.h"
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,6 +10,26 @@
 SDL_Color TEXT_COLOR = {255, 255, 255, 255};
 SDL_Color BUTTON_COLOR = {80, 80, 80, 255};
 SDL_Color BUTTON_HOVER_COLOR = {50, 50, 50, 255};
+
+// initialize the window parameters
+void init_window_params(window_params_t* wp) {
+    wp->time_step = 1;
+    wp->window_size_x = 1000;
+    wp->window_size_y = 1000;
+    wp->screen_origin_x = wp->window_size_x / 2;
+    wp->screen_origin_y = wp->window_size_y / 2;
+    wp->meters_per_pixel = 100000;
+    wp->font_size = wp->window_size_x / 50;
+    wp->window_open = true;
+    wp->sim_running = true;
+    wp->sim_time = 0;
+}
+
+// initialize the text input dialogue stuff
+void init_text_dialog(text_input_dialog_t* dialog) {
+    dialog->active = false;
+    dialog->state = INPUT_NONE;
+}
 
 // draw a circle in SDL
 void SDL_RenderFillCircle(SDL_Renderer* renderer, int centerX, int centerY, int radius) {

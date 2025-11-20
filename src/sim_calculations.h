@@ -1,5 +1,5 @@
-#ifndef CALCULATION_FUNCTIONS_H
-#define CALCULATION_FUNCTIONS_H
+#ifndef SIM_CALCULATIONS_H
+#define SIM_CALCULATIONS_H
 
 #include <math.h>
 #include <SDL3/SDL.h>
