@@ -260,7 +260,7 @@ void craft_transformCoordinates(spacecraft_properties_t* s, window_params_t wp) 
 // LOGIC FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // reset the simulation by removing all bodies from the system
-void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies) {
+void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft) {
     // reset simulation time to 0
     *sim_time = 0;
 
@@ -275,6 +275,16 @@ void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies) {
 
     // reset body count to 0
     *num_bodies = 0;
+
+    // free all craft from memory
+    if (*sc != NULL) {
+        for (int i = 0; i < *num_craft; i++) {
+            free((*sc)[i].name);
+        }
+        free(*sc);
+        *sc = NULL;
+    }
+    *num_craft = 0;
 }
 
 // calculate the optimum velocity for an object to orbit a given body based on the orbit radius

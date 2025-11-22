@@ -344,7 +344,7 @@ bool isValidNumber(const char* str, double* out_value) {
 // EVENT CHECKING FUNCTION
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // the event handling code... checks if events are happening for input and does a task based on that input
-void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, button_storage_t* buttons, text_input_dialog_t* dialog, stats_window_t* stats_window) {
+void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft, button_storage_t* buttons, text_input_dialog_t* dialog, stats_window_t* stats_window) {
     while (SDL_PollEvent(event)) {
         // if dialog is active, handle text input events
         if (dialog->active) {
@@ -479,6 +479,7 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
             if (buttons->csv_load_button.is_hovered) {
                 // reads the CSV file associated with loading orbital bodies
                 readCSV("planet_data.csv", gb, num_bodies);
+                readSpacecraftCSV("spacecraft_data.csv", sc, num_craft);
                 wp->sim_time = 0;
             }
             else if(buttons->add_body_button.is_hovered) {
@@ -530,7 +531,7 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
                 }
             }
             else if (event->key.key == SDLK_R) {
-                resetSim(&wp->sim_time, gb, num_bodies);
+                resetSim(&wp->sim_time, gb, num_bodies, sc, num_craft);
             }
         }
         // check if window is resized (only for main window)

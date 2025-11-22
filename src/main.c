@@ -5,6 +5,7 @@
 #else
     #include <unistd.h>
 #endif
+#include <threads.h>
 #include <stdlib.h>
 #include <math.h>
 #include <SDL3/SDL.h>
@@ -27,6 +28,9 @@ TTF_Font* g_font_small = NULL;
 // MAIN
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
+    ////////////////////////////////////////
+    // INIT                               //
+    ////////////////////////////////////////
     // initialize simulation parameters
     window_params_t wp = {0};
     init_window_params(&wp);
@@ -35,17 +39,9 @@ int main(int argc, char* argv[]) {
     button_storage_t buttons;
     initButtons(&buttons, wp);
 
+    // initialize text input
     text_input_dialog_t dialog = {0};
     init_text_dialog(&dialog);
-
-    SDL_Color white_text = {255, 255, 255, 255};
-
-    // initialize simulation objects
-    int num_bodies = 0;
-    body_properties_t* gb = NULL;
-
-    int num_craft = 0;
-    spacecraft_properties_t* sc = NULL;
 
     // initialize SDL3
     SDL_Init(SDL_INIT_VIDEO);
@@ -57,37 +53,49 @@ int main(int argc, char* argv[]) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // toggleable stats window
-    stats_window_t stats_window = {0};
-
     // SDL ttf font stuff
     TTF_Init();
     g_font = TTF_OpenFont("CascadiaCode.ttf", wp.font_size);
     g_font_small = TTF_OpenFont("CascadiaCode.ttf", (float)wp.window_size_x / 90);
 
-    // load spacecraft from CSV file
-    readSpacecraftCSV(SPACECRAFT_FILENAME, &sc, &num_craft);
+
+    // toggleable stats window
+    stats_window_t stats_window = {0};
+    SDL_Color white_text = {255, 255, 255, 255};
+
+    ////////////////////////////////////////
+    // SIM VARS                           //
+    ////////////////////////////////////////
+
+    // initialize simulation objects
+    int num_bodies = 0;
+    body_properties_t* gb = NULL;
+    int num_craft = 0;
+    spacecraft_properties_t* sc = NULL;
+
+    // initialize planet position storage variable
+    // this variable should be used as an array of gb arrays (im sorry)
+    // ***CAREFUL!!! this variable is shared between the window and sim threads
+    body_pos_storage* b_pos_data = NULL;
+    mtx_t b_pod_data_mutex;
 
     ////////////////////////////////////////////////////////
     // simulation loop                                    //
     ////////////////////////////////////////////////////////
     while (wp.window_open) {
-        // checks inputs into the window
+        // user input event checking logic
         SDL_Event event;
-        runEventCheck(&event, &wp, &gb, &num_bodies, &buttons, &dialog, &stats_window);
+        runEventCheck(&event, &wp, &gb, &num_bodies, &sc, &num_craft, &buttons, &dialog, &stats_window);
 
         // clears previous frame from the screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-
-        // color for drawing bodies
         
         ////////////////////////////////////////////////////
         // START OF SIMULATION LOGIC                      //
         ////////////////////////////////////////////////////
         // IMPORTANT -- DOES ALL OF THE BODY CALCULATIONS:
         runCalculations(&gb, &sc, &wp, num_bodies, num_craft);
-
 
         // render the bodies
         body_renderOrbitBodies(renderer, gb, num_bodies, wp);
@@ -114,15 +122,18 @@ int main(int argc, char* argv[]) {
         renderTimeIndicators(renderer, wp);
 
         // render the stats window if active
-        if (stats_window.is_shown) {
-            StatsWindow_render(&stats_window, 60, 0, 0, gb, num_bodies, wp);
-        }
+        if (stats_window.is_shown) StatsWindow_render(&stats_window, 60, 0, 0, gb, num_bodies, wp);
 
         // present the renderer to the screen
         SDL_RenderPresent(renderer);
     }
+    ////////////////////////////////////////////////////////
+    // end of simulation loop                             //
+    ////////////////////////////////////////////////////////
 
-    // clean up
+    ////////////////////////////////////////////////////
+    // CLEAN UP                                       //
+    ////////////////////////////////////////////////////
     if (gb != NULL) {
         for (int i = 0; i < num_bodies; i++) {
             free(gb[i].name);

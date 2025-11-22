@@ -18,7 +18,7 @@ void body_calculateKineticEnergy(body_properties_t* b);
 double body_calculatePotentialEnergy(body_properties_t b, const char* target_name, body_properties_t* gb, int num_bodies);
 int body_calculateVisualRadius(body_properties_t* body, window_params_t wp);
 void body_addOrbitalBody(body_properties_t** gb, int* num_bodies, char* name, double mass, double x_pos, double y_pos, double x_vel, double y_vel);
-void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies);
+void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft);
 
 // spacecraft body stuff
 void craft_calculateGravForce(spacecraft_properties_t* s, body_properties_t b);

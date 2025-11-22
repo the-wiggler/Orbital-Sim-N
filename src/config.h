@@ -74,4 +74,8 @@ typedef struct {
     bool is_shown;
 } stats_window_t;
 
+typedef struct {
+    body_properties_t* gb;
+} body_pos_storage;
+
 #endif
