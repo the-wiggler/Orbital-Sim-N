@@ -27,20 +27,26 @@ void body_calculateGravForce(body_properties_t *b, body_properties_t b2) {
     b->force_y += total_force * (delta_pos_y / r);
 }
 
-// this calculates the changes of velocity and position based on the force values from before
+// this calculates the changes of velocity and position based on the force values
+// this uses a method called velocity verlet integration
 void body_updateMotion(body_properties_t *b, double dt) {
-    // calculate the acceleration from the force on the object
+    // calculate the current acceleration from the force on the object
     b->acc_x = b->force_x / b->mass;
     b->acc_y = b->force_y / b->mass;
 
-    // update the velocity
-    b->vel_x = b->vel_x + b->acc_x * dt;
-    b->vel_y = b->vel_y + b->acc_y * dt;
-    b->vel   = sqrt(b->vel_x * b->vel_x + b->vel_y * b->vel_y);
+    // update position using current velocity and acceleration
+    b->pos_x += (b->vel_x * dt) + (0.5 * b->acc_x * dt * dt);
+    b->pos_y += (b->vel_y * dt) + (0.5 * b->acc_y * dt * dt);
 
-    // update the position using the new velocity
-    b->pos_x = b->pos_x + b->vel_x * dt;
-    b->pos_y = b->pos_y + b->vel_y * dt;
+    // update velocity using average of current and previous acceleration
+    // on first step, acc_prev will be zero, so we use current acceleration
+    b->vel_x += 0.5 * (b->acc_x + b->acc_x_prev) * dt;
+    b->vel_y += 0.5 * (b->acc_y + b->acc_y_prev) * dt;
+    b->vel = sqrt(b->vel_x * b->vel_x + b->vel_y * b->vel_y);
+
+    // store current acceleration for next iteration
+    b->acc_x_prev = b->acc_x;
+    b->acc_y_prev = b->acc_y;
 }
 
 // transforms spacial coordinates (for example, in meters) to pixel coordinates
@@ -110,7 +116,17 @@ void body_addOrbitalBody(body_properties_t** gb, int* num_bodies, char* name, do
     (*gb)[*num_bodies].pos_y = y_pos;
     (*gb)[*num_bodies].vel_x = x_vel;
     (*gb)[*num_bodies].vel_y = y_vel;
-    
+
+    // initialize acceleration values to zero
+    (*gb)[*num_bodies].acc_x = 0.0;
+    (*gb)[*num_bodies].acc_y = 0.0;
+    (*gb)[*num_bodies].acc_x_prev = 0.0;
+    (*gb)[*num_bodies].acc_y_prev = 0.0;
+
+    // initialize force values to zero
+    (*gb)[*num_bodies].force_x = 0.0;
+    (*gb)[*num_bodies].force_y = 0.0;
+
     // calculate the radius based on mass
     (*gb)[*num_bodies].radius = pow(mass, 0.279f);
 
@@ -179,20 +195,24 @@ void craft_consumeFuel(spacecraft_properties_t* s, double dt) {
 
 
 // updates the motion of the spacecraft based on the force currently applied to it
+// uses velocity verlet integration
 void craft_updateMotion(spacecraft_properties_t* s, double dt) {
-
-    // calculate the acceleration from the force on the object
+    // calculate the current acceleration from the force on the object
     s->acc_x = s->force_x / s->current_total_mass;
     s->acc_y = s->force_y / s->current_total_mass;
 
-    // update the velocity
-    s->vel_x = s->vel_x + s->acc_x * dt;
-    s->vel_y = s->vel_y + s->acc_y * dt;
-    s->vel   = sqrt(s->vel_x * s->vel_x + s->vel_y * s->vel_y);
+    // update position using current velocity and acceleration
+    s->pos_x += (s->vel_x * dt) + (0.5 * s->acc_x * dt * dt);
+    s->pos_y += (s->vel_y * dt) + (0.5 * s->acc_y * dt * dt);
 
-    // update the position using the new velocity
-    s->pos_x = s->pos_x + s->vel_x * dt;
-    s->pos_y = s->pos_y + s->vel_y * dt;
+    // update velocity using average of current and previous acceleration
+    s->vel_x += 0.5 * (s->acc_x + s->acc_x_prev) * dt;
+    s->vel_y += 0.5 * (s->acc_y + s->acc_y_prev) * dt;
+    s->vel = sqrt(s->vel_x * s->vel_x + s->vel_y * s->vel_y);
+
+    // store current acceleration for next iteration
+    s->acc_x_prev = s->acc_x;
+    s->acc_y_prev = s->acc_y;
 }
 
 // adds a spacecraft to the spacecraft array
@@ -219,6 +239,8 @@ void craft_addSpacecraft(spacecraft_properties_t** sc, int* num_craft, char* nam
     // initialize acceleration to zero
     (*sc)[*num_craft].acc_x = 0.0;
     (*sc)[*num_craft].acc_y = 0.0;
+    (*sc)[*num_craft].acc_x_prev = 0.0;
+    (*sc)[*num_craft].acc_y_prev = 0.0;
 
     // initialize forces to zero
     (*sc)[*num_craft].force_x = 0.0;

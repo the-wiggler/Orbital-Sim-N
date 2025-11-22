@@ -90,6 +90,9 @@ int main(int argc, char* argv[]) {
         // clears previous frame from the screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
+
+        // draw scale reference bar
+        drawScaleBar(renderer, wp);
         
         ////////////////////////////////////////////////////
         // START OF SIMULATION LOGIC                      //
@@ -106,8 +109,6 @@ int main(int argc, char* argv[]) {
         ////////////////////////////////////////////////////
         // UI ELEMENTS                                    //
         ////////////////////////////////////////////////////
-        // draw scale reference bar
-        drawScaleBar(renderer, wp);
 
         // draw speed control button
         renderUIButtons(renderer, &buttons, &wp);

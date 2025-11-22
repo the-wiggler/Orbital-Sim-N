@@ -8,8 +8,8 @@
 #include "stats_window.h"
 
 SDL_Color TEXT_COLOR = {255, 255, 255, 255};
-SDL_Color BUTTON_COLOR = {80, 80, 80, 255};
-SDL_Color BUTTON_HOVER_COLOR = {50, 50, 50, 255};
+SDL_Color BUTTON_COLOR = {50, 50, 50, 255};
+SDL_Color BUTTON_HOVER_COLOR = {0, 0, 0, 255};
 
 // initialize the window parameters
 void init_window_params(window_params_t* wp) {
@@ -73,40 +73,78 @@ void SDL_WriteText(SDL_Renderer* renderer, TTF_Font* font, const char* text, flo
     SDL_DestroySurface(text_surface);
 }
 
-// draw a distance scale bar on the sreen
+// draw graph-like axes with tick marks and labels
 void drawScaleBar(SDL_Renderer* renderer, window_params_t wp) {
-    const int BAR_HEIGHT = wp.window_size_y * 0.003;
-    const int MARGIN = wp.window_size_x * 0.02;
-    const int BAR_WIDTH_PIXELS = wp.window_size_x * 0.15;
+    SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
 
-    double distance_meters = BAR_WIDTH_PIXELS * wp.meters_per_pixel;
-    
+    int axis_thickness = 1;
+    int tick_length = 10;
+    int tick_spacing_pixels = wp.window_size_x * 0.15; // spacing between tick marks
+
+    // calculate the distance each tick represents in meters
+    double distance_per_tick = tick_spacing_pixels * wp.meters_per_pixel;
+
     // determine magnitude and round to nice value
-    double magnitude = pow(10.0, floor(log10(distance_meters)));
-    double scale_value = round(distance_meters / magnitude) * magnitude;
-    
-    // format text based on scale
-    char scale_text[50];
-    sprintf(scale_text, distance_meters >= 1000000 ? "%.0f km" : "%.0f m", 
-            distance_meters >= 1000000 ? scale_value / 1000.0 : scale_value);
-    
-    // draw scale bar
-    int bar_x = MARGIN; 
-    int bar_y = wp.window_size_y - MARGIN - BAR_HEIGHT;
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    
-    SDL_FRect rects[3] = {
-        {bar_x, bar_y, BAR_WIDTH_PIXELS, BAR_HEIGHT},              // main bar
-        {bar_x, bar_y - 3, 2, BAR_HEIGHT + 6},                     // left cap
-        {bar_x + BAR_WIDTH_PIXELS - 2, bar_y - 3, 2, BAR_HEIGHT + 6}  // right cap
-    };
-    
-    for (int i = 0; i < 3; i++) {
-        SDL_RenderFillRect(renderer, &rects[i]);
+    double magnitude = pow(10.0, floor(log10(distance_per_tick)));
+    double nice_distance = round(distance_per_tick / magnitude) * magnitude;
+
+    // recalculate pixel spacing for nice rounded values
+    int nice_tick_spacing = (int)(nice_distance / wp.meters_per_pixel);
+
+    // draw X axis
+    SDL_FRect x_axis = {0, wp.screen_origin_y - axis_thickness/2.0f, wp.window_size_x, axis_thickness};
+    SDL_RenderFillRect(renderer, &x_axis);
+
+    // draw Y axis
+    SDL_FRect y_axis = {wp.screen_origin_x - axis_thickness/2.0f, 0, axis_thickness, wp.window_size_y};
+    SDL_RenderFillRect(renderer, &y_axis);
+
+    // draw tick marks and labels on X axis
+    for (int i = -10; i <= 10; i++) {
+        if (i == 0) continue; // skip center
+
+        int tick_x = wp.screen_origin_x + i * nice_tick_spacing;
+        if (tick_x < 0 || tick_x > wp.window_size_x) continue;
+
+        // draw tick mark
+        SDL_FRect tick = {tick_x - 1, wp.screen_origin_y - tick_length/2.0f, 2, tick_length};
+        SDL_RenderFillRect(renderer, &tick);
+
+        // draw label
+        double distance_value = i * nice_distance;
+        char label[50];
+        if (fabs(distance_value) >= 1000000) {
+            sprintf(label, "%.0f km", distance_value / 1000.0);
+        } else {
+            sprintf(label, "%.0f m", distance_value);
+        }
+        SDL_WriteText(renderer, g_font_small, label, tick_x - 20, wp.screen_origin_y + tick_length, (SDL_Color){90, 90, 90, 255});
     }
-    
-    // Render text
-    SDL_WriteText(renderer, g_font, scale_text, bar_x, bar_y, (SDL_Color){255, 255, 255, 255});
+
+    // draw tick marks and labels on Y axis
+    for (int i = -10; i <= 10; i++) {
+        if (i == 0) continue; // skip center
+
+        int tick_y = wp.screen_origin_y - i * nice_tick_spacing;
+        if (tick_y < 0 || tick_y > wp.window_size_y) continue;
+
+        // draw tick mark
+        SDL_FRect tick = {wp.screen_origin_x - tick_length/2.0f, tick_y - 1, tick_length, 2};
+        SDL_RenderFillRect(renderer, &tick);
+
+        // draw label
+        double distance_value = i * nice_distance;
+        char label[50];
+        if (fabs(distance_value) >= 1000000) {
+            sprintf(label, "%.0f km", distance_value / 1000.0);
+        } else {
+            sprintf(label, "%.0f m", distance_value);
+        }
+        SDL_WriteText(renderer, g_font_small, label, wp.screen_origin_x + tick_length, tick_y - 5, (SDL_Color){90, 90, 90, 255});
+    }
+
+    // draw origin label
+    SDL_WriteText(renderer, g_font_small, "0", wp.screen_origin_x + 5, wp.screen_origin_y + 5, (SDL_Color){90, 90, 90, 255});
 }
 
 // thing that calculates changing sim speed
