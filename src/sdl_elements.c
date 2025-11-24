@@ -385,111 +385,252 @@ bool isValidNumber(const char* str, double* out_value) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// EVENT CHECKING FUNCTION
+// EVENT HANDLING HELPER FUNCTIONS
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// handles text input dialog events
+static bool handleTextInputDialogEvent(SDL_Event* event, window_params_t* wp, text_input_dialog_t* dialog, body_properties_t** gb, int* num_bodies) {
+    if (event->type == SDL_EVENT_TEXT_INPUT && event->window.windowID == wp->main_window_ID) {
+        // append character to input buffer
+        size_t len = strlen(dialog->input_buffer);
+        if (len < sizeof(dialog->input_buffer) - 1) {
+            strncat(dialog->input_buffer, event->text.text, sizeof(dialog->input_buffer) - len - 1);
+        }
+        return true;
+    }
+    else if (event->type == SDL_EVENT_KEY_DOWN) {
+        if (event->key.key == SDLK_BACKSPACE && strlen(dialog->input_buffer) > 0) {
+            // remove last character
+            dialog->input_buffer[strlen(dialog->input_buffer) - 1] = '\0';
+            return true;
+        }
+        else if ((event->key.key == SDLK_RETURN || event->key.key == SDLK_KP_ENTER) && event->window.windowID == wp->main_window_ID) {
+            // process current input and move to next state
+            switch (dialog->state) {
+                case INPUT_NAME:
+                    if (strlen(dialog->input_buffer) == 0) {
+                        displayError("Invalid Input", "Name cannot be empty");
+                        break;
+                    }
+                    strncpy(dialog->name, dialog->input_buffer, sizeof(dialog->name) - 1);
+                    dialog->state = INPUT_MASS;
+                    break;
+                case INPUT_MASS: {
+                    double mass;
+                    if (!isValidNumber(dialog->input_buffer, &mass)) {
+                        displayError("Invalid Input", "Mass must be a valid number");
+                        break;
+                    }
+                    if (mass <= 0) {
+                        displayError("Invalid Input", "Mass must be positive (greater than 0)");
+                        break;
+                    }
+                    dialog->mass = mass;
+                    dialog->state = INPUT_X_POS;
+                    break;
+                }
+                case INPUT_X_POS: {
+                    double x_pos;
+                    if (!isValidNumber(dialog->input_buffer, &x_pos)) {
+                        displayError("Invalid Input", "X position must be a valid number");
+                        break;
+                    }
+                    dialog->x_pos = x_pos;
+                    dialog->state = INPUT_Y_POS;
+                    break;
+                }
+                case INPUT_Y_POS: {
+                    double y_pos;
+                    if (!isValidNumber(dialog->input_buffer, &y_pos)) {
+                        displayError("Invalid Input", "Y position must be a valid number");
+                        break;
+                    }
+                    dialog->y_pos = y_pos;
+                    dialog->state = INPUT_X_VEL;
+                    break;
+                }
+                case INPUT_X_VEL: {
+                    double x_vel;
+                    if (!isValidNumber(dialog->input_buffer, &x_vel)) {
+                        displayError("Invalid Input", "X velocity must be a valid number");
+                        break;
+                    }
+                    dialog->x_vel = x_vel;
+                    dialog->state = INPUT_Y_VEL;
+                    break;
+                }
+                case INPUT_Y_VEL: {
+                    double y_vel;
+                    if (!isValidNumber(dialog->input_buffer, &y_vel)) {
+                        displayError("Invalid Input", "Y velocity must be a valid number");
+                        break;
+                    }
+                    dialog->y_vel = y_vel;
+                    // all parameters collected, add the body
+                    body_addOrbitalBody(gb, num_bodies, dialog->name, dialog->mass,
+                             dialog->x_pos, dialog->y_pos, dialog->x_vel, dialog->y_vel);
+                    // reset dialog
+                    dialog->active = false;
+                    dialog->state = INPUT_NONE;
+                    SDL_StopTextInput(SDL_GetKeyboardFocus());
+                    break;
+                }
+                default:
+                    break;
+            }
+            // clear input buffer for next field
+            dialog->input_buffer[0] = '\0';
+            return true;
+        }
+        else if (event->key.key == SDLK_ESCAPE) {
+            // cancel dialog
+            dialog->active = false;
+            dialog->state = INPUT_NONE;
+            dialog->input_buffer[0] = '\0';
+            SDL_StopTextInput(SDL_GetKeyboardFocus());
+            return true;
+        }
+    }
+    return false;
+}
+
+// handles mouse motion events (dragging and button hover states)
+static void handleMouseMotionEvent(SDL_Event* event, window_params_t* wp, button_storage_t* buttons) {
+    int mouse_x = (int)event->motion.x;
+    int mouse_y = (int)event->motion.y;
+
+    // viewport dragging
+    if (wp->is_dragging) {
+        int delta_x = mouse_x - wp->drag_start_x;
+        int delta_y = mouse_y - wp->drag_start_y;
+        wp->screen_origin_x = wp->drag_origin_x + delta_x;
+        wp->screen_origin_y = wp->drag_origin_y + delta_y;
+    }
+
+    // update hover state for speed control button
+    buttons->sc_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
+        buttons->sc_button.x, buttons->sc_button.y,
+        buttons->sc_button.width, buttons->sc_button.height);
+    // update hover state for csv loading button
+    buttons->csv_load_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
+        buttons->csv_load_button.x, buttons->csv_load_button.y,
+        buttons->csv_load_button.width, buttons->csv_load_button.height);
+    // update hover state for add body button'
+    buttons->add_body_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
+        buttons->add_body_button.x, buttons->add_body_button.y,
+        buttons->add_body_button.width, buttons->add_body_button.height);
+    // update hover state for stats button
+    buttons->show_stats_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
+        buttons->show_stats_button.x, buttons->show_stats_button.y,
+        buttons->show_stats_button.width, buttons->show_stats_button.height);
+}
+
+// handles mouse button down events (button clicks and drag start)
+static void handleMouseButtonDownEvent(SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft, button_storage_t* buttons, text_input_dialog_t* dialog, stats_window_t* stats_window) {
+    // check if right mouse button or middle mouse button (for dragging)
+    if (event->button.button == SDL_BUTTON_RIGHT || event->button.button == SDL_BUTTON_MIDDLE) {
+        wp->is_dragging = true;
+        wp->drag_start_x = (int)event->button.x;
+        wp->drag_start_y = (int)event->button.y;
+        wp->drag_origin_x = wp->screen_origin_x;
+        wp->drag_origin_y = wp->screen_origin_y;
+    }
+    // existing button click handling
+    else if (buttons->csv_load_button.is_hovered) {
+        // reads the CSV file associated with loading orbital bodies
+        readCSV("planet_data.csv", gb, num_bodies);
+        readSpacecraftCSV("spacecraft_data.csv", sc, num_craft);
+        wp->sim_time = 0;
+    }
+    else if(buttons->add_body_button.is_hovered) {
+        // activate text input dialog
+        dialog->active = true;
+        dialog->state = INPUT_NAME;
+        dialog->input_buffer[0] = '\0';
+        SDL_StartTextInput(SDL_GetKeyboardFocus());
+    }
+    else if(buttons->show_stats_button.is_hovered && !(stats_window->is_shown)) {
+        if (statsWindowInit(stats_window)) {
+            stats_window->is_shown = true;
+        }
+    }
+    else if(buttons->show_stats_button.is_hovered && stats_window->is_shown) displayError("Warning", "The statistics window is already open!");
+}
+
+// handles mouse button release events
+static void handleMouseButtonUpEvent(SDL_Event* event, window_params_t* wp) {
+    if (event->button.button == SDL_BUTTON_RIGHT || event->button.button == SDL_BUTTON_MIDDLE) {
+        wp->is_dragging = false;
+    }
+}
+
+// handles mouse wheel events (zooming and speed control)
+static void handleMouseWheelEvent(SDL_Event* event, window_params_t* wp, button_storage_t* buttons) {
+    int mouse_x = (int)event->wheel.mouse_x;
+    int mouse_y = (int)event->wheel.mouse_y;
+
+    // if its in the speed control button area
+    if (isMouseInRect(mouse_x, mouse_y,
+        buttons->sc_button.x, buttons->sc_button.y,
+        buttons->sc_button.width, buttons->sc_button.height)) {
+
+        if (event->wheel.y > 0) {
+            wp->time_step *= 1.05;
+        } else if (event->wheel.y < 0) {
+            wp->time_step /= 1.05;
+        }
+    }
+    else {
+        if (event->wheel.y > 0) {
+            wp->meters_per_pixel *= 1.05;
+        } else if (event->wheel.y < 0) {
+            wp->meters_per_pixel /= 1.05;
+        }
+    }
+}
+
+// handles keyboard events (pause/play, reset)
+static void handleKeyboardEvent(SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft) {
+    if(event->key.key == SDLK_SPACE) {
+        if (wp->sim_running == false) {
+            wp->sim_running = true;
+        }
+        else if (wp->sim_running == true) {
+            wp->sim_running = false;
+        }
+    }
+    else if (event->key.key == SDLK_R) {
+        resetSim(&wp->sim_time, gb, num_bodies, sc, num_craft);
+    }
+}
+
+// handles window resize events
+static void handleWindowResizeEvent(SDL_Event* event, window_params_t* wp, button_storage_t* buttons) {
+    wp->window_size_x = event->window.data1;
+    wp->window_size_y = event->window.data2;
+    wp->screen_origin_x = wp->window_size_x / 2;
+    wp->screen_origin_y = wp->window_size_y / 2;
+
+    // update font size proportionally
+    wp->font_size = wp->window_size_x / 75;
+    if (g_font) TTF_CloseFont(g_font);
+    g_font = TTF_OpenFont("CascadiaCode.ttf", wp->font_size);
+
+    // update button position and size
+    initButtons(buttons, *wp);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// MAIN EVENT CHECKING FUNCTION
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // the event handling code... checks if events are happening for input and does a task based on that input
 void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft, button_storage_t* buttons, text_input_dialog_t* dialog, stats_window_t* stats_window) {
     while (SDL_PollEvent(event)) {
         // if dialog is active, handle text input events
         if (dialog->active) {
-            if (event->type == SDL_EVENT_TEXT_INPUT && event->window.windowID == wp->main_window_ID) {
-                // append character to input buffer
-                size_t len = strlen(dialog->input_buffer);
-                if (len < sizeof(dialog->input_buffer) - 1) {
-                    strncat(dialog->input_buffer, event->text.text, sizeof(dialog->input_buffer) - len - 1);
-                }
+            if (handleTextInputDialogEvent(event, wp, dialog, gb, num_bodies)) {
+                continue; // skip other event processing when dialog is active
             }
-            else if (event->type == SDL_EVENT_KEY_DOWN) {
-                if (event->key.key == SDLK_BACKSPACE && strlen(dialog->input_buffer) > 0) {
-                    // remove last character
-                    dialog->input_buffer[strlen(dialog->input_buffer) - 1] = '\0';
-                }
-                else if ((event->key.key == SDLK_RETURN || event->key.key == SDLK_KP_ENTER) && event->window.windowID == wp->main_window_ID) {
-                    // process current input and move to next state
-                    switch (dialog->state) {
-                        case INPUT_NAME:
-                            if (strlen(dialog->input_buffer) == 0) {
-                                displayError("Invalid Input", "Name cannot be empty");
-                                break;
-                            }
-                            strncpy(dialog->name, dialog->input_buffer, sizeof(dialog->name) - 1);
-                            dialog->state = INPUT_MASS;
-                            break;
-                        case INPUT_MASS: {
-                            double mass;
-                            if (!isValidNumber(dialog->input_buffer, &mass)) {
-                                displayError("Invalid Input", "Mass must be a valid number");
-                                break;
-                            }
-                            if (mass <= 0) {
-                                displayError("Invalid Input", "Mass must be positive (greater than 0)");
-                                break;
-                            }
-                            dialog->mass = mass;
-                            dialog->state = INPUT_X_POS;
-                            break;
-                        }
-                        case INPUT_X_POS: {
-                            double x_pos;
-                            if (!isValidNumber(dialog->input_buffer, &x_pos)) {
-                                displayError("Invalid Input", "X position must be a valid number");
-                                break;
-                            }
-                            dialog->x_pos = x_pos;
-                            dialog->state = INPUT_Y_POS;
-                            break;
-                        }
-                        case INPUT_Y_POS: {
-                            double y_pos;
-                            if (!isValidNumber(dialog->input_buffer, &y_pos)) {
-                                displayError("Invalid Input", "Y position must be a valid number");
-                                break;
-                            }
-                            dialog->y_pos = y_pos;
-                            dialog->state = INPUT_X_VEL;
-                            break;
-                        }
-                        case INPUT_X_VEL: {
-                            double x_vel;
-                            if (!isValidNumber(dialog->input_buffer, &x_vel)) {
-                                displayError("Invalid Input", "X velocity must be a valid number");
-                                break;
-                            }
-                            dialog->x_vel = x_vel;
-                            dialog->state = INPUT_Y_VEL;
-                            break;
-                        }
-                        case INPUT_Y_VEL: {
-                            double y_vel;
-                            if (!isValidNumber(dialog->input_buffer, &y_vel)) {
-                                displayError("Invalid Input", "Y velocity must be a valid number");
-                                break;
-                            }
-                            dialog->y_vel = y_vel;
-                            // all parameters collected, add the body
-                            body_addOrbitalBody(gb, num_bodies, dialog->name, dialog->mass,
-                                     dialog->x_pos, dialog->y_pos, dialog->x_vel, dialog->y_vel);
-                            // reset dialog
-                            dialog->active = false;
-                            dialog->state = INPUT_NONE;
-                            SDL_StopTextInput(SDL_GetKeyboardFocus());
-                            break;
-                        }
-                        default:
-                            break;
-                    }
-                    // clear input buffer for next field
-                    dialog->input_buffer[0] = '\0';
-                }
-                else if (event->key.key == SDLK_ESCAPE) {
-                    // cancel dialog
-                    dialog->active = false;
-                    dialog->state = INPUT_NONE;
-                    dialog->input_buffer[0] = '\0';
-                    SDL_StopTextInput(SDL_GetKeyboardFocus());
-                }
-            }
-            continue; // skip other event processing when dialog is active
+            continue;
         }
 
         // check if x button is pressed to quit
@@ -498,124 +639,28 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
         }
         // check if mouse is moving to update hover state
         else if (event->type == SDL_EVENT_MOUSE_MOTION && event->window.windowID == wp->main_window_ID) {
-            int mouse_x = (int)event->motion.x;
-            int mouse_y = (int)event->motion.y;
-
-            // viewport dragging
-            if (wp->is_dragging) {
-                int delta_x = mouse_x - wp->drag_start_x;
-                int delta_y = mouse_y - wp->drag_start_y;
-                wp->screen_origin_x = wp->drag_origin_x + delta_x;
-                wp->screen_origin_y = wp->drag_origin_y + delta_y;
-            }
-
-            // update hover state for speed control button
-            buttons->sc_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
-                buttons->sc_button.x, buttons->sc_button.y,
-                buttons->sc_button.width, buttons->sc_button.height);
-            // update hover state for csv loading button
-            buttons->csv_load_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
-                buttons->csv_load_button.x, buttons->csv_load_button.y,
-                buttons->csv_load_button.width, buttons->csv_load_button.height);
-            // update hover state for add body button'
-            buttons->add_body_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
-                buttons->add_body_button.x, buttons->add_body_button.y,
-                buttons->add_body_button.width, buttons->add_body_button.height);
-            // update hover state for stats button
-            buttons->show_stats_button.is_hovered = isMouseInRect(mouse_x, mouse_y,
-                buttons->show_stats_button.x, buttons->show_stats_button.y,
-                buttons->show_stats_button.width, buttons->show_stats_button.height);
+            handleMouseMotionEvent(event, wp, buttons);
         }
         // check if mouse button is clicked
         else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN && event->window.windowID == wp->main_window_ID) {
-            // heck if right mouse button or middle mouse button (for dragging)
-            if (event->button.button == SDL_BUTTON_RIGHT || event->button.button == SDL_BUTTON_MIDDLE) {
-                wp->is_dragging = true;
-                wp->drag_start_x = (int)event->button.x;
-                wp->drag_start_y = (int)event->button.y;
-                wp->drag_origin_x = wp->screen_origin_x;
-                wp->drag_origin_y = wp->screen_origin_y;
-            }
-            // existing button click handling
-            else if (buttons->csv_load_button.is_hovered) {
-                // reads the CSV file associated with loading orbital bodies
-                readCSV("planet_data.csv", gb, num_bodies);
-                readSpacecraftCSV("spacecraft_data.csv", sc, num_craft);
-                wp->sim_time = 0;
-            }
-            else if(buttons->add_body_button.is_hovered) {
-                // activate text input dialog
-                dialog->active = true;
-                dialog->state = INPUT_NAME;
-                dialog->input_buffer[0] = '\0';
-                SDL_StartTextInput(SDL_GetKeyboardFocus());
-            }
-            else if(buttons->show_stats_button.is_hovered && !(stats_window->is_shown)) {
-                if (statsWindowInit(stats_window)) {
-                    stats_window->is_shown = true;
-                }
-            }
-            else if(buttons->show_stats_button.is_hovered && stats_window->is_shown) displayError("Warning", "The statistics window is already open!");
+            handleMouseButtonDownEvent(event, wp, gb, num_bodies, sc, num_craft, buttons, dialog, stats_window);
         }
         // check if mouse button is released
         else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP && event->window.windowID == wp->main_window_ID) {
-            if (event->button.button == SDL_BUTTON_RIGHT || event->button.button == SDL_BUTTON_MIDDLE) {
-                wp->is_dragging = false;
-            }
+            handleMouseButtonUpEvent(event, wp);
         }
         // check if scroll
         else if (event->type == SDL_EVENT_MOUSE_WHEEL && event->window.windowID == wp->main_window_ID) {
-            int mouse_x = (int)event->wheel.mouse_x;
-            int mouse_y = (int)event->wheel.mouse_y;
-
-            // if its in the speed control button area
-            if (isMouseInRect(mouse_x, mouse_y,
-                buttons->sc_button.x, buttons->sc_button.y,
-                buttons->sc_button.width, buttons->sc_button.height)) {
-                
-                if (event->wheel.y > 0) {
-                    wp->time_step *= 1.05;
-                } else if (event->wheel.y < 0) {
-                    wp->time_step /= 1.05;
-                }
-            }
-            else {
-                if (event->wheel.y > 0) {
-                    wp->meters_per_pixel *= 1.05;
-                } else if (event->wheel.y < 0) {
-                    wp->meters_per_pixel /= 1.05;
-                }
-            }
+            handleMouseWheelEvent(event, wp, buttons);
         }
         // check if keyboard key is pressed
         else if (event->type == SDL_EVENT_KEY_DOWN && event->window.windowID == wp->main_window_ID) {
-            if(event->key.key == SDLK_SPACE) {
-                if (wp->sim_running == false) {
-                    wp->sim_running = true;
-                }
-                else if (wp->sim_running == true) {
-                    wp->sim_running = false;
-                }
-            }
-            else if (event->key.key == SDLK_R) {
-                resetSim(&wp->sim_time, gb, num_bodies, sc, num_craft);
-            }
+            handleKeyboardEvent(event, wp, gb, num_bodies, sc, num_craft);
         }
         // check if window is resized (only for main window)
         else if (event->type == SDL_EVENT_WINDOW_RESIZED &&
                  event->window.windowID == wp->main_window_ID) {
-            wp->window_size_x = event->window.data1;
-            wp->window_size_y = event->window.data2;
-            wp->screen_origin_x = wp->window_size_x / 2;
-            wp->screen_origin_y = wp->window_size_y / 2;
-
-            // update font size proportionally
-            wp->font_size = wp->window_size_x / 75;
-            if (g_font) TTF_CloseFont(g_font);
-            g_font = TTF_OpenFont("CascadiaCode.ttf", wp->font_size);
-
-            // update button position and size
-            initButtons(buttons, *wp);
+            handleWindowResizeEvent(event, wp, buttons);
         }
 
         if (stats_window->is_shown) {
