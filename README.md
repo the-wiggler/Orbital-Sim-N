@@ -41,8 +41,6 @@ This program simulates gravitational interactions between celestial bodies using
 - **SDL3**: Graphics rendering and window management
 - **SDL3_ttf**: TrueType font rendering
 - **cJSON**: JSON parsing library
-- **CMake**
-- **vcpkg**: Package manager (used for managing dependencies)
 
 ### Font Files
 - `CascadiaCode.ttf` (or modify `main.c` to use an alternative font)
