@@ -1,0 +1,20 @@
+{
+  "bodies": [
+    {
+      "name": "Earth",
+      "mass": 5.972e24,
+      "pos_x": 0,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 0
+    },
+    {
+      "name": "Moon",
+      "mass": 7.348e22,
+      "pos_x": 3.844e8,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 500
+    }
+  ]
+}

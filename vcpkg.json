@@ -5,6 +5,7 @@
   "builtin-baseline": "0804e3b55b7e435c593707071052363fa876f170",
   "dependencies": [
     "sdl3",
-    "sdl3-ttf"
+    "sdl3-ttf",
+    "cjson"
   ]
 }

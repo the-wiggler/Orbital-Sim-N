@@ -1,3 +1,0 @@
-Spacecraft Name,pos_x,pos_y,vel_x,vel_y,dry_mass,fuel_mass,thrust,specific_impulse,mass_flow_rate,burn_start_time,burn_duration,burn_heading,burn_throttle
-Apollo Test Craft,-1e8,0,0,-1500,5000,10000,50000,300,0.1,28800,360,4.712389,1.0
-

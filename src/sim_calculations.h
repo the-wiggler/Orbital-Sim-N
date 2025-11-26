@@ -39,6 +39,8 @@ void craft_addSpacecraft(spacecraft_properties_t** sc, int* num_craft, char* nam
 void createCSV(char* FILENAME);
 void readCSV(char* FILENAME, body_properties_t** gb, int* num_bodies);
 void readSpacecraftCSV(char* FILENAME, spacecraft_properties_t** sc, int* num_craft);
+void readBodyJSON(char* FILENAME, body_properties_t** gb, int* num_bodies);
+void readSpacecraftJSON(char* FILENAME, spacecraft_properties_t** sc, int* num_craft);
 
 void runCalculations(body_properties_t** gb, spacecraft_properties_t** sc, window_params_t* wp, int num_bodies, int num_craft); // MAIN CALCULATION LOOP -- DOES ALL THE MATH
 

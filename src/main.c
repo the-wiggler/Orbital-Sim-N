@@ -17,8 +17,8 @@
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
 
 // universal gravitation constant
-char* FILENAME = "planet_data.csv";
-char* SPACECRAFT_FILENAME = "spacecraft_data.csv";
+char* FILENAME = "planet_data.json";
+char* SPACECRAFT_FILENAME = "spacecraft_data.json";
 
 const double G = 6.67430E-11;
 
@@ -176,7 +176,6 @@ int main(int argc, char* argv[]) {
 
         // present the renderer to the screen
         SDL_RenderPresent(renderer);
-
     }
     ////////////////////////////////////////////////////////
     // end of simulation loop                             //

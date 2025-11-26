@@ -277,7 +277,7 @@ void initButtons(button_storage_t* buttons, window_params_t wp) {
 void renderUIButtons(SDL_Renderer* renderer, button_storage_t* buttons, window_params_t* wp) {
     // speed control button
     char speed_text[32];
-    snprintf(speed_text, sizeof(speed_text), "Speed: %.2f s/frame", wp->time_step);
+    snprintf(speed_text, sizeof(speed_text), "Time Step: %.2f s", wp->time_step);
     renderButton(renderer, &buttons->sc_button, speed_text, *wp);
 
     // csv loading button
@@ -590,9 +590,9 @@ static void handleMouseButtonDownEvent(SDL_Event* event, window_params_t* wp, bo
     }
     // existing button click handling
     else if (buttons->csv_load_button.is_hovered) {
-        // reads the CSV file associated with loading orbital bodies
-        readCSV("planet_data.csv", gb, num_bodies);
-        readSpacecraftCSV("spacecraft_data.csv", sc, num_craft);
+        // reads the JSON file associated with loading orbital bodies
+        readBodyJSON("planet_data.json", gb, num_bodies);
+        readSpacecraftJSON("spacecraft_data.json", sc, num_craft);
         wp->sim_time = 0;
         // reset energy measurement so stats recalculate with new bodies
         stats_window->measured_initial_energy = false;

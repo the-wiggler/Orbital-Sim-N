@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cjson/cJSON.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -327,95 +328,108 @@ void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies, spacecr
 // calculate the optimum velocity for an object to orbit a given body based on the orbit radius
 // (funciton does not exist yet)
 
-// CSV handling logic for implementing orbital bodies via CSV file
-void createCSV(char* FILENAME) {
-    FILE *fp = fopen(FILENAME, "w");
-    fprintf(fp, "Planet Name,mass,pos_x,pos_y,vel_x,vel_y\n");
-    fclose(fp);
-}
-
-void readCSV(char* FILENAME, body_properties_t** gb, int* num_bodies) {
+// json handling logic for reading json files
+void readBodyJSON(char* FILENAME, body_properties_t** gb, int* num_bodies) {
     FILE *fp = fopen(FILENAME, "r");
 
-    // check if file was opened successfully
-    if (fp == NULL) {
-        char error_message[512];
-        snprintf(error_message, sizeof(error_message), "Failed to open file: %s\n\nMake sure the file exists and is accessible.", FILENAME);
-        displayError("ERROR", error_message);
-        return;
-    }
+    // read entire file into buffer
+    fseek(fp, 0, SEEK_END);
+    long file_size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
 
-    char buffer[1024];
-    int line_count = 0;
+    char* json_buffer = (char*)malloc(file_size + 1);
 
-    // read the file line by line
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        line_count++;
-
-        // skip the header line
-        if (line_count == 1) {
-            continue;
-        }
-
-        // parse the CSV line
-        char planet_name[256];
-        double mass, pos_x, pos_y, vel_x, vel_y;
-
-        // use sscanf to parse the comma-separated values
-        int fields_read = sscanf(buffer, "%255[^,],%lf,%lf,%lf,%lf,%lf",
-                                 planet_name, &mass, &pos_x, &pos_y, &vel_x, &vel_y);
-
-        // check if all fields were successfully read
-        if (fields_read == 6) {
-            // add the orbital body to the system
-            body_addOrbitalBody(gb, num_bodies, planet_name, mass, pos_x, pos_y, vel_x, vel_y);
-        }
-    }
+    fread(json_buffer, 1, file_size, fp);
+    json_buffer[file_size] = '\0';
     fclose(fp);
+
+    // parse json
+    cJSON* json = cJSON_Parse(json_buffer);
+    free(json_buffer);
+
+    // get bodies array
+    cJSON* bodies = cJSON_GetObjectItemCaseSensitive(json, "bodies");
+
+    // iterate through bodies
+    cJSON* body = NULL;
+    cJSON_ArrayForEach(body, bodies) {
+        cJSON* name_item = cJSON_GetObjectItemCaseSensitive(body, "name");
+        cJSON* mass_item = cJSON_GetObjectItemCaseSensitive(body, "mass");
+        cJSON* pos_x_item = cJSON_GetObjectItemCaseSensitive(body, "pos_x");
+        cJSON* pos_y_item = cJSON_GetObjectItemCaseSensitive(body, "pos_y");
+        cJSON* vel_x_item = cJSON_GetObjectItemCaseSensitive(body, "vel_x");
+        cJSON* vel_y_item = cJSON_GetObjectItemCaseSensitive(body, "vel_y");
+
+        body_addOrbitalBody(gb, num_bodies,
+                            name_item->valuestring,
+                            mass_item->valuedouble,
+                            pos_x_item->valuedouble,
+                            pos_y_item->valuedouble,
+                            vel_x_item->valuedouble,
+                            vel_y_item->valuedouble);
+
+    }
+
+    cJSON_Delete(json);
 }
 
-void readSpacecraftCSV(char* FILENAME, spacecraft_properties_t** sc, int* num_craft) {
+void readSpacecraftJSON(char* FILENAME, spacecraft_properties_t** sc, int* num_craft) {
     FILE *fp = fopen(FILENAME, "r");
 
-    // check if file was opened successfully
-    if (fp == NULL) {
-        char error_message[512];
-        snprintf(error_message, sizeof(error_message), "Failed to open file: %s\n\nMake sure the file exists and is accessible.", FILENAME);
-        displayError("ERROR", error_message);
-        return;
-    }
+    // read entire file into buffer
+    fseek(fp, 0, SEEK_END);
+    long file_size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
 
-    char buffer[1024];
-    int line_count = 0;
+    char* json_buffer = (char*)malloc(file_size + 1);
 
-    // read the file line by line
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        line_count++;
-
-        // skip the header line
-        if (line_count == 1) {
-            continue;
-        }
-
-        // parse the CSV line
-        char craft_name[256];
-        double pos_x, pos_y, vel_x, vel_y;
-        double dry_mass, fuel_mass, thrust, specific_impulse, mass_flow_rate;
-        double burn_start_time, burn_duration, burn_heading, burn_throttle;
-
-        int fields_read = sscanf(buffer, "%255[^,],%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",
-                                craft_name, &pos_x, &pos_y, &vel_x, &vel_y,
-                                &dry_mass, &fuel_mass, &thrust, &specific_impulse, &mass_flow_rate,
-                                &burn_start_time, &burn_duration, &burn_heading, &burn_throttle);
-
-        if (fields_read == 14) {  // Now expecting 14 fields
-            craft_addSpacecraft(sc, num_craft, craft_name, pos_x, pos_y, vel_x, vel_y,
-                            dry_mass, fuel_mass, thrust, specific_impulse, mass_flow_rate,
-                            burn_start_time, burn_duration, burn_heading, burn_throttle);
-        }
-
-    }
+    fread(json_buffer, 1, file_size, fp);
+    json_buffer[file_size] = '\0';
     fclose(fp);
+
+    // parse json
+    cJSON* json = cJSON_Parse(json_buffer);
+    free(json_buffer);
+
+    // get spacecraft array
+    cJSON* spacecraft = cJSON_GetObjectItemCaseSensitive(json, "spacecraft");
+
+    // iterate through spacecraft
+    cJSON* craft = NULL;
+    cJSON_ArrayForEach(craft, spacecraft) {
+        cJSON* name_item = cJSON_GetObjectItemCaseSensitive(craft, "name");
+        cJSON* pos_x_item = cJSON_GetObjectItemCaseSensitive(craft, "pos_x");
+        cJSON* pos_y_item = cJSON_GetObjectItemCaseSensitive(craft, "pos_y");
+        cJSON* vel_x_item = cJSON_GetObjectItemCaseSensitive(craft, "vel_x");
+        cJSON* vel_y_item = cJSON_GetObjectItemCaseSensitive(craft, "vel_y");
+        cJSON* dry_mass_item = cJSON_GetObjectItemCaseSensitive(craft, "dry_mass");
+        cJSON* fuel_mass_item = cJSON_GetObjectItemCaseSensitive(craft, "fuel_mass");
+        cJSON* thrust_item = cJSON_GetObjectItemCaseSensitive(craft, "thrust");
+        cJSON* specific_impulse_item = cJSON_GetObjectItemCaseSensitive(craft, "specific_impulse");
+        cJSON* mass_flow_rate_item = cJSON_GetObjectItemCaseSensitive(craft, "mass_flow_rate");
+        cJSON* burn_start_time_item = cJSON_GetObjectItemCaseSensitive(craft, "burn_start_time");
+        cJSON* burn_duration_item = cJSON_GetObjectItemCaseSensitive(craft, "burn_duration");
+        cJSON* burn_heading_item = cJSON_GetObjectItemCaseSensitive(craft, "burn_heading");
+        cJSON* burn_throttle_item = cJSON_GetObjectItemCaseSensitive(craft, "burn_throttle");
+
+        craft_addSpacecraft(sc, num_craft,
+                            name_item->valuestring,
+                            pos_x_item->valuedouble,
+                            pos_y_item->valuedouble,
+                            vel_x_item->valuedouble,
+                            vel_y_item->valuedouble,
+                            dry_mass_item->valuedouble,
+                            fuel_mass_item->valuedouble,
+                            thrust_item->valuedouble,
+                            specific_impulse_item->valuedouble,
+                            mass_flow_rate_item->valuedouble,
+                            burn_start_time_item->valuedouble,
+                            burn_duration_item->valuedouble,
+                            burn_heading_item->valuedouble,
+                            burn_throttle_item->valuedouble);
+    }
+
+    cJSON_Delete(json);
 }
 
 

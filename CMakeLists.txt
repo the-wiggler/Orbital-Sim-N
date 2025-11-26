@@ -20,6 +20,9 @@ find_package(Threads REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(SDL3_ttf CONFIG REQUIRED)
 
+# Find cJSON package
+find_package(cJSON CONFIG REQUIRED)
+
 # Source files
 set(SOURCES
     src/main.c
@@ -40,10 +43,11 @@ if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-# Link SDL3 libraries and threading support
+# Link SDL3 libraries, cJSON, and threading support
 target_link_libraries(${PROJECT_NAME} PRIVATE
     SDL3::SDL3
     SDL3_ttf::SDL3_ttf
+    cjson
     Threads::Threads
 )
 

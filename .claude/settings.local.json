@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"C:\\vcpkg\\vcpkg.exe\" install)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
