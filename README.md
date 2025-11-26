@@ -20,20 +20,6 @@ This program simulates gravitational interactions between celestial bodies using
 ### Simulation Setup
 - **Import gravitational bodies**
   - Edit the JSON file `planet_data.json` to import bodies:
-    ```json
-    {
-      "bodies": [
-        {
-          "name": "Earth",
-          "mass": 5.972e24,
-          "pos_x": 0,
-          "pos_y": 0,
-          "vel_x": 0,
-          "vel_y": 0
-        }
-      ]
-    }
-    ```
     - **name:** the name of the body
     - **mass:** the mass (kilograms)
     - **pos_x:** the relative position in the x direction from center (meters)
@@ -43,28 +29,6 @@ This program simulates gravitational interactions between celestial bodies using
 
 - **Import spacecraft**
   - Edit the JSON file `spacecraft_data.json` to import spacecraft:
-    ```json
-    {
-      "spacecraft": [
-        {
-          "name": "Apollo Test Craft",
-          "pos_x": -1e8,
-          "pos_y": 0,
-          "vel_x": 0,
-          "vel_y": -1500,
-          "dry_mass": 5000,
-          "fuel_mass": 10000,
-          "thrust": 50000,
-          "specific_impulse": 300,
-          "mass_flow_rate": 0.1,
-          "burn_start_time": 28800,
-          "burn_duration": 360,
-          "burn_heading": 4.712389,
-          "burn_throttle": 1.0
-        }
-      ]
-    }
-    ```
 
 - *NOTE: these JSON files should be stored in the same directory as the program executable for the data to be read properly!
 
