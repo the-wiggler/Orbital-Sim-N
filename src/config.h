@@ -77,10 +77,9 @@ typedef struct {
 } spacecraft_properties_t;
 
 typedef struct {
-    SDL_Window* window;
-    SDL_Renderer* renderer;
-    SDL_WindowID window_ID;
     bool is_shown;
+    double initial_total_energy;
+    bool measured_initial_energy;
 } stats_window_t;
 
 typedef struct {

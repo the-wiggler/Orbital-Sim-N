@@ -25,7 +25,6 @@ set(SOURCES
     src/main.c
     src/sim_calculations.c
     src/sdl_elements.c
-    src/stats_window.c
 )
 
 # Header files
@@ -33,7 +32,6 @@ set(HEADERS
     src/config.h
     src/sim_calculations.h
     src/sdl_elements.h
-    src/stats_window.h
 )
 
 # Create executable

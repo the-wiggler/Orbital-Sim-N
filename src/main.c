@@ -1,5 +1,4 @@
 #include "config.h"
-#include "stats_window.h"
 #ifdef _WIN32
     #include <windows.h>
 #else
@@ -149,8 +148,10 @@ int main(int argc, char* argv[]) {
         ////////////////////////////////////////////////////
         // UI ELEMENTS                                    //
         ////////////////////////////////////////////////////
-        // render the stats window if active
-        if (stats_window.is_shown) StatsWindow_render(&stats_window, 60, 0, 0, gb, num_bodies, sc, num_craft, wp);
+        // render stats in main window if enabled
+        if (stats_window.is_shown) {
+            renderStatsBox(renderer, gb, num_bodies, sc, num_craft, wp, &stats_window);
+        }
 
         // unlock sim vars mutex when done
         mtx_unlock(&sim_vars_mutex);
@@ -202,7 +203,6 @@ int main(int argc, char* argv[]) {
     }
     num_craft = 0;
 
-    StatsWindow_destroy(&stats_window);
     if (g_font) TTF_CloseFont(g_font);
     if (g_font_small) TTF_CloseFont(g_font_small);
     TTF_Quit();

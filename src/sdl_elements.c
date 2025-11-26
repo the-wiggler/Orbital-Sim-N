@@ -5,7 +5,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include "config.h"
-#include "stats_window.h"
 
 SDL_Color TEXT_COLOR = {255, 255, 255, 255};
 SDL_Color BUTTON_COLOR = {50, 50, 50, 255};
@@ -394,6 +393,52 @@ void showFPS(SDL_Renderer* renderer, Uint64 frame_start_timem, Uint64 perf_freq,
     SDL_WriteText(renderer, g_font, fps, wp.window_size_x * 0.01, wp.window_size_y * 0.07, TEXT_COLOR);
 }
 
+// the stats box that shows stats yay
+void renderStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies, spacecraft_properties_t* sc, int num_craft, window_params_t wp, stats_window_t* stats_window) {
+    int margin_x    = (int)(wp.window_size_x * 0.02f);
+    int top_y       = (int)(wp.window_size_y * 0.07f);
+    int line_height = (int)(wp.window_size_y * 0.02f);
+
+    if (!bodies || num_bodies == 0) return;
+
+    int y = top_y;
+
+    // velocities
+    for (int i = 0; i < num_bodies; i++) {
+        char vel_text[64];
+        snprintf(vel_text, sizeof(vel_text), "Vel of %s: %.2e m/s", bodies[i].name, bodies[i].vel);
+        SDL_WriteText(renderer, g_font, vel_text, margin_x, y, TEXT_COLOR);
+        y += line_height;
+    }
+
+    // kinetic energies
+    for (int i = 0; i < num_bodies; i++) {
+        char ke_text[64];
+        snprintf(ke_text, sizeof(ke_text), "KE of %s: %.2e J", bodies[i].name, bodies[i].kinetic_energy);
+        SDL_WriteText(renderer, g_font, ke_text, margin_x, y, TEXT_COLOR);
+        y += line_height;
+    }
+
+    // total system energy
+    double total_energy = calculateTotalSystemEnergy(bodies, sc, num_bodies, num_craft);
+    char total_energy_text[64];
+    snprintf(total_energy_text, sizeof(total_energy_text), "Total System Energy: %.2e J", total_energy);
+    SDL_WriteText(renderer, g_font, total_energy_text, margin_x, y, TEXT_COLOR);
+    y += line_height;
+
+    // total error - measure initial energy on first call or when sim time is reset
+    if (!stats_window->measured_initial_energy || wp.sim_time < 0.1) {
+        stats_window->initial_total_energy = total_energy;
+        stats_window->measured_initial_energy = true;
+    }
+    double error = (stats_window->initial_total_energy != 0) ?
+        (stats_window->initial_total_energy - total_energy) / fabs(stats_window->initial_total_energy) * 100.0 : 0.0;
+    char error_text[64];
+    snprintf(error_text, sizeof(error_text), "Energy Error: %.4f%%", error);
+    SDL_WriteText(renderer, g_font, error_text, margin_x, y, TEXT_COLOR);
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // EVENT HANDLING HELPER FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -558,12 +603,10 @@ static void handleMouseButtonDownEvent(SDL_Event* event, window_params_t* wp, bo
         dialog->input_buffer[0] = '\0';
         SDL_StartTextInput(SDL_GetKeyboardFocus());
     }
-    else if(buttons->show_stats_button.is_hovered && !(stats_window->is_shown)) {
-        if (statsWindowInit(stats_window)) {
-            stats_window->is_shown = true;
-        }
+    else if(buttons->show_stats_button.is_hovered) {
+        // toggle stats display in main window
+        stats_window->is_shown = !stats_window->is_shown;
     }
-    else if(buttons->show_stats_button.is_hovered && stats_window->is_shown) displayError("Warning", "The statistics window is already open!");
 }
 
 // handles mouse button release events
@@ -671,10 +714,6 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
         else if (event->type == SDL_EVENT_WINDOW_RESIZED &&
                  event->window.windowID == wp->main_window_ID) {
             handleWindowResizeEvent(event, wp, buttons);
-        }
-
-        if (stats_window->is_shown) {
-            StatsWindow_handleEvent(stats_window, event);
         }
     }
 }
