@@ -390,7 +390,7 @@ void showFPS(SDL_Renderer* renderer, Uint64 frame_start_timem, Uint64 perf_freq,
     double dt = (double)(frame_end - frame_start_timem) / (double)perf_freq;
     char fps[25];
     snprintf(fps, sizeof(fps), "%.1f FPS", 1.0 / dt);
-    SDL_WriteText(renderer, g_font, fps, wp.window_size_x * 0.01, wp.window_size_y * 0.07, TEXT_COLOR);
+    SDL_WriteText(renderer, g_font, fps, wp.window_size_x * 0.01, wp.window_size_y - 0.03 * wp.window_size_y, TEXT_COLOR);
 }
 
 // the stats box that shows stats yay
@@ -426,13 +426,12 @@ void renderStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_b
     SDL_WriteText(renderer, g_font, total_energy_text, margin_x, y, TEXT_COLOR);
     y += line_height;
 
-    // total error - measure initial energy on first call or when sim time is reset
-    if (!stats_window->measured_initial_energy || wp.sim_time < 0.1) {
+    // total error - measure initial energy on first call or when explicitly reset
+    if (!stats_window->measured_initial_energy) {
         stats_window->initial_total_energy = total_energy;
         stats_window->measured_initial_energy = true;
     }
-    double error = (stats_window->initial_total_energy != 0) ?
-        (stats_window->initial_total_energy - total_energy) / fabs(stats_window->initial_total_energy) * 100.0 : 0.0;
+    double error = (stats_window->initial_total_energy != 0) ? fabs(stats_window->initial_total_energy - total_energy) / fabs(stats_window->initial_total_energy) * 100.0 : 0.0;
     char error_text[64];
     snprintf(error_text, sizeof(error_text), "Energy Error: %.4f%%", error);
     SDL_WriteText(renderer, g_font, error_text, margin_x, y, TEXT_COLOR);
@@ -595,6 +594,8 @@ static void handleMouseButtonDownEvent(SDL_Event* event, window_params_t* wp, bo
         readCSV("planet_data.csv", gb, num_bodies);
         readSpacecraftCSV("spacecraft_data.csv", sc, num_craft);
         wp->sim_time = 0;
+        // reset energy measurement so stats recalculate with new bodies
+        stats_window->measured_initial_energy = false;
     }
     else if(buttons->add_body_button.is_hovered) {
         // activate text input dialog

@@ -3,6 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "sim_calculations.h"
 #include "config.h"
+#include "sdl_elements.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -139,6 +140,10 @@ void body_addOrbitalBody(body_properties_t** gb, int* num_bodies, char* name, do
 
     // calculate the radius based on mass
     (*gb)[*num_bodies].radius = pow(mass, 0.279f);
+
+    // calculate initial velocity magnitude and kinetic energy
+    (*gb)[*num_bodies].vel = sqrt(x_vel * x_vel + y_vel * y_vel);
+    (*gb)[*num_bodies].kinetic_energy = 0.5 * mass * (*gb)[*num_bodies].vel * (*gb)[*num_bodies].vel;
 
     // increment the body count
     (*num_bodies)++;
@@ -336,12 +341,7 @@ void readCSV(char* FILENAME, body_properties_t** gb, int* num_bodies) {
     if (fp == NULL) {
         char error_message[512];
         snprintf(error_message, sizeof(error_message), "Failed to open file: %s\n\nMake sure the file exists and is accessible.", FILENAME);
-        SDL_ShowSimpleMessageBox(
-            SDL_MESSAGEBOX_ERROR,
-            "CSV Load Error",
-            error_message,
-            NULL
-        );
+        displayError("ERROR", error_message);
         return;
     }
 
@@ -381,12 +381,7 @@ void readSpacecraftCSV(char* FILENAME, spacecraft_properties_t** sc, int* num_cr
     if (fp == NULL) {
         char error_message[512];
         snprintf(error_message, sizeof(error_message), "Failed to open file: %s\n\nMake sure the file exists and is accessible.", FILENAME);
-        SDL_ShowSimpleMessageBox(
-            SDL_MESSAGEBOX_ERROR,
-            "CSV Load Error",
-            error_message,
-            NULL
-        );
+        displayError("ERROR", error_message);
         return;
     }
 
