@@ -18,21 +18,27 @@ const double G = 6.67430E-11;
 // at the end of each sim loop, this function should be run to calculate the changes in
 // the force values based on other parameters. for example, using F to find a based on m.
 // b is the body that has the force applied to it, whilst b2 is the body applying force to b
-void body_calculateGravForce(body_properties_t *b, body_properties_t b2) {
+void body_calculateGravForce(body_properties_t *b, const body_properties_t b2) {
     // calculate the distance between the two bodies
-    double delta_pos_x = b2.pos_x - b->pos_x;
-    double delta_pos_y = b2.pos_y - b->pos_y;
-    double r = sqrt(delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y);
+    const double delta_pos_x = b2.pos_x - b->pos_x;
+    const double delta_pos_y = b2.pos_y - b->pos_y;
+    const double r = sqrt(delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y);
+
+    // prevent division by
+    const double min_distance = 1.0;
+    if (r < min_distance) {
+        return;  // skip calculation if bodies are too close
+    }
 
     // calculate the force that b2 applies on b due to gravitation (F = (GMm) / r)
-    double total_force = (G * b->mass * b2.mass) / (r * r);
+    const double total_force = (G * b->mass * b2.mass) / (r * r);
     b->force_x += total_force * (delta_pos_x / r);
     b->force_y += total_force * (delta_pos_y / r);
 }
 
 // this calculates the changes of velocity and position based on the force values
 // this uses a method called velocity verlet integration
-void body_updateMotion(body_properties_t *b, double dt) {
+void body_updateMotion(body_properties_t *b, const double dt) {
     // calculate the current acceleration from the force on the object
     b->acc_x = b->force_x / b->mass;
     b->acc_y = b->force_y / b->mass;
@@ -55,7 +61,7 @@ void body_updateMotion(body_properties_t *b, double dt) {
 // calculates the kinetic energy of a target body
 void body_calculateKineticEnergy(body_properties_t *b) {
     // calculate kinetic energy (0.5mv^2)
-    b->kinetic_energy = 0.5f * b->mass * b->vel * b->vel;
+    b->kinetic_energy = 0.5 * b->mass * b->vel * b->vel;
 }
 
 // calculate total system energy for all bodies
@@ -117,10 +123,19 @@ float body_calculateVisualRadius(body_properties_t* body, window_params_t wp) {
 // function to add a new body to the system
 void body_addOrbitalBody(body_properties_t** gb, int* num_bodies, const char* name, const double mass, const double x_pos, const double y_pos, const double x_vel, const double y_vel) {
     // reallocate memory for the new body
-    *gb = (body_properties_t *)realloc(*gb, (*num_bodies + 1) * sizeof(body_properties_t));
+    body_properties_t* temp = (body_properties_t *)realloc(*gb, (*num_bodies + 1) * sizeof(body_properties_t));
+    if (temp == NULL) {
+        displayError("ERROR", "Error: Failed to allocate memory for new body\n");
+        return;
+    }
+    *gb = temp;
 
     // allocate memory for the name and copy it
     (*gb)[*num_bodies].name = (char*)malloc(strlen(name) + 1);
+    if ((*gb)[*num_bodies].name == NULL) {
+        displayError("ERROR", "Error: Failed to allocate memory for body name\n");
+        return;
+    }
     strcpy((*gb)[*num_bodies].name, name);
 
     // initialize the new body at index num_bodies
@@ -158,15 +173,21 @@ void body_addOrbitalBody(body_properties_t** gb, int* num_bodies, const char* na
 // (this should be used before any other force functions)
 void craft_calculateGravForce(spacecraft_properties_t* s, body_properties_t b) {
     // calculate the distance between the spacecraft and the body
-    double delta_pos_x = b.pos_x - s->pos_x;
-    double delta_pos_y = b.pos_y - s->pos_y;
-    double r = sqrt(delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y);
+    const double delta_pos_x = b.pos_x - s->pos_x;
+    const double delta_pos_y = b.pos_y - s->pos_y;
+    const double r = sqrt(delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y);
 
     // calculate the ship mass with the current amount of fuel in it
     s->current_total_mass = s->fuel_mass + s->dry_mass;
 
+    // prevent division by zero
+    const double min_distance = 1.0;
+    if (r < min_distance) {
+        return;  // skip calculation if spacecraft is too close to body
+    }
+
     // calculate the force that the body applies on the craft due to gravitation (F = (GMm) / r)
-    double total_force = (G * s->current_total_mass * b.mass) / (r * r);
+    const double total_force = (G * s->current_total_mass * b.mass) / (r * r);
     s->force_x += total_force * (delta_pos_x / r);
     s->force_y += total_force * (delta_pos_y / r);
 }
@@ -174,15 +195,15 @@ void craft_calculateGravForce(spacecraft_properties_t* s, body_properties_t b) {
 // updates the force 
 void craft_applyThrust(spacecraft_properties_t* s) {
     if (s->engine_on && s->fuel_mass > 0) {
-        double current_thrust = s->thrust * s->throttle;
+        const double current_thrust = s->thrust * s->throttle;
         s->force_x += current_thrust * cos(s->heading);
         s->force_y += current_thrust * sin(s->heading);
     }
 }
 
 // check and activate burns
-void craft_checkBurnSchedule(spacecraft_properties_t* s, double sim_time) {
-    double burn_end_time = s->burn_start_time + s->burn_duration;
+void craft_checkBurnSchedule(spacecraft_properties_t* s, const double sim_time) {
+    const double burn_end_time = s->burn_start_time + s->burn_duration;
     
     // check if within the burn window
     if (sim_time >= s->burn_start_time && sim_time < burn_end_time && s->fuel_mass > 0) {
@@ -213,7 +234,7 @@ void craft_consumeFuel(spacecraft_properties_t* s, double dt) {
 
 // updates the motion of the spacecraft based on the force currently applied to it
 // uses velocity verlet integration
-void craft_updateMotion(spacecraft_properties_t* s, double dt) {
+void craft_updateMotion(spacecraft_properties_t* s, const double dt) {
     // calculate the current acceleration from the force on the object
     s->acc_x = s->force_x / s->current_total_mass;
     s->acc_y = s->force_y / s->current_total_mass;
@@ -240,10 +261,19 @@ void craft_addSpacecraft(spacecraft_properties_t** sc, int* num_craft, const cha
                         const double burn_start_time, const double burn_duration,
                         const double burn_heading, const double burn_throttle) {
     // reallocate memory for the new spacecraft
-    *sc = (spacecraft_properties_t *)realloc(*sc, (*num_craft + 1) * sizeof(spacecraft_properties_t));
+    spacecraft_properties_t* temp = (spacecraft_properties_t *)realloc(*sc, (*num_craft + 1) * sizeof(spacecraft_properties_t));
+    if (temp == NULL) {
+        displayError("ERROR", "Error: Failed to allocate memory for new spacecraft\n");
+        return;
+    }
+    *sc = temp;
 
     // allocate memory for the name and copy it
     (*sc)[*num_craft].name = (char*)malloc(strlen(name) + 1);
+    if ((*sc)[*num_craft].name == NULL) {
+        displayError("ERROR", "Error: Failed to allocate memory for spacecraft name\n");
+        return;
+    }
     strcpy((*sc)[*num_craft].name, name);
 
     // initialize the new craft at index num_craft
@@ -332,6 +362,10 @@ void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies, spacecr
 // json handling logic for reading json files
 void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies) {
     FILE *fp = fopen(FILENAME, "r");
+    if (fp == NULL) {
+        displayError("ERROR", "Error: Could not open Body Properties JSON File");
+        return;
+    }
 
     // read entire file into buffer
     fseek(fp, 0, SEEK_END);
@@ -339,6 +373,11 @@ void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies)
     fseek(fp, 0, SEEK_SET);
 
     char* json_buffer = (char*)malloc(file_size + 1);
+    if (json_buffer == NULL) {
+        displayError("ERROR", "Error: Could not allocate memory for JSON buffer\n");
+        fclose(fp);
+        return;
+    }
 
     fread(json_buffer, 1, file_size, fp);
     json_buffer[file_size] = '\0';
@@ -348,11 +387,21 @@ void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies)
     cJSON* json = cJSON_Parse(json_buffer);
     free(json_buffer);
 
+    if (json == NULL) {
+        displayError("ERROR", "Error: Failed to parse JSON from Body JSON");
+        return;
+    }
+
     // get bodies array
-    cJSON* bodies = cJSON_GetObjectItemCaseSensitive(json, "bodies");
+    const cJSON* bodies = cJSON_GetObjectItemCaseSensitive(json, "bodies");
+    if (bodies == NULL || !cJSON_IsArray(bodies)) {
+        displayError("ERROR", "Error: 'bodies' array not found or invalid in bodies JSON");
+        cJSON_Delete(json);
+        return;
+    }
 
     // iterate through bodies
-    cJSON* body = NULL;
+    const cJSON* body = NULL;
     cJSON_ArrayForEach(body, bodies) {
         cJSON* name_item = cJSON_GetObjectItemCaseSensitive(body, "name");
         cJSON* mass_item = cJSON_GetObjectItemCaseSensitive(body, "mass");
@@ -376,6 +425,10 @@ void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies)
 
 void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t** sc, int* num_craft) {
     FILE *fp = fopen(FILENAME, "r");
+    if (fp == NULL) {
+        displayError("ERROR", "Error: Could not open spacecraft JSON");
+        return;
+    }
 
     // read entire file into buffer
     fseek(fp, 0, SEEK_END);
@@ -383,6 +436,11 @@ void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t** sc, int*
     fseek(fp, 0, SEEK_SET);
 
     char* json_buffer = (char*)malloc(file_size + 1);
+    if (json_buffer == NULL) {
+        displayError("ERROR", "Error: Could not allocate memory for body JSON buffer");
+        fclose(fp);
+        return;
+    }
 
     fread(json_buffer, 1, file_size, fp);
     json_buffer[file_size] = '\0';
@@ -392,8 +450,18 @@ void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t** sc, int*
     cJSON* json = cJSON_Parse(json_buffer);
     free(json_buffer);
 
+    if (json == NULL) {
+        displayError("ERROR", "Error: Failed to parse spacecraft file JSON");
+        return;
+    }
+
     // get spacecraft array
-    cJSON* spacecraft = cJSON_GetObjectItemCaseSensitive(json, "spacecraft");
+    const cJSON* spacecraft = cJSON_GetObjectItemCaseSensitive(json, "spacecraft");
+    if (spacecraft == NULL || !cJSON_IsArray(spacecraft)) {
+        displayError("ERROR", "Error: 'spacecraft' array not found or invalid");
+        cJSON_Delete(json);
+        return;
+    }
 
     // iterate through spacecraft
     cJSON* craft = NULL;
