@@ -1,10 +1,7 @@
 #ifndef SIM_CALCULATIONS_H
 #define SIM_CALCULATIONS_H
 
-#include <math.h>
-#include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include <stdbool.h>
 #include "config.h"
 
 extern const double G;
@@ -15,7 +12,7 @@ void body_calculateGravForce(body_properties_t* b, body_properties_t b2);
 void body_updateMotion(body_properties_t* b, double dt);
 void body_transformCoordinates(body_properties_t* b, window_params_t window_params);
 void body_calculateKineticEnergy(body_properties_t* b);
-int body_calculateVisualRadius(body_properties_t* body, window_params_t wp);
+float body_calculateVisualRadius(body_properties_t* body, window_params_t wp);
 void body_addOrbitalBody(body_properties_t** gb, int* num_bodies, char* name, double mass, double x_pos, double y_pos, double x_vel, double y_vel);
 void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft);
 

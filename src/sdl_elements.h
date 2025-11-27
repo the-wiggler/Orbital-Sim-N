@@ -1,7 +1,6 @@
 #ifndef SDL_ELEMENTS_H
 #define SDL_ELEMENTS_H
 
-#include <math.h>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdbool.h>
@@ -11,7 +10,7 @@ extern TTF_Font* g_font;
 extern TTF_Font* g_font_small;
 
 typedef struct {
-    int x, y, width, height;
+    float x, y, width, height;
     bool is_hovered;
     SDL_Color normal_color;
     SDL_Color hover_color;
@@ -47,7 +46,7 @@ typedef struct {
     double y_vel;
 } text_input_dialog_t;
 
-void SDL_RenderFillCircle(SDL_Renderer* renderer, int centerX, int centerY, int radius);
+void SDL_RenderFillCircle(SDL_Renderer* renderer, float centerX, float centerY, float radius);
 void drawScaleBar(SDL_Renderer* renderer, window_params_t wp);
 bool isMouseInRect(int mouse_x, int mouse_y, int rect_x, int rect_y, int rect_w, int rect_h);
 void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, int num_bodies, window_params_t wp);

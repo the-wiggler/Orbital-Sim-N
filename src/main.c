@@ -6,7 +6,6 @@
 #endif
 #include <pthread.h>
 #include <stdlib.h>
-#include <math.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -69,7 +68,7 @@ int main(int argc, char* argv[]) {
     // initialize SDL3
     SDL_Init(SDL_INIT_VIDEO);
     // create an SDL window
-    SDL_Window* window = SDL_CreateWindow("Orbit Simulation", wp.window_size_x, wp.window_size_y, SDL_WINDOW_RESIZABLE);
+    SDL_Window* window = SDL_CreateWindow("Orbit Simulation", (int)wp.window_size_x, (int)wp.window_size_y, SDL_WINDOW_RESIZABLE);
     wp.main_window_ID = SDL_GetWindowID(window);
     // create an SDL renderer and clear the window to create a blank canvas
     SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
@@ -163,7 +162,7 @@ int main(int argc, char* argv[]) {
         renderUIButtons(renderer, &buttons, &wp);
 
         // help text at the bottom
-        SDL_WriteText(renderer, g_font, "Space: pause/resume | R: Reset", wp.window_size_x * 0.4, wp.window_size_y - wp.window_size_x * 0.02 - wp.font_size, white_text);
+        SDL_WriteText(renderer, g_font, "Space: pause/resume | R: Reset", wp.window_size_x * 0.4f, wp.window_size_y - wp.window_size_x * 0.02f - wp.font_size, white_text);
 
         // render text input dialog if active
         renderBodyTextInputDialog(renderer, &dialog, wp);

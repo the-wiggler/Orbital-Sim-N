@@ -101,13 +101,13 @@ double calculateTotalSystemEnergy(body_properties_t* gb, spacecraft_properties_t
 
 // transforms spacial coordinates (for example, in meters) to pixel coordinates
 void body_transformCoordinates(body_properties_t *b, window_params_t wp) {
-    b->pixel_coordinates_x = wp.screen_origin_x + (int)(b->pos_x / wp.meters_per_pixel);
-    b->pixel_coordinates_y = wp.screen_origin_y - (int)(b->pos_y / wp.meters_per_pixel); // this is negative because the SDL origin is in the top left, so positive y is 'down'
+    b->pixel_coordinates_x = wp.screen_origin_x + ((float)b->pos_x / (float)wp.meters_per_pixel);
+    b->pixel_coordinates_y = wp.screen_origin_y - ((float)b->pos_y / (float)wp.meters_per_pixel); // this is negative because the SDL origin is in the top left, so positive y is 'down'
 }
 
 // calculates the size (in pixels) that the planet should appear on the screen based on its mass
-int body_calculateVisualRadius(body_properties_t* body, window_params_t wp) {
-    int r = (int)(body->radius / wp.meters_per_pixel);
+float body_calculateVisualRadius(body_properties_t* body, window_params_t wp) {
+    float r = body->radius / (float)wp.meters_per_pixel;
     body->pixel_radius = r;
     return r;
 }
@@ -140,7 +140,7 @@ void body_addOrbitalBody(body_properties_t** gb, int* num_bodies, char* name, do
     (*gb)[*num_bodies].force_y = 0.0;
 
     // calculate the radius based on mass
-    (*gb)[*num_bodies].radius = pow(mass, 0.279f);
+    (*gb)[*num_bodies].radius = (float)pow(mass, 0.279);
 
     // calculate initial velocity magnitude and kinetic energy
     (*gb)[*num_bodies].vel = sqrt(x_vel * x_vel + y_vel * y_vel);
@@ -289,8 +289,8 @@ void craft_addSpacecraft(spacecraft_properties_t** sc, int* num_craft, char* nam
 
 // transform the craft coordinates in meters to pixel coordinates on the screen
 void craft_transformCoordinates(spacecraft_properties_t* s, window_params_t wp) {
-    s->pixel_coordinates_x = wp.screen_origin_x + (int)(s->pos_x / wp.meters_per_pixel);
-    s->pixel_coordinates_y = wp.screen_origin_y - (int)(s->pos_y / wp.meters_per_pixel); // this is negative because the SDL origin is in the top left, so positive y is 'down'
+    s->pixel_coordinates_x = wp.screen_origin_x + (float)(s->pos_x / wp.meters_per_pixel);
+    s->pixel_coordinates_y = wp.screen_origin_y - (float)(s->pos_y / wp.meters_per_pixel); // this is negative because the SDL origin is in the top left, so positive y is 'down'
 }
 
 
@@ -330,7 +330,10 @@ void resetSim(double* sim_time, body_properties_t** gb, int* num_bodies, spacecr
 
 // json handling logic for reading json files
 void readBodyJSON(char* FILENAME, body_properties_t** gb, int* num_bodies) {
-    FILE *fp = fopen(FILENAME, "r");
+    FILE *fp = NULL;
+    if (fopen_s(&fp, FILENAME, "r") != 0) {
+        // error handling does nothing, im just doing this so I dont piss off the warnings
+    }
 
     // read entire file into buffer
     fseek(fp, 0, SEEK_END);
@@ -374,7 +377,10 @@ void readBodyJSON(char* FILENAME, body_properties_t** gb, int* num_bodies) {
 }
 
 void readSpacecraftJSON(char* FILENAME, spacecraft_properties_t** sc, int* num_craft) {
-    FILE *fp = fopen(FILENAME, "r");
+    FILE *fp = NULL;
+    if (fopen_s(&fp, FILENAME, "r") != 0) {
+        // error handling does nothing, im just doing this so I dont piss off the warnings
+    }
 
     // read entire file into buffer
     fseek(fp, 0, SEEK_END);

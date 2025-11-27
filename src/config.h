@@ -3,35 +3,34 @@
 
 #include <stdbool.h>
 #include <SDL3/SDL.h>
-#include <SDL3_ttf/SDL_ttf.h>
 
 typedef struct {
     double time_step;
-    int window_size_x, window_size_y;
-    int screen_origin_x, screen_origin_y;
+    float window_size_x, window_size_y;
+    float screen_origin_x, screen_origin_y;
     double meters_per_pixel;
-    int font_size;
+    float font_size;
     bool window_open;
     bool sim_running;
     double sim_time;
     SDL_WindowID main_window_ID;
 
     bool is_dragging;
-    int drag_start_x;
-    int drag_start_y;
-    int drag_origin_x;
-    int drag_origin_y;
+    float drag_start_x;
+    float drag_start_y;
+    float drag_origin_x;
+    float drag_origin_y;
 } window_params_t;
 
 typedef struct {
     char* name;
     double mass;
-    int radius; // this is an approximate value just for visual purposes
-    int pixel_radius;
+    float radius; // this is an approximate value just for visual purposes
+    float pixel_radius;
     double pos_x;
     double pos_y;
-    int pixel_coordinates_x;
-    int pixel_coordinates_y;
+    float pixel_coordinates_x;
+    float pixel_coordinates_y;
     double vel_x;
     double vel_y;
     double vel;
@@ -48,8 +47,8 @@ typedef struct {
     char* name;
     double pos_x;
     double pos_y;
-    int pixel_coordinates_x;
-    int pixel_coordinates_y;
+    float pixel_coordinates_x;
+    float pixel_coordinates_y;
     double vel_x;
     double vel_y;
     double vel;
@@ -67,7 +66,7 @@ typedef struct {
     double mass_flow_rate;
     double thrust;
     double specific_impulse;
-    float throttle;
+    double throttle;
     bool engine_on;
 
     double burn_start_time;   // simulation time to start burn (seconds)
