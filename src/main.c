@@ -19,8 +19,6 @@
 char* FILENAME = "planet_data.json";
 char* SPACECRAFT_FILENAME = "spacecraft_data.json";
 
-const double G = 6.67430E-11;
-
 TTF_Font* g_font = NULL;
 TTF_Font* g_font_small = NULL;
 
@@ -30,7 +28,7 @@ pthread_mutex_t sim_vars_mutex;
 // SIM CALCULATION FUNCTION
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void* physicsSim(void* args) {
-    physics_sim_args* s = (physics_sim_args*)args;
+    const physics_sim_args* s = (physics_sim_args*)args;
 
     while (s->wp->sim_running) {
         // lock mutex before accessing data
@@ -130,6 +128,18 @@ int main() {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
+        // draw scale reference bar
+        drawScaleBar(renderer, wp);
+
+        // draw speed control button
+        renderUIButtons(renderer, &buttons, &wp);
+
+        // render text input dialog if active
+        renderBodyTextInputDialog(renderer, &dialog, wp);
+
+        // draw time indicator text
+        renderTimeIndicators(renderer, wp);
+
         // lock body_sim mutex for reading
         pthread_mutex_lock(&sim_vars_mutex);
 
@@ -143,9 +153,6 @@ int main() {
         // render the spacecraft
         craft_renderCrafts(renderer, sc, num_craft);
 
-        ////////////////////////////////////////////////////
-        // UI ELEMENTS                                    //
-        ////////////////////////////////////////////////////
         // render stats in main window if enabled
         if (stats_window.is_shown) {
             renderStatsBox(renderer, gb, num_bodies, sc, num_craft, wp, &stats_window);
@@ -154,19 +161,7 @@ int main() {
         // unlock sim vars mutex when done
         pthread_mutex_unlock(&sim_vars_mutex);
 
-        // draw scale reference bar
-        drawScaleBar(renderer, wp);
-
-        // draw speed control button
-        renderUIButtons(renderer, &buttons, &wp);
-
-        // render text input dialog if active
-        renderBodyTextInputDialog(renderer, &dialog, wp);
-
-        // draw time indicator text
-        renderTimeIndicators(renderer, wp);
-
-        // shows fps counter
+        // shows and limits FPS
         showFPS(renderer, frame_start, perf_freq, wp);
 
         // present the renderer to the screen

@@ -364,7 +364,7 @@ bool isValidNumber(const char* str, double* out_value) {
 
     char* endptr;
     errno = 0;
-    double value = strtod(str, &endptr);
+    const double value = strtod(str, &endptr);
 
     // check if conversion failed
     if (endptr == str || *endptr != '\0' || errno == ERANGE) {
@@ -384,20 +384,27 @@ bool isValidNumber(const char* str, double* out_value) {
 }
 
 // shows FPS
-void showFPS(SDL_Renderer* renderer, Uint64 frame_start_timem, Uint64 perf_freq, window_params_t wp) {
+void showFPS(SDL_Renderer* renderer, const Uint64 frame_start_time, const Uint64 perf_freq, const window_params_t wp) {
+    const float target_frame_time = 1.0f / 30.0f; // 1/fps
+
     // end frame and calculate FPS
-    Uint64 frame_end = SDL_GetPerformanceCounter();
-    double dt = (double)(frame_end - frame_start_timem) / (double)perf_freq;
+    const Uint64 frame_end = SDL_GetPerformanceCounter();
+    const float frame_time = (float)(frame_end - frame_start_time) / (float)perf_freq;
+
     char fps[25];
-    snprintf(fps, sizeof(fps), "%.1f FPS", 1.0 / dt);
+    snprintf(fps, sizeof(fps), "%.1f FPS", 1.0 / frame_time);
     SDL_WriteText(renderer, g_font, fps, wp.window_size_x * 0.01f, wp.window_size_y - 0.03f * wp.window_size_y, TEXT_COLOR);
+
+    if (frame_time < target_frame_time) {
+        SDL_Delay((Uint32)(target_frame_time - frame_time));
+    }
 }
 
 // the stats box that shows stats yay
-void renderStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, int num_bodies, spacecraft_properties_t* sc, int num_craft, window_params_t wp, stats_window_t* stats_window) {
-    float margin_x    = (wp.window_size_x * 0.02f);
-    float top_y       = (wp.window_size_y * 0.07f);
-    float line_height = (wp.window_size_y * 0.02f);
+void renderStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, const int num_bodies, const spacecraft_properties_t* sc, const int num_craft, window_params_t wp, stats_window_t* stats_window) {
+    const float margin_x    = (wp.window_size_x * 0.02f);
+    const float top_y       = (wp.window_size_y * 0.07f);
+    const float line_height = (wp.window_size_y * 0.02f);
 
     if (!bodies || num_bodies == 0) return;
 
