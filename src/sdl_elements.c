@@ -2,6 +2,7 @@
 #include "sim_calculations.h"
 #include <errno.h>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "config.h"
@@ -457,7 +458,11 @@ static bool handleTextInputDialogEvent(const SDL_Event* event, const window_para
         // append character to input buffer
         size_t len = strlen(dialog->input_buffer);
         if (len < sizeof(dialog->input_buffer) - 1) {
-            strncat(dialog->input_buffer, event->text.text, sizeof(dialog->input_buffer) - len - 1);
+            #ifdef _WIN32
+                strncat_s(dialog->input_buffer, sizeof(dialog->input_buffer), event->text.text, sizeof(dialog->input_buffer) - len - 1);
+            #else
+                strncat(dialog->input_buffer, event->text.text, sizeof(dialog->input_buffer) - len - 1);
+            #endif
         }
         return true;
     }
@@ -475,7 +480,11 @@ static bool handleTextInputDialogEvent(const SDL_Event* event, const window_para
                         displayError("Invalid Input", "Name cannot be empty");
                         break;
                     }
-                strncpy(dialog->name, dialog->input_buffer, sizeof(dialog->name) - 1);
+                    #ifdef _WIN32
+                        strncpy_s(dialog->name, sizeof(dialog->name), dialog->input_buffer, sizeof(dialog->name) - 1);
+                    #else
+                        strncpy(dialog->name, dialog->input_buffer, sizeof(dialog->name) - 1);
+                    #endif
                     dialog->state = INPUT_MASS;
                     break;
                 case INPUT_MASS: {
