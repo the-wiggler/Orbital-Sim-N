@@ -90,4 +90,9 @@ typedef struct {
     int* num_craft;
 } physics_sim_args;
 
+
+
+void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies);
+void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t** sc, int* num_craft);
+
 #endif

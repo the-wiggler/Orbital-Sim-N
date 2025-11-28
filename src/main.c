@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
         pthread_mutex_unlock(&sim_vars_mutex);
 
         // shows and limits FPS
-        showFPS(renderer, frame_start, perf_freq, wp);
+        showFPS(renderer, frame_start, perf_freq, wp, false);
 
         // present the renderer to the screen
         SDL_RenderPresent(renderer);

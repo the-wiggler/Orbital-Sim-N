@@ -2,7 +2,6 @@
 #include "sim_calculations.h"
 #include <errno.h>
 #include <math.h>
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "config.h"
@@ -415,7 +414,7 @@ bool isValidNumber(const char* str, double* out_value) {
 }
 
 // shows FPS
-void showFPS(SDL_Renderer* renderer, const Uint64 frame_start_time, const Uint64 perf_freq, const window_params_t wp) {
+void showFPS(SDL_Renderer* renderer, const Uint64 frame_start_time, const Uint64 perf_freq, const window_params_t wp, const bool FPS_SHOWN) {
     const float target_frame_time = 1.0f / 60.0f; // 1/fps (in seconds)
     Uint64 frame_end = SDL_GetPerformanceCounter();
     float frame_time = (float)(frame_end - frame_start_time) / (float)perf_freq;
@@ -429,11 +428,13 @@ void showFPS(SDL_Renderer* renderer, const Uint64 frame_start_time, const Uint64
     frame_time = (float)(frame_end - frame_start_time) / (float)perf_freq;
 
     // display the FPS
-    const float fps_value = 1.0f / frame_time;
-    char fps[25];
-    snprintf(fps, sizeof(fps), "%.1f FPS", fps_value);
-    const SDL_Color fps_color = fps_value >= 55.0f ? (SDL_Color){120, 220, 140, 255} : (SDL_Color){240, 200, 120, 255};
-    SDL_WriteText(renderer, g_font_small, fps, wp.window_size_x * 0.015f, wp.window_size_y - wp.font_size * 1.8f, fps_color);
+    if (FPS_SHOWN) {
+        const float fps_value = 1.0f / frame_time;
+        char fps[25];
+        snprintf(fps, sizeof(fps), "%.1f FPS", fps_value);
+        const SDL_Color fps_color = fps_value >= 55.0f ? (SDL_Color){120, 220, 140, 255} : (SDL_Color){240, 200, 120, 255};
+        SDL_WriteText(renderer, g_font_small, fps, wp.window_size_x * 0.015f, wp.window_size_y - wp.font_size * 1.8f, fps_color);
+    }
 }
 
 // the stats box that shows stats yay

@@ -32,13 +32,6 @@ void craft_addSpacecraft(spacecraft_properties_t** sc, int* num_craft, const cha
                         double burn_start_time, double burn_duration, 
                         double burn_heading, double burn_throttle);
 
-
-void createCSV(char* FILENAME);
-void readCSV(char* FILENAME, body_properties_t** gb, int* num_bodies);
-void readSpacecraftCSV(char* FILENAME, spacecraft_properties_t** sc, int* num_craft);
-void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies);
-void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t** sc, int* num_craft);
-
 void runCalculations(body_properties_t** gb, spacecraft_properties_t** sc, window_params_t* wp, int num_bodies, int num_craft); // MAIN CALCULATION LOOP -- DOES ALL THE MATH
 
 #endif

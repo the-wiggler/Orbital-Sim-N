@@ -1,20 +1,92 @@
 {
   "bodies": [
     {
-      "name": "Earth",
-      "mass": 5.972e24,
+      "name": "Jupiter",
+      "mass": 1.898e27,
       "pos_x": 0,
       "pos_y": 0,
       "vel_x": 0,
       "vel_y": 0
     },
     {
-      "name": "Moon",
-      "mass": 7.348e22,
-      "pos_x": 384400000,
+      "name": "Metis",
+      "mass": 3.6e16,
+      "pos_x": 128000000,
       "pos_y": 0,
       "vel_x": 0,
-      "vel_y": 1022
+      "vel_y": 31500
+    },
+    {
+      "name": "Adrastea",
+      "mass": 2e15,
+      "pos_x": 129000000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 31400
+    },
+    {
+      "name": "Amalthea",
+      "mass": 2.08e18,
+      "pos_x": 181400000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 26500
+    },
+    {
+      "name": "Thebe",
+      "mass": 4.3e17,
+      "pos_x": 222000000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 23900
+    },
+    {
+      "name": "Io",
+      "mass": 8.93e22,
+      "pos_x": 421800000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 17334
+    },
+    {
+      "name": "Europa",
+      "mass": 4.8e22,
+      "pos_x": 671100000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 13740
+    },
+    {
+      "name": "Ganymede",
+      "mass": 1.48e23,
+      "pos_x": 1070400000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 10880
+    },
+    {
+      "name": "Callisto",
+      "mass": 1.08e23,
+      "pos_x": 1882700000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 8204
+    },
+    {
+      "name": "Themisto",
+      "mass": 6.9e14,
+      "pos_x": 7507000000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 4100
+    },
+    {
+      "name": "Himalia",
+      "mass": 4.2e18,
+      "pos_x": 11461000000,
+      "pos_y": 0,
+      "vel_x": 0,
+      "vel_y": 3312
     }
   ]
 }

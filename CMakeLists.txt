@@ -15,6 +15,10 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_compile_options(-O3)
     endif()
+    # For profiling: keep debug symbols and prevent aggressive inlining
+    if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        add_compile_options(-O1 -g -fno-inline)
+    endif()
 endif()
 
 # Find required packages
@@ -37,6 +41,7 @@ set(SOURCES
         src/config.h
         src/sim_calculations.h
         src/sdl_elements.h
+        src/config.c
 )
 
 # Create executable
