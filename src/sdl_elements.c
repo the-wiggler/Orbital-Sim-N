@@ -1,8 +1,7 @@
 #include "sdl_elements.h"
 #include "sim_calculations.h"
 #include <math.h>
-#include <string.h>
-#include <stdlib.h>
+#include <stdio.h>
 #include "config.h"
 
 SDL_Color TEXT_COLOR = {240, 240, 245, 255};
