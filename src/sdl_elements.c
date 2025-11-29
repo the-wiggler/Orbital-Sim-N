@@ -155,25 +155,25 @@ bool isMouseInRect(int mouse_x, int mouse_y, int rect_x, int rect_y, int rect_w,
             mouse_y >= rect_y && mouse_y <= rect_y + rect_h);
 }
 
-void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, int num_bodies, window_params_t wp) {
+void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, window_params_t wp) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    for (int i = 0; i < num_bodies; i++) {
+    for (int i = 0; i < gb->count; i++) {
         // draw bodies
-        SDL_RenderFillCircle(renderer, gb[i].pixel_coordinates_x,
-                        gb[i].pixel_coordinates_y, 
-                        body_calculateVisualRadius(&gb[i], wp));
-        SDL_WriteText(renderer, g_font_small, gb[i].name, gb[i].pixel_coordinates_x - gb[i].pixel_radius, gb[i].pixel_coordinates_y + gb[i].pixel_radius, TEXT_COLOR);
+        SDL_RenderFillCircle(renderer, gb->pixel_coordinates_x[i],
+                        gb->pixel_coordinates_y[i],
+                        body_calculateVisualRadius(gb, i, wp));
+        SDL_WriteText(renderer, g_font_small, gb->names[i], gb->pixel_coordinates_x[i] - gb->pixel_radius[i], gb->pixel_coordinates_y[i] + gb->pixel_radius[i], TEXT_COLOR);
     }
 }
 
-void craft_renderCrafts(SDL_Renderer* renderer, const spacecraft_properties_t* sc, const int num_craft) {
+void craft_renderCrafts(SDL_Renderer* renderer, const spacecraft_properties_t* sc) {
     SDL_SetRenderDrawColor(renderer, 255, 100, 100, 255); // reddish color for spacecraft
-    for (int i = 0; i < num_craft; i++) {
-        if (sc[i].engine_on) SDL_SetRenderDrawColor(renderer, 255, 190, 190, 255);
+    for (int i = 0; i < sc->count; i++) {
+        if (sc->engine_on[i]) SDL_SetRenderDrawColor(renderer, 255, 190, 190, 255);
         // draw craft as a small filled circle
-        SDL_RenderFillCircle(renderer, sc[i].pixel_coordinates_x, sc[i].pixel_coordinates_y, 3);
+        SDL_RenderFillCircle(renderer, sc->pixel_coordinates_x[i], sc->pixel_coordinates_y[i], 3);
         // draw the name
-        SDL_WriteText(renderer, g_font_small, sc[i].name, sc[i].pixel_coordinates_x + 5, sc[i].pixel_coordinates_y + 5, TEXT_COLOR);
+        SDL_WriteText(renderer, g_font_small, sc->names[i], sc->pixel_coordinates_x[i] + 5, sc->pixel_coordinates_y[i] + 5, TEXT_COLOR);
     }
 }
 
@@ -338,33 +338,25 @@ void showFPS(SDL_Renderer* renderer, const Uint64 frame_start_time, const Uint64
 }
 
 // the stats box that shows stats yay
-void renderStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, const int num_bodies, const spacecraft_properties_t* sc, const int num_craft, window_params_t wp, stats_window_t* stats_window) {
+void renderStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, const spacecraft_properties_t* sc, window_params_t wp, stats_window_t* stats_window) {
     const float margin_x    = (wp.window_size_x * 0.02f);
     const float top_y       = (wp.window_size_y * 0.1f);
     const float line_height = (wp.window_size_y * 0.025f);
 
-    if (!bodies || num_bodies == 0) return;
+    if (!bodies || bodies->count == 0) return;
 
     float y = top_y;
 
     // velocities
-    for (int i = 0; i < num_bodies; i++) {
+    for (int i = 0; i < bodies->count; i++) {
         char vel_text[64];
-        snprintf(vel_text, sizeof(vel_text), "Vel %s: %.2e m/s", bodies[i].name, bodies[i].vel);
+        snprintf(vel_text, sizeof(vel_text), "Vel %s: %.2e m/s", bodies->names[i], bodies->vel[i]);
         SDL_WriteText(renderer, g_font_small, vel_text, margin_x, y, (SDL_Color){180, 190, 210, 255});
         y += line_height;
     }
 
-    // kinetic energies
-    for (int i = 0; i < num_bodies; i++) {
-        char ke_text[64];
-        snprintf(ke_text, sizeof(ke_text), "KE %s: %.2e J", bodies[i].name, bodies[i].kinetic_energy);
-        SDL_WriteText(renderer, g_font_small, ke_text, margin_x, y, (SDL_Color){180, 190, 210, 255});
-        y += line_height;
-    }
-
     // total system energy
-    double total_energy = calculateTotalSystemEnergy(bodies, sc, num_bodies, num_craft);
+    double total_energy = calculateTotalSystemEnergy(bodies, sc);
     char total_energy_text[64];
     snprintf(total_energy_text, sizeof(total_energy_text), "Total Energy: %.2e J", total_energy);
     SDL_WriteText(renderer, g_font_small, total_energy_text, margin_x, y, ACCENT_COLOR);
@@ -414,7 +406,7 @@ static void handleMouseMotionEvent(const SDL_Event* event, window_params_t* wp, 
 }
 
 // handles mouse button down events (button clicks and drag start)
-static void handleMouseButtonDownEvent(const SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft, const button_storage_t* buttons, stats_window_t* stats_window) {
+static void handleMouseButtonDownEvent(const SDL_Event* event, window_params_t* wp, body_properties_t* gb, spacecraft_properties_t* sc, const button_storage_t* buttons, stats_window_t* stats_window) {
     // check if right mouse button or middle mouse button (for dragging)
     if (event->button.button == SDL_BUTTON_RIGHT || event->button.button == SDL_BUTTON_MIDDLE) {
         wp->is_dragging = true;
@@ -426,8 +418,8 @@ static void handleMouseButtonDownEvent(const SDL_Event* event, window_params_t* 
     // existing button click handling
     else if (buttons->csv_load_button.is_hovered) {
         // reads the JSON file associated with loading orbital bodies
-        readBodyJSON("planet_data.json", gb, num_bodies);
-        readSpacecraftJSON("spacecraft_data.json", sc, num_craft);
+        readBodyJSON("planet_data.json", gb);
+        readSpacecraftJSON("spacecraft_data.json", sc);
         wp->sim_time = 0;
         // reset energy measurement so stats recalculate with new bodies
         stats_window->measured_initial_energy = false;
@@ -471,7 +463,7 @@ static void handleMouseWheelEvent(const SDL_Event* event, window_params_t* wp, c
 }
 
 // handles keyboard events (pause/play, reset)
-static void handleKeyboardEvent(const SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft) {
+static void handleKeyboardEvent(const SDL_Event* event, window_params_t* wp, body_properties_t* gb, spacecraft_properties_t* sc) {
     if(event->key.key == SDLK_SPACE) {
         if (wp->sim_running == false) {
             wp->sim_running = true;
@@ -481,7 +473,7 @@ static void handleKeyboardEvent(const SDL_Event* event, window_params_t* wp, bod
         }
     }
     else if (event->key.key == SDLK_R) {
-        resetSim(&wp->sim_time, gb, num_bodies, sc, num_craft);
+        resetSim(&wp->sim_time, gb, sc);
     }
 }
 
@@ -505,7 +497,7 @@ static void handleWindowResizeEvent(const SDL_Event* event, window_params_t* wp,
 // MAIN EVENT CHECKING FUNCTION
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // the event handling code... checks if events are happening for input and does a task based on that input
-void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb, int* num_bodies, spacecraft_properties_t** sc, int* num_craft, button_storage_t* buttons, stats_window_t* stats_window) {
+void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t* gb, spacecraft_properties_t* sc, button_storage_t* buttons, stats_window_t* stats_window) {
     while (SDL_PollEvent(event)) {
         // check if x button is pressed to quit
         if (event->type == SDL_EVENT_QUIT) {
@@ -518,7 +510,7 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
         }
         // check if mouse button is clicked
         else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN && event->window.windowID == wp->main_window_ID) {
-            handleMouseButtonDownEvent(event, wp, gb, num_bodies, sc, num_craft, buttons, stats_window);
+            handleMouseButtonDownEvent(event, wp, gb, sc, buttons, stats_window);
         }
         // check if mouse button is released
         else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP && event->window.windowID == wp->main_window_ID) {
@@ -530,7 +522,7 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t** gb
         }
         // check if keyboard key is pressed
         else if (event->type == SDL_EVENT_KEY_DOWN && event->window.windowID == wp->main_window_ID) {
-            handleKeyboardEvent(event, wp, gb, num_bodies, sc, num_craft);
+            handleKeyboardEvent(event, wp, gb, sc);
         }
         // check if window is resized (only for main window)
         else if (event->type == SDL_EVENT_WINDOW_RESIZED &&

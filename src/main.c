@@ -35,7 +35,7 @@ void* physicsSim(void* args) {
             pthread_mutex_lock(&sim_vars_mutex);
 
             // IMPORTANT -- DOES ALL BODY CALCULATIONS:
-            runCalculations(s->gb, s->sc, s->wp, *(s->num_bodies), *(s->num_craft));
+            runCalculations(s->gb, s->sc, s->wp);
 
             // unlock mutex when done :)
             pthread_mutex_unlock(&sim_vars_mutex);
@@ -90,10 +90,8 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
 
     // initialize simulation objects
-    int num_bodies = 0;
-    body_properties_t* gb = NULL;
-    int num_craft = 0;
-    spacecraft_properties_t* sc = NULL;
+    body_properties_t gb = {0};
+    spacecraft_properties_t sc = {0};
 
     ////////////////////////////////////////
     // SIM THREAD INIT                    //
@@ -101,14 +99,12 @@ int main(int argc, char *argv[]) {
     // initialize simulation thread
     pthread_t simThread;
     pthread_mutex_init(&sim_vars_mutex, NULL);
-    
+
     // arguments to pass into the sim thread
     physics_sim_args ps_args = {
         .gb = &gb,
         .sc = &sc,
-        .wp = &wp,
-        .num_bodies = &num_bodies,
-        .num_craft = &num_craft
+        .wp = &wp
     };
 
     // creates the sim thread
@@ -142,17 +138,17 @@ int main(int argc, char *argv[]) {
 
         // user input event checking logic
         SDL_Event event;
-        runEventCheck(&event, &wp, &gb, &num_bodies, &sc, &num_craft, &buttons, &stats_window);
+        runEventCheck(&event, &wp, &gb, &sc, &buttons, &stats_window);
 
         // render the bodies
-        body_renderOrbitBodies(renderer, gb, num_bodies, wp);
+        body_renderOrbitBodies(renderer, &gb, wp);
 
         // render the spacecraft
-        craft_renderCrafts(renderer, sc, num_craft);
+        craft_renderCrafts(renderer, &sc);
 
         // render stats in main window if enabled
         if (stats_window.is_shown) {
-            renderStatsBox(renderer, gb, num_bodies, sc, num_craft, wp, &stats_window);
+            renderStatsBox(renderer, &gb, &sc, wp, &stats_window);
         }
 
         // unlock sim vars mutex when done
@@ -177,23 +173,66 @@ int main(int argc, char *argv[]) {
     // destroy mutex
     pthread_mutex_destroy(&sim_vars_mutex);
 
-    if (gb != NULL) {
-        for (int i = 0; i < num_bodies; i++) {
-            free(gb[i].name);
-        }
-        free(gb);
-        gb = NULL;
+    // free all bodies
+    for (int i = 0; i < gb.count; i++) {
+        free(gb.names[i]);
     }
-    num_bodies = 0;
+    free(gb.names);
+    free(gb.mass);
+    free(gb.radius);
+    free(gb.pixel_radius);
+    free(gb.pos_x);
+    free(gb.pos_y);
+    free(gb.pixel_coordinates_x);
+    free(gb.pixel_coordinates_y);
+    free(gb.vel_x);
+    free(gb.vel_y);
+    free(gb.vel);
+    free(gb.acc_x);
+    free(gb.acc_y);
+    free(gb.acc_x_prev);
+    free(gb.acc_y_prev);
+    free(gb.force_x);
+    free(gb.force_y);
+    free(gb.kinetic_energy);
 
-    if (sc != NULL) {
-        for (int i = 0; i < num_craft; i++) {
-            free(sc[i].name);
-        }
-        free(sc);
-        sc = NULL;
+    // free all spacecraft
+    for (int i = 0; i < sc.count; i++) {
+        free(sc.names[i]);
+        free(sc.burn_properties[i]);
     }
-    num_craft = 0;
+    free(sc.names);
+    free(sc.current_total_mass);
+    free(sc.dry_mass);
+    free(sc.fuel_mass);
+    free(sc.pos_x);
+    free(sc.pos_y);
+    free(sc.pixel_coordinates_x);
+    free(sc.pixel_coordinates_y);
+    free(sc.attitude);
+    free(sc.vel_x);
+    free(sc.vel_y);
+    free(sc.vel);
+    free(sc.rotational_v);
+    free(sc.momentum);
+    free(sc.acc_x);
+    free(sc.acc_y);
+    free(sc.acc_x_prev);
+    free(sc.acc_y_prev);
+    free(sc.rotational_a);
+    free(sc.moment_of_inertia);
+    free(sc.grav_force_x);
+    free(sc.grav_force_y);
+    free(sc.torque);
+    free(sc.thrust);
+    free(sc.mass_flow_rate);
+    free(sc.specific_impulse);
+    free(sc.throttle);
+    free(sc.nozzle_gimbal_range);
+    free(sc.nozzle_velocity);
+    free(sc.engine_on);
+    free(sc.num_burns);
+    free(sc.burn_properties);
 
     if (g_font) TTF_CloseFont(g_font);
     if (g_font_small) TTF_CloseFont(g_font_small);

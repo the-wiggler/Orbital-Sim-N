@@ -7,7 +7,7 @@
 #include <cjson/cJSON.h>
 
 // json handling logic for reading json files
-void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies) {
+void readBodyJSON(const char* FILENAME, body_properties_t* gb) {
     FILE *fp = fopen(FILENAME, "r");
     if (fp == NULL) {
         displayError("ERROR", "Error: Could not open Body Properties JSON File");
@@ -58,7 +58,7 @@ void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies)
         cJSON* vel_x_item = cJSON_GetObjectItemCaseSensitive(body, "vel_x");
         cJSON* vel_y_item = cJSON_GetObjectItemCaseSensitive(body, "vel_y");
 
-        body_addOrbitalBody(gb, num_bodies,
+        body_addOrbitalBody(gb,
                             name_item->valuestring,
                             mass_item->valuedouble,
                             radius_item->valuedouble,
@@ -72,7 +72,7 @@ void readBodyJSON(const char* FILENAME, body_properties_t** gb, int* num_bodies)
     cJSON_Delete(json);
 }
 
-void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t** sc, int* num_craft) {
+void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t* sc) {
     FILE *fp = fopen(FILENAME, "r");
     if (fp == NULL) {
         displayError("ERROR", "Error: Could not open spacecraft JSON");
@@ -133,7 +133,7 @@ void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t** sc, int*
         cJSON* burn_heading_item = cJSON_GetObjectItemCaseSensitive(craft, "burn_heading");
         cJSON* burn_throttle_item = cJSON_GetObjectItemCaseSensitive(craft, "burn_throttle");
 
-        craft_addSpacecraft(sc, num_craft,
+        craft_addSpacecraft(sc,
                             name_item->valuestring,
                             pos_x_item->valuedouble,
                             pos_y_item->valuedouble,
