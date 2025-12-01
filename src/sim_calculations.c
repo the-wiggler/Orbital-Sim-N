@@ -20,18 +20,28 @@ void body_calculateGravForce(const body_properties_t* bodies, const int i, const
     // calculate the distance between the two bodies
     const double delta_pos_x = bodies->pos_x[j] - bodies->pos_x[i];
     const double delta_pos_y = bodies->pos_y[j] - bodies->pos_y[i];
-    const double r = sqrt(delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y);
+    const double r_squared = delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y;
 
     // prevent division by zero
-    const double min_distance = 1.0;
-    if (r < min_distance) {
+    const double min_distance_squared = 1.0;
+    if (r_squared < min_distance_squared) {
         return;  // skip calculation if bodies are too close
     }
 
-    // calculate the force that j applies on i due to gravitation (F = (GMm) / r)
-    const double total_force = (G * bodies->mass[i] * bodies->mass[j]) / (r * r);
-    bodies->force_x[i] += total_force * (delta_pos_x / r);
-    bodies->force_y[i] += total_force * (delta_pos_y / r);
+    // optimized version of the gravitation equation because computers dislike division
+    // force = (G * m1 * m2) * delta / r^3
+    const double r = sqrt(r_squared);
+    const double r_cubed = r_squared * r;
+    const double force_factor = (G * bodies->mass[i] * bodies->mass[j]) / r_cubed;
+
+    const double force_x = force_factor * delta_pos_x;
+    const double force_y = force_factor * delta_pos_y;
+
+    // applies force to both bodies (since they apply the same force on one another)
+    bodies->force_x[i] += force_x;
+    bodies->force_y[i] += force_y;
+    bodies->force_x[j] -= force_x;
+    bodies->force_y[j] -= force_y;
 }
 
 // this calculates the changes of velocity and position based on the force values
@@ -215,21 +225,24 @@ void craft_calculateGravForce(const spacecraft_properties_t* sc, const int i, co
     // calculate the distance between the spacecraft and the body
     const double delta_pos_x = bodies->pos_x[j] - sc->pos_x[i];
     const double delta_pos_y = bodies->pos_y[j] - sc->pos_y[i];
-    const double r = sqrt(delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y);
+    const double r_squared = delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y;
 
     // calculate the ship mass with the current amount of fuel in it
     sc->current_total_mass[i] = sc->fuel_mass[i] + sc->dry_mass[i];
 
     // prevent division by zero
-    const double min_distance = 1.0;
-    if (r < min_distance) {
+    const double min_distance_squared = 1.0;
+    if (r_squared < min_distance_squared) {
         return;  // skip calculation if spacecraft is too close to body
     }
 
-    // calculate the force that the body applies on the craft due to gravitation (F = (GMm) / r)
-    const double total_force = (G * sc->current_total_mass[i] * bodies->mass[j]) / (r * r);
-    sc->grav_force_x[i] += total_force * (delta_pos_x / r);
-    sc->grav_force_y[i] += total_force * (delta_pos_y / r);
+    // force = (G * m1 * m2) * delta / r^3
+    const double r = sqrt(r_squared);
+    const double r_cubed = r_squared * r;
+    const double force_factor = (G * sc->current_total_mass[i] * bodies->mass[j]) / r_cubed;
+
+    sc->grav_force_x[i] += force_factor * delta_pos_x;
+    sc->grav_force_y[i] += force_factor * delta_pos_y;
 }
 
 // updates the force
@@ -580,24 +593,27 @@ void resetSim(double* sim_time, body_properties_t* gb, spacecraft_properties_t* 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN CALCULATION LOOP - THIS LOOP IS PLACED IN THE MAIN LOOP, AND DOES ALL NECESSARY CALCULATIONS //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-void runCalculations(body_properties_t* gb, spacecraft_properties_t* sc, window_params_t* wp) {
+void runCalculations(const body_properties_t* gb, const spacecraft_properties_t* sc, window_params_t* wp) {
     if (wp->sim_running) {
         ////////////////////////////////////////////////////////////////
         // calculate forces between all body pairs
         ////////////////////////////////////////////////////////////////
         if (gb != NULL && gb->count > 0) {
+            // initialize forces to zero to re-calculate them
             for (int i = 0; i < gb->count; i++) {
-                // initialize forces to zero to re-calculate them
                 gb->force_x[i] = 0;
                 gb->force_y[i] = 0;
-                // loop through every body and add the resultant force to the subject body force vector
-                for (int j = 0; j < gb->count; j++) {
-                    // check if the body is not calculating on itself
-                    if (i != j) {
-                        body_calculateGravForce(gb, i, j);
-                    }
+            }
+
+            // loop through every body and add the resultant force to the subject body force vector
+            for (int i = 0; i < gb->count; i++) {
+                for (int j = i + 1; j < gb->count; j++) {
+                    body_calculateGravForce(gb, i, j);
                 }
-                // calculate kinetic energy for this body
+            }
+
+            // calculate kinetic energy for each body
+            for (int i = 0; i < gb->count; i++) {
                 body_calculateKineticEnergy(gb, i);
             }
 

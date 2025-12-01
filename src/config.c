@@ -2,7 +2,6 @@
 #include "sim_calculations.h"
 #include "sdl_elements.h"
 #include <stdio.h>
-#include <math.h>
 #include <stdlib.h>
 #include <cjson/cJSON.h>
 

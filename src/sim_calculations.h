@@ -34,6 +34,6 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
                         double burn_start_time, double burn_duration,
                         double burn_heading, double burn_throttle);
 
-void runCalculations(body_properties_t* gb, spacecraft_properties_t* sc, window_params_t* wp); // MAIN CALCULATION LOOP -- DOES ALL THE MATH
+void runCalculations(const body_properties_t* gb, const spacecraft_properties_t* sc, window_params_t* wp); // MAIN CALCULATION LOOP -- DOES ALL THE MATH
 
 #endif

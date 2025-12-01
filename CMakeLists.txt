@@ -13,11 +13,35 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     add_compile_options(-Wall -Wextra)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        add_compile_options(-O3)
+        # Aggressive optimization flags for maximum performance
+        add_compile_options(
+            -O3
+            -march=native
+            -flto
+            -ffast-math
+            -funroll-loops
+        )
+        add_link_options(-flto)    # Enable LTO during linking
+
+        # GCC-specific optimizations
+        if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+            add_compile_options(-fno-stack-protector)  # Remove stack protection overhead
+        endif()
     endif()
     # For profiling: keep debug symbols and prevent aggressive inlining
     if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
         add_compile_options(-O1 -g -fno-inline)
+    endif()
+elseif(MSVC)
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        # MSVC optimization flags
+        add_compile_options(
+            /O2                    # Maximum optimization
+            /GL                    # Whole program optimization
+            /arch:AVX2             # Use AVX2 instructions if available
+            /fp:fast               # Fast floating-point model
+        )
+        add_link_options(/LTCG)    # Link-time code generation
     endif()
 endif()
 
