@@ -156,8 +156,8 @@ bool isMouseInRect(const int mouse_x, const int mouse_y, const int rect_x, const
 }
 
 void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, window_params_t* wp) {
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     for (int i = 0; i < gb->count; i++) {
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         // draw bodies
         SDL_RenderFillCircle(renderer, gb->pixel_coordinates_x[i],
                         gb->pixel_coordinates_y[i],
@@ -169,7 +169,7 @@ void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, windo
         gb->cached_body_coords_y[i][gb->cache_counter] = gb->pixel_coordinates_y[i];
 
         // if zooming, clear the path cache for this body
-        if (wp->is_zooming) {
+        if (wp->is_zooming || wp->is_dragging) {
             for (int n = 0; n < PATH_CACHE_LENGTH; n++) {
                 gb->cached_body_coords_x[i][n] = gb->pixel_coordinates_x[i];
                 gb->cached_body_coords_y[i][n] = gb->pixel_coordinates_y[i];
@@ -183,10 +183,8 @@ void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, windo
         }
     }
 
-    // reset zooming flag after clearing paths for all bodies
-    if (wp->is_zooming) {
-        wp->is_zooming = false;
-    }
+    // reset flag after clearing paths for all bodies
+    if (wp->is_zooming) wp->is_zooming = false;
 
     if (gb->cache_counter >= PATH_CACHE_LENGTH) gb->cache_counter = 0;
     gb->cache_counter++;
