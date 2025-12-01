@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
         runEventCheck(&event, &wp, &gb, &sc, &buttons, &stats_window);
 
         // render the bodies
-        body_renderOrbitBodies(renderer, &gb, wp);
+        body_renderOrbitBodies(renderer, &gb, &wp);
 
         // render the spacecraft
         craft_renderCrafts(renderer, &sc);

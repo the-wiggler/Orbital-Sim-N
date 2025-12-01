@@ -153,13 +153,26 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
         double* temp_force_x = (double*)realloc(gb->force_x, new_capacity * sizeof(double));
         double* temp_force_y = (double*)realloc(gb->force_y, new_capacity * sizeof(double));
         double* temp_kinetic = (double*)realloc(gb->kinetic_energy, new_capacity * sizeof(double));
+        float** temp_cached_body_coords_x = (float**)realloc(gb->cached_body_coords_x, new_capacity * sizeof(float*));
+        float** temp_cached_body_coords_y = (float**)realloc(gb->cached_body_coords_y, new_capacity * sizeof(float*));
 
         if (!temp_names || !temp_mass || !temp_radius || !temp_pixel_radius ||
             !temp_pos_x || !temp_pos_y || !temp_pixel_x || !temp_pixel_y ||
             !temp_vel_x || !temp_vel_y || !temp_vel || !temp_acc_x || !temp_acc_y ||
-            !temp_acc_x_prev || !temp_acc_y_prev || !temp_force_x || !temp_force_y || !temp_kinetic) {
+            !temp_acc_x_prev || !temp_acc_y_prev || !temp_force_x || !temp_force_y || !temp_kinetic ||
+            !temp_cached_body_coords_x || !temp_cached_body_coords_y) {
             displayError("ERROR", "Error: Failed to allocate memory for new body\n");
             return;
+        }
+
+        // allocate cache arrays for any new body slots
+        for (int i = gb->capacity; i < new_capacity; i++) {
+            temp_cached_body_coords_x[i] = (float*)calloc(PATH_CACHE_LENGTH, sizeof(float));
+            temp_cached_body_coords_y[i] = (float*)calloc(PATH_CACHE_LENGTH, sizeof(float));
+            if (!temp_cached_body_coords_x[i] || !temp_cached_body_coords_y[i]) {
+                displayError("ERROR", "Error: Failed to allocate memory for body cache arrays\n");
+                return;
+            }
         }
 
         gb->names = temp_names;
@@ -180,6 +193,8 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
         gb->force_x = temp_force_x;
         gb->force_y = temp_force_y;
         gb->kinetic_energy = temp_kinetic;
+        gb->cached_body_coords_x = temp_cached_body_coords_x;
+        gb->cached_body_coords_y = temp_cached_body_coords_y;
         gb->capacity = new_capacity;
     }
 
@@ -470,6 +485,21 @@ void resetSim(double* sim_time, body_properties_t* gb, spacecraft_properties_t* 
         for (int i = 0; i < gb->count; i++) {
             free(gb->names[i]);
         }
+
+        // free cache arrays for each body
+        if (gb->cached_body_coords_x != NULL) {
+            for (int i = 0; i < gb->capacity; i++) {
+                free(gb->cached_body_coords_x[i]);
+            }
+            free(gb->cached_body_coords_x);
+        }
+        if (gb->cached_body_coords_y != NULL) {
+            for (int i = 0; i < gb->capacity; i++) {
+                free(gb->cached_body_coords_y[i]);
+            }
+            free(gb->cached_body_coords_y);
+        }
+
         free(gb->names);
         free(gb->mass);
         free(gb->radius);
@@ -509,6 +539,8 @@ void resetSim(double* sim_time, body_properties_t* gb, spacecraft_properties_t* 
         gb->force_x = NULL;
         gb->force_y = NULL;
         gb->kinetic_energy = NULL;
+        gb->cached_body_coords_x = NULL;
+        gb->cached_body_coords_y = NULL;
     }
 
     // free all craft from memory

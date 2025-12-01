@@ -155,15 +155,41 @@ bool isMouseInRect(const int mouse_x, const int mouse_y, const int rect_x, const
             mouse_y >= rect_y && mouse_y <= rect_y + rect_h);
 }
 
-void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, const window_params_t wp) {
+void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, window_params_t* wp) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     for (int i = 0; i < gb->count; i++) {
         // draw bodies
         SDL_RenderFillCircle(renderer, gb->pixel_coordinates_x[i],
                         gb->pixel_coordinates_y[i],
-                        body_calculateVisualRadius(gb, i, wp));
+                        body_calculateVisualRadius(gb, i, *wp));
         SDL_WriteText(renderer, g_font_small, gb->names[i], gb->pixel_coordinates_x[i] - gb->pixel_radius[i], gb->pixel_coordinates_y[i] + gb->pixel_radius[i], TEXT_COLOR);
+
+        // cache current position
+        gb->cached_body_coords_x[i][gb->cache_counter] = gb->pixel_coordinates_x[i];
+        gb->cached_body_coords_y[i][gb->cache_counter] = gb->pixel_coordinates_y[i];
+
+        // if zooming, clear the path cache for this body
+        if (wp->is_zooming) {
+            for (int n = 0; n < PATH_CACHE_LENGTH; n++) {
+                gb->cached_body_coords_x[i][n] = gb->pixel_coordinates_x[i];
+                gb->cached_body_coords_y[i][n] = gb->pixel_coordinates_y[i];
+            }
+        }
+
+        // draw the paths of the bodies
+        SDL_SetRenderDrawColor(renderer, ACCENT_COLOR.r, ACCENT_COLOR.g, ACCENT_COLOR.b, ACCENT_COLOR.a);
+        for (int j = 0; j < PATH_CACHE_LENGTH; j++) {
+            SDL_RenderPoint(renderer, gb->cached_body_coords_x[i][j], gb->cached_body_coords_y[i][j]);
+        }
     }
+
+    // reset zooming flag after clearing paths for all bodies
+    if (wp->is_zooming) {
+        wp->is_zooming = false;
+    }
+
+    if (gb->cache_counter >= PATH_CACHE_LENGTH) gb->cache_counter = 0;
+    gb->cache_counter++;
 }
 
 void craft_renderCrafts(SDL_Renderer* renderer, const spacecraft_properties_t* sc) {
@@ -345,33 +371,68 @@ void renderStatsBox(SDL_Renderer* renderer, body_properties_t* bodies, const spa
 
     if (!bodies || bodies->count == 0) return;
 
+    // update cache every several frames (whatever its set to)
+    if (stats_window->frame_counter == 0) {
+        // cache velocity text for all bodies
+        stats_window->cached_body_count = bodies->count;
+        for (int i = 0; i < bodies->count && i < 10; i++) {
+            snprintf(stats_window->vel_text[i], sizeof(stats_window->vel_text[i]),
+                     "Vel %s: %.2e m/s", bodies->names[i], bodies->vel[i]);
+        }
+
+        // calculate and cache total system energy
+        double total_energy = calculateTotalSystemEnergy(bodies, sc);
+        snprintf(stats_window->total_energy_text, sizeof(stats_window->total_energy_text),
+                 "Total Energy: %.2e J", total_energy);
+
+        // cache change in total energy
+        snprintf(stats_window->delta_energy_text, sizeof(stats_window->delta_energy_text),
+                 "E'(t): %.2e", total_energy - stats_window->previous_total_energy);
+        stats_window->previous_total_energy = total_energy;
+
+        // measure initial energy on first call or when explicitly reset
+        if (!stats_window->measured_initial_energy) {
+            stats_window->initial_total_energy = total_energy;
+            stats_window->measured_initial_energy = true;
+        }
+
+        // cache error text and color
+        double error;
+        if (stats_window->initial_total_energy != 0) {
+            error = fabs(stats_window->initial_total_energy - total_energy) / fabs(stats_window->initial_total_energy) * 100.0;
+        } else {
+            error = 0.0;
+        }
+        snprintf(stats_window->error_text, sizeof(stats_window->error_text), "Error: %.4f%%", error);
+        stats_window->error_color = error < 0.1 ? (SDL_Color){120, 220, 140, 255} : (SDL_Color){240, 200, 120, 255};
+    }
+
+    // render cached text every frame
     float y = top_y;
 
-    // velocities
-    for (int i = 0; i < bodies->count; i++) {
-        char vel_text[64];
-        snprintf(vel_text, sizeof(vel_text), "Vel %s: %.2e m/s", bodies->names[i], bodies->vel[i]);
-        SDL_WriteText(renderer, g_font_small, vel_text, margin_x, y, (SDL_Color){180, 190, 210, 255});
+    // render velocities from cache
+    for (int i = 0; i < stats_window->cached_body_count && i < 10; i++) {
+        SDL_WriteText(renderer, g_font_small, stats_window->vel_text[i], margin_x, y, (SDL_Color){180, 190, 210, 255});
         y += line_height;
     }
 
-    // total system energy
-    double total_energy = calculateTotalSystemEnergy(bodies, sc);
-    char total_energy_text[64];
-    snprintf(total_energy_text, sizeof(total_energy_text), "Total Energy: %.2e J", total_energy);
-    SDL_WriteText(renderer, g_font_small, total_energy_text, margin_x, y, ACCENT_COLOR);
+    // render total energy from cache
+    SDL_WriteText(renderer, g_font_small, stats_window->total_energy_text, margin_x, y, ACCENT_COLOR);
     y += line_height;
 
-    // total error - measure initial energy on first call or when explicitly reset
-    if (!stats_window->measured_initial_energy) {
-        stats_window->initial_total_energy = total_energy;
-        stats_window->measured_initial_energy = true;
+    // render delta energy from cache
+    SDL_WriteText(renderer, g_font_small, stats_window->delta_energy_text, margin_x, y, ACCENT_COLOR);
+    y += line_height;
+
+    // render error from cache
+    SDL_WriteText(renderer, g_font_small, stats_window->error_text, margin_x, y, stats_window->error_color);
+
+    // increment frame counter
+    stats_window->frame_counter++;
+    // update every n frames
+    if (stats_window->frame_counter >= 15) {
+        stats_window->frame_counter = 0;
     }
-    double error = (stats_window->initial_total_energy != 0) ? fabs(stats_window->initial_total_energy - total_energy) / fabs(stats_window->initial_total_energy) * 100.0 : 0.0;
-    char error_text[64];
-    snprintf(error_text, sizeof(error_text), "Error: %.4f%%", error);
-    SDL_Color error_color = error < 0.1 ? (SDL_Color){120, 220, 140, 255} : (SDL_Color){240, 200, 120, 255};
-    SDL_WriteText(renderer, g_font_small, error_text, margin_x, y, error_color);
 }
 
 
@@ -455,8 +516,10 @@ static void handleMouseWheelEvent(const SDL_Event* event, window_params_t* wp, c
     }
     else {
         if (event->wheel.y > 0) {
+            wp->is_zooming = true;
             wp->meters_per_pixel *= 1.05;
         } else if (event->wheel.y < 0) {
+            wp->is_zooming = true;
             wp->meters_per_pixel /= 1.05;
         }
     }

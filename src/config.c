@@ -7,7 +7,12 @@
 
 // json handling logic for reading json files
 void readBodyJSON(const char* FILENAME, body_properties_t* gb) {
-    FILE *fp = fopen(FILENAME, "r");
+    #ifdef _WIN32
+        FILE *fp;
+        fopen_s(&fp, FILENAME, "r");
+    #else
+        FILE *fp = fopen(FILENAME, "r");
+    #endif
     if (fp == NULL) {
         displayError("ERROR", "Error: Could not open Body Properties JSON File");
         return;
@@ -72,7 +77,12 @@ void readBodyJSON(const char* FILENAME, body_properties_t* gb) {
 }
 
 void readSpacecraftJSON(const char* FILENAME, spacecraft_properties_t* sc) {
+    #ifdef _WIN32
+    FILE *fp;
+    fopen_s(&fp, FILENAME, "r");
+    #else
     FILE *fp = fopen(FILENAME, "r");
+    #endif
     if (fp == NULL) {
         displayError("ERROR", "Error: Could not open spacecraft JSON");
         return;

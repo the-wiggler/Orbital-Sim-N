@@ -21,7 +21,11 @@ typedef struct {
     float drag_start_y;
     float drag_origin_x;
     float drag_origin_y;
+
+    bool is_zooming;
 } window_params_t;
+
+#define PATH_CACHE_LENGTH 100
 
 // orbital bodies
 typedef struct {
@@ -46,6 +50,11 @@ typedef struct {
     double* force_x; // the forces acting on such body
     double* force_y;
     double* kinetic_energy;
+
+    int cache_counter;
+    int cache_valid_count; // number of valid entries in cache (0 to PATH_CACHE_LENGTH)
+    float** cached_body_coords_x; // array of pointers, one per body, each pointing to PATH_CACHE_LENGTH floats
+    float** cached_body_coords_y;
 } body_properties_t;
 
 typedef struct {
@@ -104,9 +113,19 @@ typedef struct {
 } spacecraft_properties_t;
 
 typedef struct {
+    int frame_counter;
     bool is_shown;
     double initial_total_energy;
     bool measured_initial_energy;
+    double previous_total_energy;
+
+    // cached text buffers for stats (updated every 30 frames)
+    char vel_text[10][64];  // velocity text for up to 10 bodies
+    char total_energy_text[64];
+    char delta_energy_text[64];
+    char error_text[64];
+    SDL_Color error_color;
+    int cached_body_count;
 } stats_window_t;
 
 typedef struct {
