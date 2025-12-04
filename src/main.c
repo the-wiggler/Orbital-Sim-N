@@ -16,8 +16,7 @@
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
 
 // universal gravitation constant
-char* FILENAME = "planet_data.json";
-char* SPACECRAFT_FILENAME = "spacecraft_data.json";
+char* SIMULATION_FILENAME = "simulation_data.json";
 
 TTF_Font* g_font = NULL;
 TTF_Font* g_font_small = NULL;
@@ -41,12 +40,11 @@ void* physicsSim(void* args) {
             pthread_mutex_unlock(&sim_vars_mutex);
         }
     }
-
     return NULL;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// MAIN
+// MAIN :)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
     (void)argc;  // Unused parameter

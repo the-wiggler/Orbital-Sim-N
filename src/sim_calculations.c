@@ -23,7 +23,7 @@ void body_calculateGravForce(const body_properties_t* bodies, const int i, const
     const double delta_pos_y = bodies->pos_y[j] - bodies->pos_y[i];
     const double r_squared = delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y;
 
-    // planet collision logic
+    // planet collision logic -- checks if planets are too close
     const double radius_squared = bodies->radius[i] * bodies->radius[i];
     if (r_squared < radius_squared) {
         wp->sim_running = false;
@@ -236,11 +236,22 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // calculates the force applied on a spacecraft by a specific body
 // (this should be used before any other force functions)
-void craft_calculateGravForce(const spacecraft_properties_t* sc, const int i, const body_properties_t* bodies, const int j) {
+void craft_calculateGravForce(const spacecraft_properties_t* sc, const int i, const body_properties_t* bodies, const int j, window_params_t* wp) {
     // calculate the distance between the spacecraft and the body
     const double delta_pos_x = bodies->pos_x[j] - sc->pos_x[i];
     const double delta_pos_y = bodies->pos_y[j] - sc->pos_y[i];
     const double r_squared = delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y;
+
+    // planet collision logic -- checks if craft is too close to the planet
+    const double radius_squared = bodies->radius[j] * bodies->radius[j];
+    if (r_squared < radius_squared) {
+        wp->sim_running = false;
+        wp->reset_sim = true;
+        char err_txt[128];
+        snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", sc->names[i], bodies->names[j]);
+        displayError("PLANET COLLISION", err_txt);
+        return;
+    }
 
     // calculate the ship mass with the current amount of fuel in it
     sc->current_total_mass[i] = sc->fuel_mass[i] + sc->dry_mass[i];
@@ -664,7 +675,7 @@ void runCalculations(const body_properties_t* gb, const spacecraft_properties_t*
 
                 // loop through all bodies and calculate gravitational forces on spacecraft
                 for (int j = 0; j < gb->count; j++) {
-                    craft_calculateGravForce(sc, i, gb, j);
+                    craft_calculateGravForce(sc, i, gb, j, wp);
                 }
 
                 // apply thrust first, then consume fuel

@@ -476,9 +476,8 @@ static void handleMouseButtonDownEvent(const SDL_Event* event, window_params_t* 
     }
     // existing button click handling
     else if (buttons->csv_load_button.is_hovered) {
-        // reads the JSON file associated with loading orbital bodies
-        readBodyJSON("planet_data.json", gb);
-        readSpacecraftJSON("spacecraft_data.json", sc);
+        // reads the JSON file associated with loading orbital bodies and spacecraft
+        readSimulationJSON("simulation_data.json", gb, sc);
         wp->sim_time = 0;
         // reset energy measurement so stats recalculate with new bodies
         stats_window->measured_initial_energy = false;
@@ -562,6 +561,7 @@ void runEventCheck(SDL_Event* event, window_params_t* wp, body_properties_t* gb,
     while (SDL_PollEvent(event)) {
         // check if x button is pressed to quit
         if (event->type == SDL_EVENT_QUIT) {
+            wp->reset_sim = true;
             wp->window_open = false;
             wp->sim_running = false;
         }

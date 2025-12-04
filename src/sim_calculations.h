@@ -20,7 +20,7 @@ void resetSim(window_params_t* wp, body_properties_t* gb, spacecraft_properties_
 double calculateTotalSystemEnergy(const body_properties_t* gb, const spacecraft_properties_t* sc);
 
 // spacecraft body stuff
-void craft_calculateGravForce(const spacecraft_properties_t* sc, int i, const body_properties_t* bodies, int j);
+void craft_calculateGravForce(const spacecraft_properties_t* sc, int i, const body_properties_t* bodies, int j, window_params_t* wp);
 void craft_transformCoordinates(const spacecraft_properties_t* sc, int i, window_params_t wp);
 void craft_updateMotion(const spacecraft_properties_t* sc, int i, double dt);
 void craft_applyThrust(const spacecraft_properties_t* sc, int i);
