@@ -234,7 +234,7 @@ SDL_Texture* createButtonTexture(SDL_Renderer* renderer, const button_t* button,
     SDL_Texture* tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int)button->width, (int)button->height);
     if (!tex) return NULL;
 
-    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_NONE);
     SDL_SetRenderTarget(renderer, tex);
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
@@ -254,17 +254,27 @@ SDL_Texture* createButtonTexture(SDL_Renderer* renderer, const button_t* button,
     SDL_Color border_light = {200, 200, 200, 255};
     SDL_Color border_dark = {30, 30, 30, 255};
 
-    SDL_SetRenderDrawColor(renderer, border_light.r, border_light.g, border_light.b, border_light.a);
+    if (button->is_hovered) {
+        SDL_SetRenderDrawColor(renderer, border_dark.r, border_dark.g, border_dark.b, border_dark.a);
+    }
+    else {
+        SDL_SetRenderDrawColor(renderer, border_light.r, border_light.g, border_light.b, border_light.a);
+    }
     SDL_RenderLine(renderer, 0, 0, button->width - 2, 0);
     SDL_RenderLine(renderer, 0, 0, 0, button->height - 2);
 
-    SDL_SetRenderDrawColor(renderer, border_dark.r, border_dark.g, border_dark.b, border_dark.a);
+    if (button->is_hovered) {
+        SDL_SetRenderDrawColor(renderer, border_light.r, border_light.g, border_light.b, border_light.a);
+    }
+    else {
+        SDL_SetRenderDrawColor(renderer, border_dark.r, border_dark.g, border_dark.b, border_dark.a);
+    }
     SDL_RenderLine(renderer, 1, button->height - 2, button->width - 2, button->height - 2);
     SDL_RenderLine(renderer, button->width - 2, 1, button->width - 2, button->height - 2);
 
     // centered text
     if (g_font && text) {
-        SDL_Surface* text_surface = TTF_RenderText_Blended(g_font, text, 0, TEXT_COLOR);
+        SDL_Surface* text_surface = TTF_RenderText_Solid(g_font, text, 0, TEXT_COLOR);
         if (text_surface) {
             float text_x = roundf((button->width - (float)text_surface->w) / 2.0f);
             float text_y = roundf((button->height - (float)text_surface->h) / 2.0f);
