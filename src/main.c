@@ -51,8 +51,8 @@ int main(int argc, char *argv[]) {
 
     // SDL ttf font stuff
     TTF_Init();
-    g_font = TTF_OpenFont("CascadiaCode.ttf", wp.font_size);
-    g_font_small = TTF_OpenFont("CascadiaCode.ttf", (float)wp.window_size_x / 90);
+    g_font = TTF_OpenFont("font.ttf", wp.font_size);
+    g_font_small = TTF_OpenFont("font.ttf", (float)wp.window_size_x / 90);
 
     ////////////////////////////////////////
     // SIM VARS                           //
@@ -162,6 +162,9 @@ int main(int argc, char *argv[]) {
         .wp = &wp,
     };
     cleanup(&clean_args);
+
+    // cleanup button textures
+    destroyAllButtonTextures(&buttons);
 
     if (g_font) TTF_CloseFont(g_font);
     if (g_font_small) TTF_CloseFont(g_font_small);

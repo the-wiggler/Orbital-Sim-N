@@ -69,7 +69,7 @@ void SDL_WriteText(SDL_Renderer* renderer, TTF_Font* font, const char* text, con
         return;
     }
 
-    SDL_FRect text_rect = {x, y, (float)text_surface->w, (float)text_surface->h};
+    SDL_FRect text_rect = {roundf(x), roundf(y), (float)text_surface->w, (float)text_surface->h};
     SDL_RenderTexture(renderer, text_texture, NULL, &text_rect);
 
     SDL_DestroyTexture(text_texture);
@@ -229,37 +229,110 @@ void renderTimeIndicators(SDL_Renderer* renderer, const window_params_t wp) {
 
 }
 
-// generic button renderer
-void renderButton(SDL_Renderer* renderer, const button_t* button, const char* text) {
-    // set background color based on hover state
-    SDL_Color bg_color = button->is_hovered ? button->hover_color : button->normal_color;
+// creates a texture for a button with the given text and background color
+SDL_Texture* createButtonTexture(SDL_Renderer* renderer, const button_t* button, const char* text, SDL_Color bg_color) {
+    SDL_Texture* tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int)button->width, (int)button->height);
+    if (!tex) return NULL;
 
-    // draw button background
-    SDL_FRect bg_rect = {
-        (float)button->x,
-        (float)button->y,
-        (float)button->width,
-        (float)button->height
-    };
+    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderTarget(renderer, tex);
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+
+    // drop shadow
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 128);
+    SDL_FRect shadow_rect = {1, 1, button->width - 2, button->height - 2};
+    SDL_RenderFillRect(renderer, &shadow_rect);
+
+    // main background
     SDL_SetRenderDrawColor(renderer, bg_color.r, bg_color.g, bg_color.b, bg_color.a);
+    SDL_FRect bg_rect = {1, 1, button->width - 2, button->height - 2};
     SDL_RenderFillRect(renderer, &bg_rect);
 
-    // center text in button
+    // border/shadow
+    SDL_Color border_light = {200, 200, 200, 255};
+    SDL_Color border_dark = {30, 30, 30, 255};
+
+    SDL_SetRenderDrawColor(renderer, border_light.r, border_light.g, border_light.b, border_light.a);
+    SDL_RenderLine(renderer, 0, 0, button->width - 2, 0);
+    SDL_RenderLine(renderer, 0, 0, 0, button->height - 2);
+
+    SDL_SetRenderDrawColor(renderer, border_dark.r, border_dark.g, border_dark.b, border_dark.a);
+    SDL_RenderLine(renderer, 1, button->height - 2, button->width - 2, button->height - 2);
+    SDL_RenderLine(renderer, button->width - 2, 1, button->width - 2, button->height - 2);
+
+    // centered text
     if (g_font && text) {
         SDL_Surface* text_surface = TTF_RenderText_Blended(g_font, text, 0, TEXT_COLOR);
         if (text_surface) {
-            float text_x = button->x + (button->width - (float)text_surface->w) / 2.0f;
-            float text_y = button->y + (button->height - (float)text_surface->h) / 2.0f;
+            float text_x = roundf((button->width - (float)text_surface->w) / 2.0f);
+            float text_y = roundf((button->height - (float)text_surface->h) / 2.0f);
 
-            SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-            if (text_texture) {
+            SDL_Texture* text_tex = SDL_CreateTextureFromSurface(renderer, text_surface);
+            if (text_tex) {
                 SDL_FRect text_rect = {text_x, text_y, (float)text_surface->w, (float)text_surface->h};
-                SDL_RenderTexture(renderer, text_texture, NULL, &text_rect);
-                SDL_DestroyTexture(text_texture);
+                SDL_RenderTexture(renderer, text_tex, NULL, &text_rect);
+                SDL_DestroyTexture(text_tex);
             }
             SDL_DestroySurface(text_surface);
         }
     }
+
+    SDL_SetRenderTarget(renderer, NULL);
+    return tex;
+}
+
+
+
+// renders a button using the default button texture
+void renderButton(SDL_Renderer* renderer, const button_t* button) {
+    // choose which texture to use based on hover state
+    SDL_Texture* tex = button->is_hovered ? button->hover_texture : button->normal_texture;
+
+    if (tex) {
+        SDL_FRect dst = {button->x, button->y, button->width, button->height};
+        SDL_RenderTexture(renderer, tex, NULL, &dst);
+    }
+}
+
+// updates button textures (call when text changes or button is created)
+void updateButtonTextures(SDL_Renderer* renderer, button_t* button, const char* text) {
+    // destroy old textures if they exist
+    if (button->normal_texture) {
+        SDL_DestroyTexture(button->normal_texture);
+        button->normal_texture = NULL;
+    }
+    if (button->hover_texture) {
+        SDL_DestroyTexture(button->hover_texture);
+        button->hover_texture = NULL;
+    }
+
+    // create new textures
+    button->normal_texture = createButtonTexture(renderer, button, text, button->normal_color);
+    button->hover_texture = createButtonTexture(renderer, button, text, button->hover_color);
+    button->textures_valid = true;
+}
+
+// destroys button textures (for cleanup)
+void destroyButtonTextures(button_t* button) {
+    if (button->normal_texture) {
+        SDL_DestroyTexture(button->normal_texture);
+        button->normal_texture = NULL;
+    }
+    if (button->hover_texture) {
+        SDL_DestroyTexture(button->hover_texture);
+        button->hover_texture = NULL;
+    }
+    button->textures_valid = false;
+}
+
+// destroys all button textures in button_storage_t
+void destroyAllButtonTextures(button_storage_t* buttons) {
+    destroyButtonTextures(&buttons->sc_button);
+    destroyButtonTextures(&buttons->csv_load_button);
+    destroyButtonTextures(&buttons->craft_view_button);
+    destroyButtonTextures(&buttons->show_stats_button);
 }
 
 // initializes all button properties based on window parameters
@@ -277,7 +350,10 @@ void initButtons(button_storage_t* buttons, const window_params_t wp) {
         .height = button_height,
         .is_hovered = false,
         .normal_color = BUTTON_COLOR,
-        .hover_color = BUTTON_HOVER_COLOR
+        .hover_color = BUTTON_HOVER_COLOR,
+        .normal_texture = NULL,
+        .hover_texture = NULL,
+        .textures_valid = false
     };
 
     // csv loading button (bottom right)
@@ -288,7 +364,10 @@ void initButtons(button_storage_t* buttons, const window_params_t wp) {
         .y = wp.window_size_y - button_height - margin,
         .is_hovered = false,
         .normal_color = BUTTON_COLOR,
-        .hover_color = BUTTON_HOVER_COLOR
+        .hover_color = BUTTON_HOVER_COLOR,
+        .normal_texture = NULL,
+        .hover_texture = NULL,
+        .textures_valid = false
     };
 
     // craft view button (above csv button)
@@ -299,7 +378,10 @@ void initButtons(button_storage_t* buttons, const window_params_t wp) {
         .height = button_height,
         .is_hovered = false,
         .normal_color = BUTTON_COLOR,
-        .hover_color = BUTTON_HOVER_COLOR
+        .hover_color = BUTTON_HOVER_COLOR,
+        .normal_texture = NULL,
+        .hover_texture = NULL,
+        .textures_valid = false
     };
 
     // show stats window button (above craft view button)
@@ -310,7 +392,10 @@ void initButtons(button_storage_t* buttons, const window_params_t wp) {
         .height = button_height,
         .is_hovered = false,
         .normal_color = BUTTON_COLOR,
-        .hover_color = BUTTON_HOVER_COLOR
+        .hover_color = BUTTON_HOVER_COLOR,
+        .normal_texture = NULL,
+        .hover_texture = NULL,
+        .textures_valid = false
     };
 }
 
@@ -318,20 +403,23 @@ void initButtons(button_storage_t* buttons, const window_params_t wp) {
 // remember: you must add this button to the event handling logic for it to work!!!
 // remember: you must add each button to the button_storage_t struct!!
 // remember: you must add this to initButtons!
-void renderUIButtons(SDL_Renderer* renderer, const button_storage_t* buttons, const window_params_t* wp) {
-    // speed control button
+// remember: you must add this to destroyAllButtonTextures
+void renderUIButtons(SDL_Renderer* renderer, button_storage_t* buttons, const window_params_t* wp) {
+    // speed control button - dynamic text, update every frame
     char speed_text[32];
     snprintf(speed_text, sizeof(speed_text), "Time Step: %.5f s", wp->time_step);
-    renderButton(renderer, &buttons->sc_button, speed_text);
+    updateButtonTextures(renderer, &buttons->sc_button, speed_text);
+    renderButton(renderer, &buttons->sc_button);
 
-    // csv loading button
-    renderButton(renderer, &buttons->csv_load_button, "Load CSV");
+    // buttons
+    updateButtonTextures(renderer, &buttons->csv_load_button, "Load CSV");
+    renderButton(renderer, &buttons->csv_load_button);
 
-    // craft view button
-    renderButton(renderer, &buttons->craft_view_button, "Craft View");
+    updateButtonTextures(renderer, &buttons->craft_view_button, "Craft View");
+    renderButton(renderer, &buttons->craft_view_button);
 
-    // show stats window button
-    renderButton(renderer, &buttons->show_stats_button, "Stats");
+    updateButtonTextures(renderer, &buttons->show_stats_button, "Stats");
+    renderButton(renderer, &buttons->show_stats_button);
 }
 
 // show error window
@@ -577,7 +665,11 @@ static void handleWindowResizeEvent(const SDL_Event* event, window_params_t* wp,
     // update font size proportionally
     wp->font_size = wp->window_size_x / 75;
     if (g_font) TTF_CloseFont(g_font);
-    g_font = TTF_OpenFont("CascadiaCode.ttf", wp->font_size);
+    g_font = TTF_OpenFont("assets/font.ttf", wp->font_size);
+    if (g_font) TTF_SetFontHinting(g_font, TTF_HINTING_NORMAL);
+
+    // destroy old button textures before reinitializing
+    destroyAllButtonTextures(buttons);
 
     // update button position and size
     initButtons(buttons, *wp);

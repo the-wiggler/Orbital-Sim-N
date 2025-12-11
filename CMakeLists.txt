@@ -99,8 +99,8 @@ endif()
 # Copy assets to build directory
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/assets/CascadiaCode.ttf"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/CascadiaCode.ttf"
+        "${CMAKE_SOURCE_DIR}/assets/font.ttf"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/font.ttf"
         COMMENT "Copying font file"
 )
 

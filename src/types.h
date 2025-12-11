@@ -132,6 +132,9 @@ typedef struct {
     bool is_hovered;
     SDL_Color normal_color;
     SDL_Color hover_color;
+    SDL_Texture* normal_texture;
+    SDL_Texture* hover_texture;
+    bool textures_valid;
 } button_t;
 
 typedef struct {

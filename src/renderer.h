@@ -12,8 +12,12 @@ void body_renderOrbitBodies(SDL_Renderer* renderer, body_properties_t* gb, windo
 void craft_renderCrafts(SDL_Renderer* renderer, const spacecraft_properties_t* sc);
 void renderTimeIndicators(SDL_Renderer* renderer, window_params_t wp);
 void SDL_WriteText(SDL_Renderer* renderer, TTF_Font* font, const char* text, float x, float y, SDL_Color color);
-void renderButton(SDL_Renderer* renderer, const button_t* button, const char* text);
-void renderUIButtons(SDL_Renderer* renderer, const button_storage_t* buttons, const window_params_t* wp);
+SDL_Texture* createButtonTexture(SDL_Renderer* renderer, const button_t* button, const char* text, SDL_Color bg_color);
+void renderButton(SDL_Renderer* renderer, const button_t* button);
+void updateButtonTextures(SDL_Renderer* renderer, button_t* button, const char* text);
+void destroyButtonTextures(button_t* button);
+void destroyAllButtonTextures(button_storage_t* buttons);
+void renderUIButtons(SDL_Renderer* renderer, button_storage_t* buttons, const window_params_t* wp);
 void initButtons(button_storage_t* buttons, window_params_t wp);
 void init_window_params(window_params_t* wp);
 void displayError(const char* title, const char* message);
