@@ -1,6 +1,6 @@
-#include "json_loader.h"
-#include "bodies.h"
-#include "spacecraft.h"
+#include "../utility/json_loader.h"
+#include "../sim/bodies.h"
+#include "../sim/spacecraft.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <cjson/cJSON.h>

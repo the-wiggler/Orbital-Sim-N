@@ -63,16 +63,16 @@ set(SOURCES
         src/types.h
         src/globals.h
         src/globals.c
-        src/bodies.h
-        src/bodies.c
-        src/spacecraft.h
-        src/spacecraft.c
-        src/renderer.h
-        src/renderer.c
-        src/json_loader.h
-        src/json_loader.c
-        src/simulation.h
-        src/simulation.c
+        src/sim/bodies.h
+        src/sim/bodies.c
+        src/sim/spacecraft.h
+        src/sim/spacecraft.c
+        src/gui/renderer.h
+        src/gui/renderer.c
+        src/utility/json_loader.h
+        src/utility/json_loader.c
+        src/sim/simulation.h
+        src/sim/simulation.c
 )
 
 # Create executable

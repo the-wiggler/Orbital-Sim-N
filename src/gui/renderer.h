@@ -3,7 +3,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include "types.h"
+#include "../types.h"
 
 void SDL_RenderFillCircle(SDL_Renderer* renderer, float centerX, float centerY, float radius);
 void drawScaleBar(SDL_Renderer* renderer, window_params_t wp);

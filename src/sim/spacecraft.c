@@ -1,5 +1,5 @@
 #include "spacecraft.h"
-#include "globals.h"
+#include "../globals.h"
 #include <math.h>
 #include <string.h>
 #include <stdio.h>

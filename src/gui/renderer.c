@@ -1,7 +1,7 @@
-#include "renderer.h"
-#include "globals.h"
-#include "bodies.h"
-#include "simulation.h"
+#include "../gui/renderer.h"
+#include "../globals.h"
+#include "../sim/bodies.h"
+#include "../sim/simulation.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -563,7 +563,7 @@ static void handleMouseMotionEvent(const SDL_Event* event, window_params_t* wp, 
         int delta_y = mouse_y - (int)wp->drag_start_y;
         wp->screen_origin_x = wp->drag_origin_x + (float)delta_x;
         wp->screen_origin_y = wp->drag_origin_y + (float)delta_y;
-    }
+    }//
 
     // update hover state for speed control button
     buttons->sc_button.is_hovered = isMouseInRect(mouse_x, mouse_y,

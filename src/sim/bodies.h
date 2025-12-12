@@ -1,7 +1,7 @@
 #ifndef BODIES_H
 #define BODIES_H
 
-#include "types.h"
+#include "../types.h"
 
 void body_calculateGravForce(const body_properties_t* bodies, int i, int j, window_params_t* wp);
 void body_updateMotion(const body_properties_t* bodies, int i, double dt);

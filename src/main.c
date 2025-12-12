@@ -1,7 +1,7 @@
 #include "globals.h"
 #include "types.h"
-#include "simulation.h"
-#include "renderer.h"
+#include "sim/simulation.h"
+#include "gui/renderer.h"
 #ifdef _WIN32
     #include <windows.h>
 #else

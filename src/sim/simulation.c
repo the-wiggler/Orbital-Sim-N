@@ -1,7 +1,7 @@
 #include "simulation.h"
-#include "globals.h"
-#include "bodies.h"
-#include "spacecraft.h"
+#include "../globals.h"
+#include "../sim/bodies.h"
+#include "../sim/spacecraft.h"
 #include <math.h>
 
 // calculate total system energy for all bodies
