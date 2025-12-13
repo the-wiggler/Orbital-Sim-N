@@ -17,11 +17,15 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
         add_compile_options(
             -O3
             -march=native
-            -flto
+            -mtune=native
+            -flto=auto
             -ffast-math
             -funroll-loops
+            -mavx2 -mfma
+            -fno-math-errno -fno-trapping-math
+            -DNDEBUG
         )
-        add_link_options(-flto)    # Enable LTO during linking
+        add_link_options(-flto=auto)    # Enable LTO during linking
 
         # GCC-specific optimizations
         if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
