@@ -135,7 +135,7 @@ void craft_drawCraftPropertyArrows(SDL_Renderer* renderer, const window_params_t
 
         char abs_v_text[32];
         snprintf(abs_v_text, sizeof(abs_v_text), "%.2f m/s", sc->vel[craft_id]);
-        SDL_WriteText(renderer, g_font_small, "Absolute v", abs_v_arrow_end_x, abs_v_arrow_end_y, TEXT_COLOR);
+        SDL_WriteText(renderer, g_font_small, "Σv", abs_v_arrow_end_x, abs_v_arrow_end_y, TEXT_COLOR);
 
         ////////////////////////////////////////////////////
         // net acceleration arrow
@@ -149,7 +149,7 @@ void craft_drawCraftPropertyArrows(SDL_Renderer* renderer, const window_params_t
 
         char a_text[32];
         snprintf(a_text, sizeof(a_text), "%.2f m/s^2", sc->vel[craft_id]);
-        SDL_WriteText(renderer, g_font_small, "net a", acc_arrow_x, acc_arrow_y, TEXT_COLOR);
+        SDL_WriteText(renderer, g_font_small, "Σa", acc_arrow_x, acc_arrow_y, TEXT_COLOR);
 
     }
 }
@@ -249,7 +249,7 @@ void craft_drawCraftInfo(SDL_Renderer* renderer, const window_params_t* wp, cons
     // nearest body info
     if (gb != NULL && gb->count > 0) {
         int closest_body_id = 0;
-        double min_distance = INFINITY;
+        double min_distance = 0.0;
         for (int i = 0; i < gb->count; i++) {
             const rel_body_vector_t bv = craft_calcVectorToBody(sc, gb, craft_id, i);
             if (bv.distance < min_distance) {
