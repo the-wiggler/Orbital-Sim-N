@@ -258,26 +258,6 @@ void runCalculations(const body_properties_t* gb, const spacecraft_properties_t*
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// PHYSICS SIMULATION THREAD
-////////////////////////////////////////////////////////////////////////////////////////////////////
-void* physicsSim(void* args) {
-    const physics_sim_args* s = (physics_sim_args*)args;
-    while (s->wp->window_open) {
-        while (s->wp->sim_running) {
-            // lock mutex before accessing data
-            pthread_mutex_lock(&sim_vars_mutex);
-
-            // IMPORTANT -- DOES ALL BODY CALCULATIONS:
-            runCalculations(s->gb, s->sc, s->wp);
-
-            // unlock mutex when done :)
-            pthread_mutex_unlock(&sim_vars_mutex);
-        }
-    }
-    return NULL;
-}
-
 // cleanup for main
 void cleanup(void* args) {
     const cleanup_args* c = (cleanup_args*)args;

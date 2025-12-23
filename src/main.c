@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "globals.h"
 #include "types.h"
 #include "sim/simulation.h"
@@ -18,6 +20,26 @@
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// PHYSICS SIMULATION THREAD
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void* physicsSim(void* args) {
+    const physics_sim_args* s = (physics_sim_args*)args;
+    while (s->wp->window_open) {
+        while (s->wp->sim_running) {
+            // lock mutex before accessing data
+            pthread_mutex_lock(&sim_vars_mutex);
+
+            // DOES ALL BODY AND CRAFT CALCULATIONS:
+            runCalculations(s->gb, s->sc, s->wp);
+
+            // unlock mutex when done :)
+            pthread_mutex_unlock(&sim_vars_mutex);
+        }
+    }
+    return NULL;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN :)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
@@ -26,6 +48,10 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
     // INIT                               //
     ////////////////////////////////////////
+
+    // binary file creation
+    FILE* BODY_POS_FILE = fopen("body_pos_data.bin", "wb");
+    if (!BODY_POS_FILE) displayError("ERROR", "Error: unable to create position data binary file");
 
     // initialize window parameters
     SDL_Init(SDL_INIT_VIDEO);
@@ -130,6 +156,20 @@ int main(int argc, char *argv[]) {
             craft_RenderCraftView(renderer, &wp, &gb, &sc);
         }
 
+        wp.data_logging_enabled = true;
+        if (wp.data_logging_enabled) {
+            // write body position data to the .bin file if enabled
+            for (int i = 0; i < gb.count; i++) {
+                body_pos_data bpd;
+                bpd.timestamp = wp.sim_time;
+                bpd.body_index = i;
+                bpd.pos_data_x = gb.pos_x[i];
+                bpd.pos_data_y = gb.pos_y[i];
+
+                fwrite(&bpd, sizeof(bpd), 1, BODY_POS_FILE);
+            }
+        }
+
         // check if sim needs to be reset
         if (wp.reset_sim) resetSim(&wp, &gb, &sc);
 
@@ -167,6 +207,7 @@ int main(int argc, char *argv[]) {
     // cleanup button textures
     destroyAllButtonTextures(&buttons);
 
+    fclose(BODY_POS_FILE);
     if (g_font) TTF_CloseFont(g_font);
     if (g_font_small) TTF_CloseFont(g_font_small);
     TTF_Quit();

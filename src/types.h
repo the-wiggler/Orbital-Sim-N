@@ -14,6 +14,7 @@ typedef struct {
     double meters_per_pixel;
     float font_size;
     bool window_open;
+    bool data_logging_enabled;
     bool sim_running;
     double sim_time;
     SDL_WindowID main_window_ID;
@@ -163,5 +164,12 @@ typedef struct {
     spacecraft_properties_t* sc;
     window_params_t* wp;
 } cleanup_args;
+
+typedef struct {
+    double timestamp;
+    int body_index;
+    double pos_data_x;
+    double pos_data_y;
+} body_pos_data;
 
 #endif

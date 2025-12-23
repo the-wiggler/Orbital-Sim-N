@@ -23,6 +23,7 @@ void init_window_params(window_params_t* wp) {
     wp->font_size = (float)wp->window_size_x / 50;
     wp->window_open = true;
     wp->sim_running = true;
+    wp->data_logging_enabled = false;
     wp->sim_time = 0;
 
     wp->is_dragging = false;
