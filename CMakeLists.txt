@@ -91,6 +91,8 @@ set(SOURCES
         src/sim/simulation.c
         src/gui/craft_view.c
         src/gui/craft_view.h
+        src/utility/telemetry_export.c
+        src/utility/telemetry_export.h
 )
 
 # Create executable

@@ -166,6 +166,11 @@ typedef struct {
 } cleanup_args;
 
 typedef struct {
+    FILE* body_pos_FILE;
+    FILE* world_data_FILE;
+} binary_filenames_t;
+
+typedef struct {
     double timestamp;
     int body_index;
     double pos_data_x;

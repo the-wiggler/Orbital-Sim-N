@@ -5,6 +5,7 @@
 #include "sim/simulation.h"
 #include "gui/renderer.h"
 #include "gui/craft_view.h"
+#include "utility/telemetry_export.h"
 #ifdef _WIN32
     #include <windows.h>
 #else
@@ -50,8 +51,10 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
 
     // binary file creation
-    FILE* BODY_POS_FILE = fopen("body_pos_data.bin", "wb");
-    if (!BODY_POS_FILE) displayError("ERROR", "Error: unable to create position data binary file");
+    binary_filenames_t filenames = {
+        .body_pos_FILE = fopen("body_pos_data.bin", "wb"),
+    };
+    if (!filenames.body_pos_FILE) displayError("ERROR", "Error: unable to create position data binary file");
 
     // initialize window parameters
     SDL_Init(SDL_INIT_VIDEO);
@@ -158,16 +161,7 @@ int main(int argc, char *argv[]) {
 
         wp.data_logging_enabled = true;
         if (wp.data_logging_enabled) {
-            // write body position data to the .bin file if enabled
-            for (int i = 0; i < gb.count; i++) {
-                body_pos_data bpd;
-                bpd.timestamp = wp.sim_time;
-                bpd.body_index = i;
-                bpd.pos_data_x = gb.pos_x[i];
-                bpd.pos_data_y = gb.pos_y[i];
-
-                fwrite(&bpd, sizeof(bpd), 1, BODY_POS_FILE);
-            }
+            exportTelemetryBinary(filenames, wp, gb, sc);
         }
 
         // check if sim needs to be reset
@@ -207,7 +201,7 @@ int main(int argc, char *argv[]) {
     // cleanup button textures
     destroyAllButtonTextures(&buttons);
 
-    fclose(BODY_POS_FILE);
+    fclose(filenames.body_pos_FILE);
     if (g_font) TTF_CloseFont(g_font);
     if (g_font_small) TTF_CloseFont(g_font_small);
     TTF_Quit();
