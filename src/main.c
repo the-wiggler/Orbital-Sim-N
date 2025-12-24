@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 
     // binary file creation
     binary_filenames_t filenames = {
-        .body_pos_FILE = fopen("body_pos_data.bin", "wb"),
+        .global_data_FILE = fopen("global_data.bin", "wb")
     };
 
     // initialize window parameters
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
     // cleanup button textures
     destroyAllButtonTextures(&buttons);
 
-    fclose(filenames.body_pos_FILE);
+    fclose(filenames.global_data_FILE);
     if (g_font) TTF_CloseFont(g_font);
     if (g_font_small) TTF_CloseFont(g_font_small);
     TTF_Quit();

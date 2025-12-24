@@ -126,6 +126,7 @@ typedef struct {
     body_properties_t gb; // global bodies
     spacecraft_properties_t gs; // global spacecraft
     window_params_t wp; // window properties
+    double system_kinetic_energy, system_potential_energy; // total energies of the whole system (reset each iteration)
 } sim_properties_t;
 
 typedef struct {
@@ -163,14 +164,16 @@ typedef struct {
 
 typedef struct {
     FILE* body_pos_FILE;
-    FILE* world_data_FILE;
+    FILE* global_data_FILE;
 } binary_filenames_t;
 
 typedef struct {
     double timestamp;
     int body_index;
-    double pos_data_x;
-    double pos_data_y;
-} body_pos_data;
+    double pos_data_x, pos_data_y;
+    double vel_data_x, vel_data_y;
+    double acc_data_x, acc_data_y;
+    double force_data_x, force_data_y;
+} global_data_t;
 
 #endif
