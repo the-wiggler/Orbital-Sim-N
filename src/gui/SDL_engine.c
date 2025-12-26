@@ -1,39 +1,78 @@
 #include "../gui/SDL_engine.h"
 #include "../globals.h"
 #include "../sim/bodies.h"
+#include <SDL3/SDL.h>
+#include <GL/glew.h>
+#include <GL/gl.h>
 
 // display error message using SDL dialog
 void displayError(const char* title, const char* message) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, message, NULL);
 }
-
 // initialize the window parameters
-void init_window_params(window_params_t* wp) {
+window_params_t init_window_params() {
+    window_params_t wp = {0};
+
     // gets screen width and height parameters from computer
     const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
 
-    wp->time_step = 1;
+    wp.time_step = 1;
     // sets the default window size scaled based on the user's screen size
-    wp->window_size_x = (float)mode->w * (2.0f/3.0f);
-    wp->window_size_y = (float)mode->h * (2.0f/3.0f);
-    wp->screen_origin_x = wp->window_size_x / 2;
-    wp->screen_origin_y = wp->window_size_y / 2;
-    wp->meters_per_pixel = 100000;
-    wp->font_size = (float)wp->window_size_x / 50;
-    wp->window_open = true;
-    wp->sim_running = true;
-    wp->data_logging_enabled = false;
-    wp->sim_time = 0;
+    wp.window_size_x = (float)mode->w * (2.0f/3.0f);
+    wp.window_size_y = (float)mode->h * (2.0f/3.0f);
 
-    wp->is_dragging = false;
-    wp->drag_start_x = 0;
-    wp->drag_start_y = 0;
-    wp->drag_origin_x = 0;
-    wp->drag_origin_y = 0;
+    // initialize 3D camera
+    wp.camera_pos[0] = 2.0f; wp.camera_pos[1] = 2.0f; wp.camera_pos[2] = 3.0f;
+    wp.zoom = 1.5f;
 
-    wp->main_view_shown = true;
-    wp->craft_view_shown = false;
+    wp.font_size = (float)wp.window_size_x / 50;
+    wp.window_open = true;
+    wp.sim_running = true;
+    wp.data_logging_enabled = false;
+    wp.sim_time = 0;
+
+    wp.is_dragging = false;
+
+    wp.main_view_shown = true;
+    wp.craft_view_shown = false;
+
+    return wp;
 }
+
+SDL_GL_init_t init_SDL_OPENGL_window(const char* title, int width, int height, Uint32* outWindowID) {
+    SDL_GL_init_t result = {0};
+
+    // set OpenGL attributes
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+    // create SDL window
+    result.window = SDL_CreateWindow(title, width, height,
+        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+
+    // store window ID
+    if (outWindowID) {
+        *outWindowID = SDL_GetWindowID(result.window);
+    }
+
+    // initialize OpenGL context and GLEW
+    result.glContext = SDL_GL_CreateContext(result.window);
+    glewExperimental = GL_TRUE;
+    glewInit();
+
+    // enable VSync
+    SDL_GL_SetSwapInterval(1);
+
+    printf("OpenGL version: %p\n", glGetString(GL_VERSION));
+    printf("GLEW version: %p\n", glewGetString(GLEW_VERSION));
+
+    return result;
+}
+
 
 // thing that calculates changing sim speed
 bool isMouseInRect(const int mouse_x, const int mouse_y, const int rect_x, const int rect_y, const int rect_w, const int rect_h) {
@@ -48,15 +87,8 @@ bool isMouseInRect(const int mouse_x, const int mouse_y, const int rect_x, const
 static void handleMouseMotionEvent(const SDL_Event* event, sim_properties_t* sim) {
     window_params_t* wp = &sim->wp;
 
-    int mouse_x = (int)event->motion.x;
-    int mouse_y = (int)event->motion.y;
-
     // viewport dragging
     if (wp->is_dragging) {
-        int delta_x = mouse_x - (int)wp->drag_start_x;
-        int delta_y = mouse_y - (int)wp->drag_start_y;
-        wp->screen_origin_x = wp->drag_origin_x + (float)delta_x;
-        wp->screen_origin_y = wp->drag_origin_y + (float)delta_y;
     }
 }
 
@@ -69,10 +101,6 @@ static void handleMouseButtonDownEvent(const SDL_Event* event, sim_properties_t*
     // check if right mouse button or middle mouse button (for dragging)
     if (event->button.button == SDL_BUTTON_RIGHT || event->button.button == SDL_BUTTON_MIDDLE) {
         wp->is_dragging = true;
-        wp->drag_start_x = event->button.x;
-        wp->drag_start_y = event->button.y;
-        wp->drag_origin_x = wp->screen_origin_x;
-        wp->drag_origin_y = wp->screen_origin_y;
     }
 }
 
@@ -89,15 +117,12 @@ static void handleMouseButtonUpEvent(const SDL_Event* event, sim_properties_t* s
 static void handleMouseWheelEvent(const SDL_Event* event, sim_properties_t* sim) {
     window_params_t* wp = &sim->wp;
 
-    int mouse_x = (int)event->wheel.mouse_x;
-    int mouse_y = (int)event->wheel.mouse_y;
-
     if (event->wheel.y > 0) {
         wp->is_zooming = true;
-        wp->meters_per_pixel *= 1.05;
+        wp->zoom *= 1.1f;
     } else if (event->wheel.y < 0) {
         wp->is_zooming = true;
-        wp->meters_per_pixel /= 1.05;
+        wp->zoom /= 1.1f;
     }
 }
 
@@ -132,8 +157,6 @@ static void handleWindowResizeEvent(const SDL_Event* event, sim_properties_t* si
 
     wp->window_size_x = (float)event->window.data1;
     wp->window_size_y = (float)event->window.data2;
-    wp->screen_origin_x = wp->window_size_x / 2;
-    wp->screen_origin_y = wp->window_size_y / 2;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

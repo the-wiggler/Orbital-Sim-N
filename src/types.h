@@ -4,15 +4,24 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <SDL3/SDL.h>
+#include <GL/glew.h>
+#include <GL/gl.h>
 
 #define PATH_CACHE_LENGTH 100
+
+typedef struct {
+    float x, y, z;
+} coord_t;
 
 typedef struct {
     int screen_width, screen_height;
     double time_step;
     float window_size_x, window_size_y;
-    float screen_origin_x, screen_origin_y; // the center of the screen in both directions
-    double meters_per_pixel;
+
+    // 3D camera
+    float camera_pos[3];    // camera position in world space (defined by a unit vector, whereas the magnitude is changed by the viewport zoom)
+    float zoom;             // zoom level
+
     float font_size;
     bool window_open;
     bool data_logging_enabled;
@@ -21,10 +30,6 @@ typedef struct {
     SDL_WindowID main_window_ID;
 
     bool is_dragging;
-    float drag_start_x;
-    float drag_start_y;
-    float drag_origin_x;
-    float drag_origin_y;
 
     bool reset_sim;
     bool is_zooming;
@@ -42,8 +47,6 @@ typedef struct {
     float* pixel_radius;
     double* pos_x;
     double* pos_y;
-    float* ndc_x;
-    float* ndc_y;
     double* vel_x;
     double* vel_y;
     double* vel;
@@ -171,5 +174,19 @@ typedef struct {
     double acc_data_x, acc_data_y;
     double force_data_x, force_data_y;
 } global_data_t;
+
+typedef struct {
+    SDL_Window* window;
+    SDL_GLContext glContext;
+} SDL_GL_init_t;
+
+typedef struct {
+    GLuint VAO;
+    GLuint VBO;
+} VBO_t;
+
+typedef struct {
+    float m[16]; // 4x4 matrix
+} mat4;
 
 #endif

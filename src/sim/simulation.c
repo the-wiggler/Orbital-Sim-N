@@ -100,8 +100,6 @@ void resetSim(sim_properties_t* sim) {
         gb->mass = NULL;
         gb->radius = NULL;
         gb->pixel_radius = NULL;
-        gb->ndc_x = NULL;
-        gb->ndc_y = NULL;
         gb->pos_x = NULL;
         gb->pos_y = NULL;
         gb->vel_x = NULL;

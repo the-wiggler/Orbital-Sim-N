@@ -8,15 +8,18 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
+#include "../types.h"
 
-static void update_viewport(SDL_Window *window);
 char* loadShaderSource(const char* filepath);
+GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath);
+VBO_t createVBO(const float* vertices, size_t vertexDataSize);
+void deleteVBO(VBO_t vbo);
 
-// Transform world coordinates to normalized device coordinates (NDC)
-void worldToNDC(double world_x, double world_y,
-                double camera_x, double camera_y,
-                double meters_per_pixel,
-                float screen_width, float screen_height,
-                float* out_x, float* out_y);
+// camera helper functions
+mat4 createViewMatrix_originCentered(const float cameraPos[3]);
+mat4 createProjectionMatrix(float fov, float aspect, float near, float far);
+void setMatrixUniform(GLuint shaderProgram, const char* name, const mat4* matrix);
+void castCamera(sim_properties_t sim, GLuint shaderProgram);
+mat4 mat4_mul(mat4 a, mat4 b);
 
 #endif //ORBITSIMULATION_GL_RENDERER_H
