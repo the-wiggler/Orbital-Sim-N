@@ -157,8 +157,6 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
     double* temp_fuel_mass = REALLOC_ARRAY(fuel_mass, double);
     double* temp_pos_x = REALLOC_ARRAY(pos_x, double);
     double* temp_pos_y = REALLOC_ARRAY(pos_y, double);
-    float* temp_pixel_x = REALLOC_ARRAY(pixel_coordinates_x, float);
-    float* temp_pixel_y = REALLOC_ARRAY(pixel_coordinates_y, float);
     double* temp_attitude = REALLOC_ARRAY(attitude, double);
     double* temp_vel_x = REALLOC_ARRAY(vel_x, double);
     double* temp_vel_y = REALLOC_ARRAY(vel_y, double);
@@ -192,8 +190,6 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
     sc->fuel_mass = temp_fuel_mass;
     sc->pos_x = temp_pos_x;
     sc->pos_y = temp_pos_y;
-    sc->pixel_coordinates_x = temp_pixel_x;
-    sc->pixel_coordinates_y = temp_pixel_y;
     sc->attitude = temp_attitude;
     sc->vel_x = temp_vel_x;
     sc->vel_y = temp_vel_y;
@@ -241,8 +237,6 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
     sc->acc_y_prev[idx] = 0.0;
     sc->grav_force_x[idx] = 0.0;
     sc->grav_force_y[idx] = 0.0;
-    sc->pixel_coordinates_x[idx] = 0.0f;
-    sc->pixel_coordinates_y[idx] = 0.0f;
     sc->attitude[idx] = attitude;
     sc->dry_mass[idx] = dry_mass;
     sc->fuel_mass[idx] = fuel_mass;
@@ -273,10 +267,4 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
 
     // increment the craft count
     sc->count++;
-}
-
-// transform the craft coordinates in meters to pixel coordinates on the screen
-void craft_transformCoordinates(const spacecraft_properties_t* sc, const int i, const window_params_t wp) {
-    sc->pixel_coordinates_x[i] = wp.screen_origin_x + (float)(sc->pos_x[i] / wp.meters_per_pixel);
-    sc->pixel_coordinates_y[i] = wp.screen_origin_y - (float)(sc->pos_y[i] / wp.meters_per_pixel); // this is negative because the SDL origin is in the top left, so positive y is 'down'
 }

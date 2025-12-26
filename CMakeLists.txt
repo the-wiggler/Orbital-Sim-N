@@ -63,8 +63,9 @@ endif()
 # Find required packages
 # Note: On Linux, ensure these are installed via package manager or built from source
 find_package(SDL3 CONFIG REQUIRED)
-find_package(SDL3_ttf CONFIG REQUIRED)
 find_package(cJSON CONFIG REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
 
 if(WIN32)
     find_package(PThreads4W REQUIRED)
@@ -83,8 +84,8 @@ set(SOURCES
         src/sim/bodies.c
         src/sim/spacecraft.h
         src/sim/spacecraft.c
-        src/gui/renderer.h
-        src/gui/renderer.c
+        src/gui/SDL_engine.h
+        src/gui/SDL_engine.c
         src/utility/json_loader.h
         src/utility/json_loader.c
         src/sim/simulation.h
@@ -93,6 +94,8 @@ set(SOURCES
         src/gui/craft_view.h
         src/utility/telemetry_export.c
         src/utility/telemetry_export.h
+        src/gui/GL_renderer.h
+        src/gui/GL_renderer.c
 )
 
 # Create executable
@@ -107,8 +110,9 @@ endif()
 # Change: Use namespaced targets (e.g., cJSON::cJSON) for Linux case-sensitivity
 target_link_libraries(${PROJECT_NAME} PRIVATE
         SDL3::SDL3
-        SDL3_ttf::SDL3_ttf
         cjson
+        OpenGL::GL
+        GLEW::GLEW
 )
 
 if(WIN32)
@@ -139,7 +143,6 @@ if(WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:SDL3::SDL3>
-            $<TARGET_FILE:SDL3_ttf::SDL3_ttf>
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
             COMMENT "Copying SDL3 DLLs"
     )

@@ -82,8 +82,6 @@ void resetSim(sim_properties_t* sim) {
         free(gb->pixel_radius);
         free(gb->pos_x);
         free(gb->pos_y);
-        free(gb->pixel_coordinates_x);
-        free(gb->pixel_coordinates_y);
         free(gb->vel_x);
         free(gb->vel_y);
         free(gb->vel);
@@ -102,8 +100,6 @@ void resetSim(sim_properties_t* sim) {
         gb->pixel_radius = NULL;
         gb->pos_x = NULL;
         gb->pos_y = NULL;
-        gb->pixel_coordinates_x = NULL;
-        gb->pixel_coordinates_y = NULL;
         gb->vel_x = NULL;
         gb->vel_y = NULL;
         gb->vel = NULL;
@@ -132,8 +128,6 @@ void resetSim(sim_properties_t* sim) {
         free(sc->fuel_mass);
         free(sc->pos_x);
         free(sc->pos_y);
-        free(sc->pixel_coordinates_x);
-        free(sc->pixel_coordinates_y);
         free(sc->attitude);
         free(sc->vel_x);
         free(sc->vel_y);
@@ -166,8 +160,6 @@ void resetSim(sim_properties_t* sim) {
         sc->fuel_mass = NULL;
         sc->pos_x = NULL;
         sc->pos_y = NULL;
-        sc->pixel_coordinates_x = NULL;
-        sc->pixel_coordinates_y = NULL;
         sc->attitude = NULL;
         sc->vel_x = NULL;
         sc->vel_y = NULL;
@@ -227,8 +219,6 @@ void runCalculations(sim_properties_t* sim) {
             for (int i = 0; i < gb->count; i++) {
                 // updates the kinematic properties of each body (velocity, acceleration, position, etc.)
                 body_updateMotion(gb, i, wp->time_step);
-                // transform real-space coordinate to pixel coordinates on screen (scaling)
-                body_transformCoordinates(gb, i, *wp);
             }
         }
 
@@ -257,8 +247,6 @@ void runCalculations(sim_properties_t* sim) {
             for (int i = 0; i < sc->count; i++) {
                 // updates the kinematic properties of each body (velocity, acceleration, position, etc.)
                 craft_updateMotion(sc, i, wp->time_step);
-                // transform real-space coordinate to pixel coordinates on screen (scaling)
-                craft_transformCoordinates(sc, i, *wp);
             }
         }
 
@@ -299,8 +287,6 @@ void cleanup(sim_properties_t* sim) {
     free(gb->pixel_radius);
     free(gb->pos_x);
     free(gb->pos_y);
-    free(gb->pixel_coordinates_x);
-    free(gb->pixel_coordinates_y);
     free(gb->vel_x);
     free(gb->vel_y);
     free(gb->vel);
@@ -323,8 +309,6 @@ void cleanup(sim_properties_t* sim) {
     free(sc->fuel_mass);
     free(sc->pos_x);
     free(sc->pos_y);
-    free(sc->pixel_coordinates_x);
-    free(sc->pixel_coordinates_y);
     free(sc->attitude);
     free(sc->vel_x);
     free(sc->vel_y);

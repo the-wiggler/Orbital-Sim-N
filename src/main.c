@@ -1,10 +1,12 @@
 #include <stdio.h>
+#include <math.h>
 
 #include "globals.h"
 #include "types.h"
 #include "sim/simulation.h"
-#include "gui/renderer.h"
+#include "gui/SDL_engine.h"
 #include "gui/craft_view.h"
+#include "utility/json_loader.h"
 #include "utility/telemetry_export.h"
 #ifdef _WIN32
     #include <windows.h>
@@ -15,8 +17,12 @@
 #include <stdlib.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#include <SDL3_ttf/SDL_ttf.h>
+
+#include <GL/glew.h>
+#include <GL/gl.h>
+
 #include <stdbool.h>
+#include "gui/GL_renderer.h"
 
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
 
@@ -62,32 +68,81 @@ int main(int argc, char *argv[]) {
         .global_data_FILE = fopen("global_data.bin", "wb")
     };
 
+    // openGL init
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);                // core profile
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
     // initialize window parameters
     SDL_Init(SDL_INIT_VIDEO);
     init_window_params(&sim.wp);
 
-    // initialize UI elements
-    button_storage_t buttons;
-    initButtons(&buttons, sim.wp);
-    stats_window_t stats_window = {0};
-
     // initialize SDL3 window
     // create an SDL window
-    SDL_Window* window = SDL_CreateWindow("Orbit Simulation", (int)sim.wp.window_size_x, (int)sim.wp.window_size_y, SDL_WINDOW_RESIZABLE);
+    SDL_Window* window = SDL_CreateWindow("Orbit Simulation",
+        (int)sim.wp.window_size_x, (int)sim.wp.window_size_y,
+        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+
+    // store the window ID for event handling
     sim.wp.main_window_ID = SDL_GetWindowID(window);
-    // create an SDL renderer and clear the window to create a blank canvas
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
 
-    // fps counter init
-    Uint64 perf_freq = SDL_GetPerformanceFrequency();
-    Uint64 frame_start;
+    // initialize OpenGL and GLEW
+    SDL_GLContext glctx = SDL_GL_CreateContext(window);
+    glewExperimental = GL_TRUE;
+    glewInit();
 
-    // SDL ttf font stuff
-    TTF_Init();
-    g_font = TTF_OpenFont("font.ttf", sim.wp.font_size);
-    g_font_small = TTF_OpenFont("font.ttf", (float)sim.wp.window_size_x / 90);
+    // VSync
+    SDL_GL_SetSwapInterval(1);
+
+    printf("OpenGL version: %p\n", glGetString(GL_VERSION));
+    printf("GLEW version: %p\n", glewGetString(GLEW_VERSION));
+
+    ////////////////////////////////////////
+    // SHADER SETUP                       //
+    ////////////////////////////////////////
+    // load shader sources from files
+    char* vertexShaderSource = loadShaderSource("../shaders/simple.vert");
+    char* fragmentShaderSource = loadShaderSource("../shaders/simple.frag");
+
+    // compile the shaders
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, (const char**)&vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, (const char**)&fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+
+    // link the shaders into a program
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // free the shader source strings (bye bye!)
+    free(vertexShaderSource);
+    free(fragmentShaderSource);
+
+    // circle buffer for rendering
+    // this is updated each frame with transformed coordinates
+    GLuint VAO_circle, VBO_circle;
+    glGenVertexArrays(1, &VAO_circle);
+    glGenBuffers(1, &VBO_circle);
+    glBindVertexArray(VAO_circle);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_circle);
+
+    // allocate buffer for circle vertices (center + perimeter points)
+    #define CIRCLE_SEGMENTS 32
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 2 * (CIRCLE_SEGMENTS + 2), NULL, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
 
     ////////////////////////////////////////
     // SIM THREAD INIT                    //
@@ -104,50 +159,85 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // temp: load JSON for now by default
+    readSimulationJSON("simulation_data.json", &sim.gb, &sim.gs);
+    sim.wp.time_step = 0.0001;
+
     ////////////////////////////////////////////////////////
     // simulation loop                                    //
     ////////////////////////////////////////////////////////
     while (sim.wp.window_open) {
 
-        // measure frame start time
-        frame_start = SDL_GetPerformanceCounter();
-
         // clears previous frame from the screen
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // lock body_sim mutex for reading
         pthread_mutex_lock(&sim_vars_mutex);
 
         // user input event checking logic
         SDL_Event event;
-        runEventCheck(&event, &sim, &buttons, &stats_window);
+        runEventCheck(&event, &sim);
 
-        // draw speed control button
-        renderUIButtons(renderer, &buttons, &sim.wp);
+        float ndc_x1, ndc_y1, ndc_x2, ndc_y2;
 
-        // draw time indicator text
-        renderTimeIndicators(renderer, sim.wp);
+        // transform first planet point in world space
+        worldToNDC(sim.gb.pos_x[0], sim.gb.pos_y[0],
+                   sim.wp.screen_origin_x, sim.wp.screen_origin_y,
+                   sim.wp.meters_per_pixel,
+                   sim.wp.window_size_x, sim.wp.window_size_y,
+                   &ndc_x1, &ndc_y1);
 
-        // if the main view is shown, do the respective rendering functions
-        if (sim.wp.main_view_shown && !sim.wp.craft_view_shown) {
-            // draw scale reference bar
-            drawScaleBar(renderer, sim.wp);
+        // transform second planet point in world space
+        worldToNDC(sim.gb.pos_x[1], sim.gb.pos_y[1],
+                   sim.wp.screen_origin_x, sim.wp.screen_origin_y,
+                   sim.wp.meters_per_pixel,
+                   sim.wp.window_size_x, sim.wp.window_size_y,
+                   &ndc_x2, &ndc_y2);
 
-            // render the bodies
-            body_renderOrbitBodies(renderer, &sim);
-//
-            // render the spacecraft
-            craft_renderCrafts(renderer, &sim.gs);
+        glUseProgram(shaderProgram);
+        GLint colorLoc = glGetUniformLocation(shaderProgram, "color");
 
-            // render stats in main window if enabled
-            if (stats_window.is_shown) renderStatsBox(renderer, &sim, &stats_window);
+        // draw circle at first planet
+        float circle_vertices[2 * (CIRCLE_SEGMENTS + 2)];
+
+        // Convert world-space radius to NDC coordinates (scales with zoom)
+        double world_radius = 1e7;  // radius in meters
+        double pixel_radius = world_radius / sim.wp.meters_per_pixel;
+        float circle_radius = (float)(2.0 * pixel_radius / sim.wp.window_size_x);
+
+        // center vertex
+        circle_vertices[0] = ndc_x1;
+        circle_vertices[1] = ndc_y1;
+
+        // perimeter vertices
+        for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
+            float angle = 2.0f * 3.14159265f * i / CIRCLE_SEGMENTS;
+            circle_vertices[2 + i * 2] = ndc_x1 + circle_radius * cosf(angle);
+            circle_vertices[3 + i * 2] = ndc_y1 + circle_radius * sinf(angle);
         }
 
-        // if the craft view is shown, do the respective rendering functions
-        if (sim.wp.craft_view_shown) {
-            craft_RenderCraftView(renderer, &sim);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO_circle);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(circle_vertices), circle_vertices);
+        glUniform4f(colorLoc, 0.0f, 1.0f, 0.0f, 1.0f); // Green
+        glBindVertexArray(VAO_circle);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_SEGMENTS + 2);
+
+        // draw circle at second planet
+        circle_vertices[0] = ndc_x2;
+        circle_vertices[1] = ndc_y2;
+
+        for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
+            float angle = 2.0f * 3.14159265f * i / CIRCLE_SEGMENTS;
+            circle_vertices[2 + i * 2] = ndc_x2 + circle_radius * cosf(angle);
+            circle_vertices[3 + i * 2] = ndc_y2 + circle_radius * sinf(angle);
         }
+
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(circle_vertices), circle_vertices);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_SEGMENTS + 2);
+
+        glBindVertexArray(0);
+
 
         if (sim.wp.data_logging_enabled) {
             exportTelemetryBinary(filenames, &sim);
@@ -159,11 +249,8 @@ int main(int argc, char *argv[]) {
         // unlock sim vars mutex when done
         pthread_mutex_unlock(&sim_vars_mutex);
 
-        // limits FPS
-        showFPS(renderer, frame_start, perf_freq, sim.wp, false);
-
         // present the renderer to the screen
-        SDL_RenderPresent(renderer);
+        SDL_GL_SwapWindow(window);
     }
     ////////////////////////////////////////////////////////
     // end of simulation loop                             //
@@ -173,7 +260,7 @@ int main(int argc, char *argv[]) {
     // CLEAN UP                                       //
     ////////////////////////////////////////////////////
 
-    // wait for simulation thread to finish
+    // wait for simulation thread to finishames.global_data_FILE);
     pthread_join(simThread, NULL);
 
     // destroy mutex
@@ -182,14 +269,13 @@ int main(int argc, char *argv[]) {
     // cleanup all allocated memory
     cleanup(&sim);
 
-    // cleanup button textures
-    destroyAllButtonTextures(&buttons);
+    // Cleanup OpenGL resources
+    glDeleteVertexArrays(1, &VAO_circle);
+    glDeleteBuffers(1, &VBO_circle);
+    glDeleteProgram(shaderProgram);
 
     fclose(filenames.global_data_FILE);
-    if (g_font) TTF_CloseFont(g_font);
-    if (g_font_small) TTF_CloseFont(g_font_small);
-    TTF_Quit();
-    SDL_DestroyRenderer(renderer);
+    SDL_GL_DestroyContext(glctx);
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;

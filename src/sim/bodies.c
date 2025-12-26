@@ -73,12 +73,6 @@ void body_calculateKineticEnergy(const body_properties_t* bodies, const int i) {
     bodies->kinetic_energy[i] = 0.5 * bodies->mass[i] * bodies->vel[i] * bodies->vel[i];
 }
 
-// transforms spacial coordinates (for example, in meters) to pixel coordinates
-void body_transformCoordinates(const body_properties_t* bodies, const int i, const window_params_t wp) {
-    bodies->pixel_coordinates_x[i] = wp.screen_origin_x + ((float)bodies->pos_x[i] / (float)wp.meters_per_pixel);
-    bodies->pixel_coordinates_y[i] = wp.screen_origin_y - ((float)bodies->pos_y[i] / (float)wp.meters_per_pixel); // this is negative because the SDL origin is in the top left, so positive y is 'down'
-}
-
 // calculates the size (in pixels) that the planet should appear on the screen based on its mass
 float body_calculateVisualRadius(const body_properties_t* bodies, const int i, const window_params_t wp) {
     float r = (float)bodies->radius[i] / (float)wp.meters_per_pixel;
@@ -97,8 +91,6 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     float* temp_pixel_radius = (float*)realloc(gb->pixel_radius, new_size * sizeof(float));
     double* temp_pos_x = (double*)realloc(gb->pos_x, new_size * sizeof(double));
     double* temp_pos_y = (double*)realloc(gb->pos_y, new_size * sizeof(double));
-    float* temp_pixel_x = (float*)realloc(gb->pixel_coordinates_x, new_size * sizeof(float));
-    float* temp_pixel_y = (float*)realloc(gb->pixel_coordinates_y, new_size * sizeof(float));
     double* temp_vel_x = (double*)realloc(gb->vel_x, new_size * sizeof(double));
     double* temp_vel_y = (double*)realloc(gb->vel_y, new_size * sizeof(double));
     double* temp_vel = (double*)realloc(gb->vel, new_size * sizeof(double));
@@ -113,7 +105,7 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     float** temp_cached_body_coords_y = (float**)realloc(gb->cached_body_coords_y, new_size * sizeof(float*));
 
     if (!temp_names || !temp_mass || !temp_radius || !temp_pixel_radius ||
-        !temp_pos_x || !temp_pos_y || !temp_pixel_x || !temp_pixel_y ||
+        !temp_pos_x || !temp_pos_y ||
         !temp_vel_x || !temp_vel_y || !temp_vel || !temp_acc_x || !temp_acc_y ||
         !temp_acc_x_prev || !temp_acc_y_prev || !temp_force_x || !temp_force_y || !temp_kinetic ||
         !temp_cached_body_coords_x || !temp_cached_body_coords_y) {
@@ -135,8 +127,6 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     gb->pixel_radius = temp_pixel_radius;
     gb->pos_x = temp_pos_x;
     gb->pos_y = temp_pos_y;
-    gb->pixel_coordinates_x = temp_pixel_x;
-    gb->pixel_coordinates_y = temp_pixel_y;
     gb->vel_x = temp_vel_x;
     gb->vel_y = temp_vel_y;
     gb->vel = temp_vel;
@@ -170,8 +160,6 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     gb->pixel_radius[idx] = 0.0f;
     gb->pos_x[idx] = x_pos;
     gb->pos_y[idx] = y_pos;
-    gb->pixel_coordinates_x[idx] = 0.0f;
-    gb->pixel_coordinates_y[idx] = 0.0f;
     gb->vel_x[idx] = x_vel;
     gb->vel_y[idx] = y_vel;
     gb->vel[idx] = sqrt(x_vel * x_vel + y_vel * y_vel);

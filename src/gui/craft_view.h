@@ -5,6 +5,8 @@
 #ifndef ORBITSIMULATION_CRAFT_VIEW_H
 #define ORBITSIMULATION_CRAFT_VIEW_H
 
-void craft_RenderCraftView(SDL_Renderer* renderer, sim_properties_t* sim);
+#include "../types.h"
+
+void craft_RenderCraftView(sim_properties_t* sim);
 
 #endif //ORBITSIMULATION_CRAFT_VIEW_H

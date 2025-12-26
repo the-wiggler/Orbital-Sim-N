@@ -1,7 +1,5 @@
 #include "globals.h"
 
-TTF_Font* g_font = NULL;
-TTF_Font* g_font_small = NULL;
 pthread_mutex_t sim_vars_mutex;
 const double G = 6.67430E-11;
 const double M_PI = 3.14159265358979323846;

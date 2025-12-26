@@ -2,6 +2,7 @@
 #define TYPES_H
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <SDL3/SDL.h>
 
 #define PATH_CACHE_LENGTH 100
@@ -41,8 +42,6 @@ typedef struct {
     float* pixel_radius;
     double* pos_x;
     double* pos_y;
-    float* pixel_coordinates_x;
-    float* pixel_coordinates_y;
     double* vel_x;
     double* vel_y;
     double* vel;
@@ -86,8 +85,6 @@ typedef struct {
 
     double* pos_x;
     double* pos_y;
-    float* pixel_coordinates_x;
-    float* pixel_coordinates_y;
     double* attitude;
 
     double* vel_x;
@@ -149,9 +146,6 @@ typedef struct {
     bool is_hovered;
     SDL_Color normal_color;
     SDL_Color hover_color;
-    SDL_Texture* normal_texture;
-    SDL_Texture* hover_texture;
-    bool textures_valid;
 } button_t;
 
 typedef struct {

@@ -3,6 +3,7 @@
 //
 
 #include "telemetry_export.h"
+#include <stdio.h>
 
 void exportTelemetryBinary(binary_filenames_t filenames, const sim_properties_t* sim) {
     const body_properties_t* gb = &sim->gb;
