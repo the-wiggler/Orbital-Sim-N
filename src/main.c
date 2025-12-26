@@ -55,7 +55,6 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
     // INIT                               //
     ////////////////////////////////////////
-    ///
     // initialize simulation objects
     sim_properties_t sim = {
         .gb = {0},
@@ -128,20 +127,26 @@ int main(int argc, char *argv[]) {
     free(vertexShaderSource);
     free(fragmentShaderSource);
 
-    // circle buffer for rendering
-    // this is updated each frame with transformed coordinates
+    // generate circle geometry
+    #define CIRCLE_SEGMENTS 32
+    float circle_template[2 * (CIRCLE_SEGMENTS + 2)];
+    circle_template[0] = 0.0f;  // center x
+    circle_template[1] = 0.0f;  // center y
+    for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
+        float angle = 2.0f * (float)M_PI * (float)i / CIRCLE_SEGMENTS;
+        circle_template[2 + i * 2] = cosf(angle);
+        circle_template[3 + i * 2] = sinf(angle);
+    }
+
+    // create buffer and upload circle geometry
     GLuint VAO_circle, VBO_circle;
     glGenVertexArrays(1, &VAO_circle);
     glGenBuffers(1, &VBO_circle);
     glBindVertexArray(VAO_circle);
     glBindBuffer(GL_ARRAY_BUFFER, VBO_circle);
-
-    // allocate buffer for circle vertices (center + perimeter points)
-    #define CIRCLE_SEGMENTS 32
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 2 * (CIRCLE_SEGMENTS + 2), NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(circle_template), circle_template, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-
     glBindVertexArray(0);
 
     ////////////////////////////////////////
@@ -167,7 +172,6 @@ int main(int argc, char *argv[]) {
     // simulation loop                                    //
     ////////////////////////////////////////////////////////
     while (sim.wp.window_open) {
-
         // clears previous frame from the screen
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -179,62 +183,46 @@ int main(int argc, char *argv[]) {
         SDL_Event event;
         runEventCheck(&event, &sim);
 
-        float ndc_x1, ndc_y1, ndc_x2, ndc_y2;
 
-        // transform first planet point in world space
-        worldToNDC(sim.gb.pos_x[0], sim.gb.pos_y[0],
+        for (int i = 0; i < sim.gb.count; i++) {
+            // scale planet point in world space to screen space
+            worldToNDC(sim.gb.pos_x[i], sim.gb.pos_y[i],
                    sim.wp.screen_origin_x, sim.wp.screen_origin_y,
                    sim.wp.meters_per_pixel,
                    sim.wp.window_size_x, sim.wp.window_size_y,
-                   &ndc_x1, &ndc_y1);
+                   &sim.gb.ndc_x[i], &sim.gb.ndc_y[i]);
+        }
 
-        // transform second planet point in world space
-        worldToNDC(sim.gb.pos_x[1], sim.gb.pos_y[1],
-                   sim.wp.screen_origin_x, sim.wp.screen_origin_y,
-                   sim.wp.meters_per_pixel,
-                   sim.wp.window_size_x, sim.wp.window_size_y,
-                   &ndc_x2, &ndc_y2);
+        // calculate circle radius in NDC coordinates (account for aspect ratio)
+        for (int i = 0; i < sim.gb.count; i++) {
+            sim.gb.pixel_radius[i] = (float)(2.0 * (sim.gb.radius[i] / sim.wp.meters_per_pixel) / sim.wp.window_size_x);
+        }
 
         glUseProgram(shaderProgram);
-        GLint colorLoc = glGetUniformLocation(shaderProgram, "color");
+        glUniform4f(glGetUniformLocation(shaderProgram, "color"), 0.0f, 1.0f, 0.0f, 1.0f);
+        glBindVertexArray(VAO_circle);
 
-        // draw circle at first planet
+        // draw all planets by scaling and translating the circle template
         float circle_vertices[2 * (CIRCLE_SEGMENTS + 2)];
 
-        // Convert world-space radius to NDC coordinates (scales with zoom)
-        double world_radius = 1e7;  // radius in meters
-        double pixel_radius = world_radius / sim.wp.meters_per_pixel;
-        float circle_radius = (float)(2.0 * pixel_radius / sim.wp.window_size_x);
+        for (int i = 0; i < sim.gb.count; i++) {
+            float cx = sim.gb.ndc_x[i];
+            float cy = sim.gb.ndc_y[i];
 
-        // center vertex
-        circle_vertices[0] = ndc_x1;
-        circle_vertices[1] = ndc_y1;
+            // scale and translate circle template to planet position
+            circle_vertices[0] = cx;
+            circle_vertices[1] = cy;
+            float pixel_radius_x = (float)(2.0 * (sim.gb.radius[i] / sim.wp.meters_per_pixel) / sim.wp.window_size_x);
+            float pixel_radius_y = (float)(2.0 * (sim.gb.radius[i] / sim.wp.meters_per_pixel) / sim.wp.window_size_y);
+            for (int j = 0; j <= CIRCLE_SEGMENTS; j++) {
+                circle_vertices[2 + j * 2] = cx + pixel_radius_x * circle_template[2 + j * 2];
+                circle_vertices[3 + j * 2] = cy + pixel_radius_y * circle_template[3 + j * 2];
+            }
 
-        // perimeter vertices
-        for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
-            float angle = 2.0f * 3.14159265f * i / CIRCLE_SEGMENTS;
-            circle_vertices[2 + i * 2] = ndc_x1 + circle_radius * cosf(angle);
-            circle_vertices[3 + i * 2] = ndc_y1 + circle_radius * sinf(angle);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO_circle);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(circle_vertices), circle_vertices);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_SEGMENTS + 2);
         }
-
-        glBindBuffer(GL_ARRAY_BUFFER, VBO_circle);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(circle_vertices), circle_vertices);
-        glUniform4f(colorLoc, 0.0f, 1.0f, 0.0f, 1.0f); // Green
-        glBindVertexArray(VAO_circle);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_SEGMENTS + 2);
-
-        // draw circle at second planet
-        circle_vertices[0] = ndc_x2;
-        circle_vertices[1] = ndc_y2;
-
-        for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
-            float angle = 2.0f * 3.14159265f * i / CIRCLE_SEGMENTS;
-            circle_vertices[2 + i * 2] = ndc_x2 + circle_radius * cosf(angle);
-            circle_vertices[3 + i * 2] = ndc_y2 + circle_radius * sinf(angle);
-        }
-
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(circle_vertices), circle_vertices);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_SEGMENTS + 2);
 
         glBindVertexArray(0);
 
@@ -260,7 +248,7 @@ int main(int argc, char *argv[]) {
     // CLEAN UP                                       //
     ////////////////////////////////////////////////////
 
-    // wait for simulation thread to finishames.global_data_FILE);
+    // wait for simulation thread
     pthread_join(simThread, NULL);
 
     // destroy mutex

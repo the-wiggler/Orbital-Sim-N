@@ -42,6 +42,8 @@ typedef struct {
     float* pixel_radius;
     double* pos_x;
     double* pos_y;
+    float* ndc_x;
+    float* ndc_y;
     double* vel_x;
     double* vel_y;
     double* vel;
