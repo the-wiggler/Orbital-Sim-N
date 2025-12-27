@@ -29,7 +29,8 @@ double calculateTotalSystemEnergy(const sim_properties_t* sim) {
         for (int j = i + 1; j < gb->count; j++) {
             double delta_x = gb->pos_x[j] - gb->pos_x[i];
             double delta_y = gb->pos_y[j] - gb->pos_y[i];
-            double r = sqrt(delta_x * delta_x + delta_y * delta_y);
+            double delta_z = gb->pos_z[j] - gb->pos_z[i];
+            double r = sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
             if (r > 0) {  // prevent divide by zero
                 total_potential += -(G * gb->mass[i] * gb->mass[j]) / r;
             }
@@ -41,7 +42,8 @@ double calculateTotalSystemEnergy(const sim_properties_t* sim) {
         for (int j = 0; j < gb->count; j++) {
             double delta_x = gb->pos_x[j] - sc->pos_x[i];
             double delta_y = gb->pos_y[j] - sc->pos_y[i];
-            double r = sqrt(delta_x * delta_x + delta_y * delta_y);
+            double delta_z = gb->pos_z[j] - sc->pos_z[i];
+            double r = sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
             if (r > 0) {  // prevent divide by zero
                 total_potential += -(G * sc->current_total_mass[i] * gb->mass[j]) / r;
             }
@@ -68,29 +70,26 @@ void resetSim(sim_properties_t* sim) {
             free(gb->names[i]);
         }
 
-        // free cache arrays for each body
-        if (gb->cached_body_coords_x != NULL) {
-            free(gb->cached_body_coords_x);
-        }
-        if (gb->cached_body_coords_y != NULL) {
-            free(gb->cached_body_coords_y);
-        }
-
         free(gb->names);
         free(gb->mass);
         free(gb->radius);
         free(gb->pixel_radius);
         free(gb->pos_x);
         free(gb->pos_y);
+        free(gb->pos_z);
         free(gb->vel_x);
         free(gb->vel_y);
+        free(gb->vel_z);
         free(gb->vel);
         free(gb->acc_x);
         free(gb->acc_y);
+        free(gb->acc_z);
         free(gb->acc_x_prev);
         free(gb->acc_y_prev);
+        free(gb->acc_z_prev);
         free(gb->force_x);
         free(gb->force_y);
+        free(gb->force_z);
         free(gb->kinetic_energy);
 
         gb->count = 0;
@@ -100,20 +99,21 @@ void resetSim(sim_properties_t* sim) {
         gb->pixel_radius = NULL;
         gb->pos_x = NULL;
         gb->pos_y = NULL;
+        gb->pos_z = NULL;
         gb->vel_x = NULL;
         gb->vel_y = NULL;
+        gb->vel_z = NULL;
         gb->vel = NULL;
         gb->acc_x = NULL;
         gb->acc_y = NULL;
+        gb->acc_z = NULL;
         gb->acc_x_prev = NULL;
         gb->acc_y_prev = NULL;
+        gb->acc_z_prev = NULL;
         gb->force_x = NULL;
         gb->force_y = NULL;
+        gb->force_z = NULL;
         gb->kinetic_energy = NULL;
-        gb->cached_body_coords_x = NULL;
-        gb->cached_body_coords_y = NULL;
-        gb->cache_counter = 0;
-        gb->cache_valid_count = 0;
     }
 
     // free all craft from memory
@@ -128,20 +128,25 @@ void resetSim(sim_properties_t* sim) {
         free(sc->fuel_mass);
         free(sc->pos_x);
         free(sc->pos_y);
+        free(sc->pos_z);
         free(sc->attitude);
         free(sc->vel_x);
         free(sc->vel_y);
+        free(sc->vel_z);
         free(sc->vel);
         free(sc->rotational_v);
         free(sc->momentum);
         free(sc->acc_x);
         free(sc->acc_y);
+        free(sc->acc_z);
         free(sc->acc_x_prev);
         free(sc->acc_y_prev);
+        free(sc->acc_z_prev);
         free(sc->rotational_a);
         free(sc->moment_of_inertia);
         free(sc->grav_force_x);
         free(sc->grav_force_y);
+        free(sc->grav_force_z);
         free(sc->torque);
         free(sc->thrust);
         free(sc->mass_flow_rate);
@@ -160,20 +165,25 @@ void resetSim(sim_properties_t* sim) {
         sc->fuel_mass = NULL;
         sc->pos_x = NULL;
         sc->pos_y = NULL;
+        sc->pos_z = NULL;
         sc->attitude = NULL;
         sc->vel_x = NULL;
         sc->vel_y = NULL;
+        sc->vel_z = NULL;
         sc->vel = NULL;
         sc->rotational_v = NULL;
         sc->momentum = NULL;
         sc->acc_x = NULL;
         sc->acc_y = NULL;
+        sc->acc_z = NULL;
         sc->acc_x_prev = NULL;
         sc->acc_y_prev = NULL;
+        sc->acc_z_prev = NULL;
         sc->rotational_a = NULL;
         sc->moment_of_inertia = NULL;
         sc->grav_force_x = NULL;
         sc->grav_force_y = NULL;
+        sc->grav_force_z = NULL;
         sc->torque = NULL;
         sc->thrust = NULL;
         sc->mass_flow_rate = NULL;
@@ -201,6 +211,7 @@ void runCalculations(sim_properties_t* sim) {
             for (int i = 0; i < gb->count; i++) {
                 gb->force_x[i] = 0;
                 gb->force_y[i] = 0;
+                gb->force_z[i] = 0;
             }
 
             // loop through every body and add the resultant force to the subject body force vector
@@ -229,6 +240,7 @@ void runCalculations(sim_properties_t* sim) {
             for (int i = 0; i < sc->count; i++) {
                 sc->grav_force_x[i] = 0;
                 sc->grav_force_y[i] = 0;
+                sc->grav_force_z[i] = 0;
 
                 // check if burn should be active based on simulation time
                 craft_checkBurnSchedule(sc, i, gb, wp->sim_time);
@@ -267,35 +279,26 @@ void cleanup(sim_properties_t* sim) {
         free(gb->names[i]);
     }
 
-    // free cache arrays for each body
-    if (gb->cached_body_coords_x != NULL) {
-        for (int i = 0; i < gb->count; i++) {
-            free(gb->cached_body_coords_x[i]);
-        }
-        free(gb->cached_body_coords_x);
-    }
-    if (gb->cached_body_coords_y != NULL) {
-        for (int i = 0; i < gb->count; i++) {
-            free(gb->cached_body_coords_y[i]);
-        }
-        free(gb->cached_body_coords_y);
-    }
-
     free(gb->names);
     free(gb->mass);
     free(gb->radius);
     free(gb->pixel_radius);
     free(gb->pos_x);
     free(gb->pos_y);
+    free(gb->pos_z);
     free(gb->vel_x);
     free(gb->vel_y);
+    free(gb->vel_z);
     free(gb->vel);
     free(gb->acc_x);
     free(gb->acc_y);
+    free(gb->acc_z);
     free(gb->acc_x_prev);
     free(gb->acc_y_prev);
+    free(gb->acc_z_prev);
     free(gb->force_x);
     free(gb->force_y);
+    free(gb->force_z);
     free(gb->kinetic_energy);
 
     // free all spacecraft
@@ -309,20 +312,25 @@ void cleanup(sim_properties_t* sim) {
     free(sc->fuel_mass);
     free(sc->pos_x);
     free(sc->pos_y);
+    free(sc->pos_z);
     free(sc->attitude);
     free(sc->vel_x);
     free(sc->vel_y);
+    free(sc->vel_z);
     free(sc->vel);
     free(sc->rotational_v);
     free(sc->momentum);
     free(sc->acc_x);
     free(sc->acc_y);
+    free(sc->acc_z);
     free(sc->acc_x_prev);
     free(sc->acc_y_prev);
+    free(sc->acc_z_prev);
     free(sc->rotational_a);
     free(sc->moment_of_inertia);
     free(sc->grav_force_x);
     free(sc->grav_force_y);
+    free(sc->grav_force_z);
     free(sc->torque);
     free(sc->thrust);
     free(sc->mass_flow_rate);

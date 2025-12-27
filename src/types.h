@@ -52,21 +52,21 @@ typedef struct {
     float* pixel_radius;
     double* pos_x;
     double* pos_y;
+    double* pos_z;
     double* vel_x;
     double* vel_y;
+    double* vel_z;
     double* vel;
     double* acc_x;
     double* acc_y;
+    double* acc_z;
     double* acc_x_prev;
     double* acc_y_prev;
+    double* acc_z_prev;
     double* force_x;
     double* force_y;
+    double* force_z;
     double* kinetic_energy;
-
-    int cache_counter;
-    int cache_valid_count;
-    float** cached_body_coords_x;
-    float** cached_body_coords_y;
 } body_properties_t;
 
 typedef struct {
@@ -95,10 +95,12 @@ typedef struct {
 
     double* pos_x;
     double* pos_y;
+    double* pos_z;
     double* attitude;
 
     double* vel_x;
     double* vel_y;
+    double* vel_z;
     double* vel;
     double* rotational_v;
 
@@ -106,14 +108,17 @@ typedef struct {
 
     double* acc_x;
     double* acc_y;
+    double* acc_z;
     double* acc_x_prev;
     double* acc_y_prev;
+    double* acc_z_prev;
     double* rotational_a;
 
     double* moment_of_inertia;
 
     double* grav_force_x;
     double* grav_force_y;
+    double* grav_force_z;
     double* torque;
 
     double* thrust;

@@ -79,8 +79,10 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
             cJSON* radius_item = cJSON_GetObjectItemCaseSensitive(body, "radius");
             cJSON* pos_x_item = cJSON_GetObjectItemCaseSensitive(body, "pos_x");
             cJSON* pos_y_item = cJSON_GetObjectItemCaseSensitive(body, "pos_y");
+            cJSON* pos_z_item = cJSON_GetObjectItemCaseSensitive(body, "pos_z");
             cJSON* vel_x_item = cJSON_GetObjectItemCaseSensitive(body, "vel_x");
             cJSON* vel_y_item = cJSON_GetObjectItemCaseSensitive(body, "vel_y");
+            cJSON* vel_z_item = cJSON_GetObjectItemCaseSensitive(body, "vel_z");
 
             body_addOrbitalBody(gb,
                                 name_item->valuestring,
@@ -88,8 +90,10 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
                                 radius_item->valuedouble,
                                 pos_x_item->valuedouble,
                                 pos_y_item->valuedouble,
+                                pos_z_item ? pos_z_item->valuedouble : 0.0,
                                 vel_x_item->valuedouble,
-                                vel_y_item->valuedouble);
+                                vel_y_item->valuedouble,
+                                vel_z_item ? vel_z_item->valuedouble : 0.0);
         }
     }
 
@@ -101,8 +105,10 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
             cJSON* name_item = cJSON_GetObjectItemCaseSensitive(craft, "name");
             cJSON* pos_x_item = cJSON_GetObjectItemCaseSensitive(craft, "pos_x");
             cJSON* pos_y_item = cJSON_GetObjectItemCaseSensitive(craft, "pos_y");
+            cJSON* pos_z_item = cJSON_GetObjectItemCaseSensitive(craft, "pos_z");
             cJSON* vel_x_item = cJSON_GetObjectItemCaseSensitive(craft, "vel_x");
             cJSON* vel_y_item = cJSON_GetObjectItemCaseSensitive(craft, "vel_y");
+            cJSON* vel_z_item = cJSON_GetObjectItemCaseSensitive(craft, "vel_z");
             cJSON* dry_mass_item = cJSON_GetObjectItemCaseSensitive(craft, "dry_mass");
             cJSON* fuel_mass_item = cJSON_GetObjectItemCaseSensitive(craft, "fuel_mass");
             cJSON* thrust_item = cJSON_GetObjectItemCaseSensitive(craft, "thrust");
@@ -158,8 +164,10 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
                                 name_item->valuestring,
                                 pos_x_item->valuedouble,
                                 pos_y_item->valuedouble,
+                                pos_z_item ? pos_z_item->valuedouble : 0.0,
                                 vel_x_item->valuedouble,
                                 vel_y_item->valuedouble,
+                                vel_z_item ? vel_z_item->valuedouble : 0.0,
                                 dry_mass_item->valuedouble,
                                 fuel_mass_item->valuedouble,
                                 thrust_item->valuedouble,

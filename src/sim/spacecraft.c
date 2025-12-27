@@ -61,7 +61,8 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     // calculate the distance between the spacecraft and the body
     const double delta_pos_x = bodies->pos_x[body_idx] - sc->pos_x[craft_idx];
     const double delta_pos_y = bodies->pos_y[body_idx] - sc->pos_y[craft_idx];
-    const double r_squared = delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y;
+    const double delta_pos_z = bodies->pos_z[body_idx] - sc->pos_z[craft_idx];
+    const double r_squared = delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y + delta_pos_z * delta_pos_z;
 
     // planet collision logic -- checks if craft is too close to the planet
     const double radius_squared = bodies->radius[body_idx] * bodies->radius[body_idx];
@@ -77,12 +78,6 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     // calculate the ship mass with the current amount of fuel in it
     sc->current_total_mass[craft_idx] = sc->fuel_mass[craft_idx] + sc->dry_mass[craft_idx];
 
-    // prevent division by zero
-    const double min_distance_squared = 1.0;
-    if (r_squared < min_distance_squared) {
-        return;  // skip calculation if spacecraft is too close to body
-    }
-
     // force = (G * m1 * m2) * delta / r^3
     const double r = sqrt(r_squared);
     const double r_cubed = r_squared * r;
@@ -91,6 +86,7 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     // apply the force to the craft
     sc->grav_force_x[craft_idx] += force_factor * delta_pos_x;
     sc->grav_force_y[craft_idx] += force_factor * delta_pos_y;
+    sc->grav_force_z[craft_idx] += force_factor * delta_pos_z;
 }
 
 // updates the force
@@ -122,24 +118,28 @@ void craft_updateMotion(const spacecraft_properties_t* sc, const int i, const do
     // calculate the current acceleration from the force on the object
     sc->acc_x[i] = sc->grav_force_x[i] / sc->current_total_mass[i];
     sc->acc_y[i] = sc->grav_force_y[i] / sc->current_total_mass[i];
+    sc->acc_z[i] = sc->grav_force_z[i] / sc->current_total_mass[i];
 
     // update position using current velocity and acceleration
     sc->pos_x[i] += (sc->vel_x[i] * dt) + (0.5 * sc->acc_x[i] * dt * dt);
     sc->pos_y[i] += (sc->vel_y[i] * dt) + (0.5 * sc->acc_y[i] * dt * dt);
+    sc->pos_z[i] += (sc->vel_z[i] * dt) + (0.5 * sc->acc_z[i] * dt * dt);
 
     // update velocity using average of current and previous acceleration
     sc->vel_x[i] += 0.5 * (sc->acc_x[i] + sc->acc_x_prev[i]) * dt;
     sc->vel_y[i] += 0.5 * (sc->acc_y[i] + sc->acc_y_prev[i]) * dt;
-    sc->vel[i] = sqrt(sc->vel_x[i] * sc->vel_x[i] + sc->vel_y[i] * sc->vel_y[i]);
+    sc->vel_z[i] += 0.5 * (sc->acc_z[i] + sc->acc_z_prev[i]) * dt;
+    sc->vel[i] = sqrt(sc->vel_x[i] * sc->vel_x[i] + sc->vel_y[i] * sc->vel_y[i] + sc->vel_z[i] * sc->vel_z[i]);
 
     // store current acceleration for next iteration
     sc->acc_x_prev[i] = sc->acc_x[i];
     sc->acc_y_prev[i] = sc->acc_y[i];
+    sc->acc_z_prev[i] = sc->acc_z[i];
 }
 
 // adds a spacecraft to the spacecraft array
 void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
-                        const double x_pos, const double y_pos, const double x_vel, const double y_vel,
+                        const double x_pos, const double y_pos, const double z_pos, const double x_vel, const double y_vel, const double z_vel,
                         const double dry_mass, const double fuel_mass, const double thrust,
                         const double specific_impulse, const double mass_flow_rate,
                         const double attitude, const double moment_of_inertia,
@@ -157,20 +157,25 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
     double* temp_fuel_mass = REALLOC_ARRAY(fuel_mass, double);
     double* temp_pos_x = REALLOC_ARRAY(pos_x, double);
     double* temp_pos_y = REALLOC_ARRAY(pos_y, double);
+    double* temp_pos_z = REALLOC_ARRAY(pos_z, double);
     double* temp_attitude = REALLOC_ARRAY(attitude, double);
     double* temp_vel_x = REALLOC_ARRAY(vel_x, double);
     double* temp_vel_y = REALLOC_ARRAY(vel_y, double);
+    double* temp_vel_z = REALLOC_ARRAY(vel_z, double);
     double* temp_vel = REALLOC_ARRAY(vel, double);
     double* temp_rot_v = REALLOC_ARRAY(rotational_v, double);
     double* temp_momentum = REALLOC_ARRAY(momentum, double);
     double* temp_acc_x = REALLOC_ARRAY(acc_x, double);
     double* temp_acc_y = REALLOC_ARRAY(acc_y, double);
+    double* temp_acc_z = REALLOC_ARRAY(acc_z, double);
     double* temp_acc_x_prev = REALLOC_ARRAY(acc_x_prev, double);
     double* temp_acc_y_prev = REALLOC_ARRAY(acc_y_prev, double);
+    double* temp_acc_z_prev = REALLOC_ARRAY(acc_z_prev, double);
     double* temp_rot_a = REALLOC_ARRAY(rotational_a, double);
     double* temp_moi = REALLOC_ARRAY(moment_of_inertia, double);
     double* temp_grav_fx = REALLOC_ARRAY(grav_force_x, double);
     double* temp_grav_fy = REALLOC_ARRAY(grav_force_y, double);
+    double* temp_grav_fz = REALLOC_ARRAY(grav_force_z, double);
     double* temp_torque = REALLOC_ARRAY(torque, double);
     double* temp_thrust = REALLOC_ARRAY(thrust, double);
     double* temp_mfr = REALLOC_ARRAY(mass_flow_rate, double);
@@ -190,20 +195,25 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
     sc->fuel_mass = temp_fuel_mass;
     sc->pos_x = temp_pos_x;
     sc->pos_y = temp_pos_y;
+    sc->pos_z = temp_pos_z;
     sc->attitude = temp_attitude;
     sc->vel_x = temp_vel_x;
     sc->vel_y = temp_vel_y;
+    sc->vel_z = temp_vel_z;
     sc->vel = temp_vel;
     sc->rotational_v = temp_rot_v;
     sc->momentum = temp_momentum;
     sc->acc_x = temp_acc_x;
     sc->acc_y = temp_acc_y;
+    sc->acc_z = temp_acc_z;
     sc->acc_x_prev = temp_acc_x_prev;
     sc->acc_y_prev = temp_acc_y_prev;
+    sc->acc_z_prev = temp_acc_z_prev;
     sc->rotational_a = temp_rot_a;
     sc->moment_of_inertia = temp_moi;
     sc->grav_force_x = temp_grav_fx;
     sc->grav_force_y = temp_grav_fy;
+    sc->grav_force_z = temp_grav_fz;
     sc->torque = temp_torque;
     sc->thrust = temp_thrust;
     sc->mass_flow_rate = temp_mfr;
@@ -228,15 +238,20 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
     // initialize the new craft
     sc->pos_x[idx] = x_pos;
     sc->pos_y[idx] = y_pos;
+    sc->pos_z[idx] = z_pos;
     sc->vel_x[idx] = x_vel;
     sc->vel_y[idx] = y_vel;
-    sc->vel[idx] = sqrt(x_vel * x_vel + y_vel * y_vel);
+    sc->vel_z[idx] = z_vel;
+    sc->vel[idx] = sqrt(x_vel * x_vel + y_vel * y_vel + z_vel * z_vel);
     sc->acc_x[idx] = 0.0;
     sc->acc_y[idx] = 0.0;
+    sc->acc_z[idx] = 0.0;
     sc->acc_x_prev[idx] = 0.0;
     sc->acc_y_prev[idx] = 0.0;
+    sc->acc_z_prev[idx] = 0.0;
     sc->grav_force_x[idx] = 0.0;
     sc->grav_force_y[idx] = 0.0;
+    sc->grav_force_z[idx] = 0.0;
     sc->attitude[idx] = attitude;
     sc->dry_mass[idx] = dry_mass;
     sc->fuel_mass[idx] = fuel_mass;

@@ -221,9 +221,9 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < sim.gb.count; i++) {
             float size_scale_factor = (float)sim.gb.radius[i] / SCALE;
             mat4 scale_mat = mat4_scale(size_scale_factor, size_scale_factor, size_scale_factor);
-            mat4 translate_mat = mat4_translation((float)sim.gb.pos_x[i] / SCALE, 0.0f, (float)sim.gb.pos_y[i] / SCALE);
+            mat4 translate_mat = mat4_translation((float)sim.gb.pos_x[i] / SCALE, (float)sim.gb.pos_y[i] / SCALE, (float)sim.gb.pos_z[i] / SCALE);
             mat4 planet_model = mat4_mul(scale_mat, translate_mat);
-            setMatrixUniform(shaderProgram, "model", &planet_model);
+            setMatrixUniform(shaderProgram, "model", &planet_model);//
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 
