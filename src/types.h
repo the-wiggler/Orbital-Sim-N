@@ -35,6 +35,8 @@ typedef struct {
 
     bool reset_sim;
     bool is_zooming;
+    bool is_zooming_out;
+    bool is_zooming_in;
 
     bool craft_view_shown;
     bool main_view_shown;

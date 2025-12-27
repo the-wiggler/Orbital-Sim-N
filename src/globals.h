@@ -9,6 +9,8 @@ extern const double G;
 extern const double M_PI;
 extern char* SIMULATION_FILENAME;
 
+extern float SCALE;
+
 extern SDL_Color ACCENT_COLOR;
 
 #endif

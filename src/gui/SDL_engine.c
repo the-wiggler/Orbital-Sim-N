@@ -69,7 +69,7 @@ SDL_GL_init_t init_SDL_OPENGL_window(const char* title, int width, int height, U
     // enable VSync
     SDL_GL_SetSwapInterval(1);
 
-    printf("OpenGL version: %s\n", glGetString(GL_VERSION));
+    printf("OpenGL version: %s\n", glGetString(GL_VERSION)); // yes this gives a warning, its supposed to be like this
     printf("GLEW version: %s\n", glewGetString(GLEW_VERSION));
 
     return result;
@@ -167,6 +167,10 @@ static void handleWindowResizeEvent(const SDL_Event* event, sim_properties_t* si
 // the event handling code... checks if events are happening for input and does a task based on that input
 void runEventCheck(SDL_Event* event, sim_properties_t* sim) {
     window_params_t* wp = &sim->wp;
+
+    wp->is_zooming = false; // reset zooming checks
+    wp->is_zooming_in = false;
+    wp->is_zooming_out = false;
 
     while (SDL_PollEvent(event)) {
         // check if x button is pressed to quit

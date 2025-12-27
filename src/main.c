@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     // CUBE SETUP                         //
     ////////////////////////////////////////
     // create cube vertices with colors (position xyz + color rgb)
-    float cubeVertices[] = {
+    float unit_cube_vertices[] = {
         // positions          // colors
         // Front face
         -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
@@ -139,7 +139,23 @@ int main(int argc, char *argv[]) {
         -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f
     };
 
-    VBO_t cube = createVBO(cubeVertices, sizeof(cubeVertices));
+    float axis_lines[] = {
+        // x axis
+        -10.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f,
+         10.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f,
+
+        // z axis
+         0.0f, -10.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+         0.0f,  10.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+
+        // i axis
+         0.0f, 0.0f, -10.0f,  0.0f, 1.0f, 0.0f,
+         0.0f, 0.0f,  10.0f,  0.0f, 1.0f, 0.0f
+    };
+
+    VBO_t unit_cube_buffer = createVBO(unit_cube_vertices, sizeof(unit_cube_vertices));
+
+    VBO_t axes_buffer = createVBO(axis_lines, sizeof(axis_lines));
 
     ////////////////////////////////////////
     // SIM THREAD INIT                    //
@@ -186,11 +202,16 @@ int main(int argc, char *argv[]) {
         // casts the camera to the required orientation and zoom (always points to the origin)
         castCamera(sim, shaderProgram);
 
-        float scale = 1e7; // scales in-sim meters to openGL coordinates -- this is an arbitrary number that can be adjusted
+        // draw coordinate plane
+        glBindVertexArray(axes_buffer.VAO);
+        mat4 axes_model_mat = mat4_scale(sim.wp.zoom, sim.wp.zoom, sim.wp.zoom);
+        setMatrixUniform(shaderProgram, "model", &axes_model_mat);
+        glDrawArrays(GL_LINES, 0, 6);
 
-        glBindVertexArray(cube.VAO);
+        // draw planets
+        glBindVertexArray(unit_cube_buffer.VAO);
         for (int i = 0; i < sim.gb.count; i++) {
-            mat4 planet_model = mat4_translation((float)sim.gb.pos_x[i] / scale, (float)sim.gb.pos_y[i] / scale, 0.0f);
+            mat4 planet_model = mat4_translation((float)sim.gb.pos_x[i] / SCALE, 0.0f, (float)sim.gb.pos_y[i] / SCALE);
             setMatrixUniform(shaderProgram, "model", &planet_model);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
