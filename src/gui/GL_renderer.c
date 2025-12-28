@@ -655,7 +655,7 @@ void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape
 }
 
 // render the stats on the screen
-void renderStats(sim_properties_t sim, text_renderer_t text_renderer) {
+void renderStats(sim_properties_t sim, text_renderer_t text_renderer, line_batch_t* line_batch) {
 
     float white_color[] = { 1.0f, 1.0f, 1.0f};
 
@@ -672,6 +672,18 @@ void renderStats(sim_properties_t sim, text_renderer_t text_renderer) {
         snprintf(text_buffer, sizeof(text_buffer), "%s's velocity: %.3f", sim.gb.names[i], sim.gb.vel[i]);
         renderText(&text_renderer, text_buffer, cursor_pos[0], cursor_pos[1], 1.0f, white_color);
         cursor_pos[1] -= line_height;
+    }
+
+    // draw lines between planets to show distance
+    for (int i = 0; i < sim.gb.count; i++) {
+        // planet pos 1
+        coord_t pp1 = { sim.gb.pos_x[i] / SCALE, sim.gb.pos_y[i] / SCALE, sim.gb.pos_z[i] / SCALE };
+        int pp2idx = i + 1;
+        if (i + 1 > sim.gb.count - 1) pp2idx = 0;
+        // planet pos 2
+        coord_t pp2 = { sim.gb.pos_x[pp2idx] / SCALE, sim.gb.pos_y[pp2idx] / SCALE, sim.gb.pos_z[pp2idx] / SCALE };
+
+        addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
     }
 
 }

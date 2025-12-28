@@ -168,9 +168,8 @@ int main(int argc, char *argv[]) {
 
         // stats display
         // TODO: fix the MAJOR slowdown involved with rendering text atm - make a batching system for text
-        renderStats(sim, textRenderer);
-
-        addLine(&line_batch, 0, 0, 0, 10, 10, 10, 1.0f, 0.0f, 0.0f);
+        // TODO: figure out why text disappears when window is resized
+        renderStats(sim, textRenderer, &line_batch);
 
         // render all queued lines to draw
         renderLines(&line_batch, shaderProgram);

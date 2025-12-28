@@ -37,6 +37,7 @@ void freeLines(line_batch_t* batch);
 
 // text rendering functions
 text_renderer_t initTextRenderer(const char* fontPath, unsigned int fontSize, int screenWidth, int screenHeight);
+void updateTextRendererProjection(text_renderer_t* renderer, int screenWidth, int screenHeight);
 void renderText(text_renderer_t* renderer, const char* text, float x, float y, float scale, float color[3]);
 void cleanupTextRenderer(text_renderer_t* renderer);
 
@@ -45,6 +46,6 @@ void cleanupTextRenderer(text_renderer_t* renderer);
 void renderCoordinatePlane(sim_properties_t sim, line_batch_t* line_batch);
 void renderPlanets(sim_properties_t sim, GLuint shader_program, VBO_t planet_shape_buffer);
 void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape_buffer);
-void renderStats(sim_properties_t sim, text_renderer_t text_renderer);
+void renderStats(sim_properties_t sim, text_renderer_t text_renderer, line_batch_t* line_batch);
 
 #endif //ORBITSIMULATION_GL_RENDERER_H
