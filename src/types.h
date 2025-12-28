@@ -203,6 +203,13 @@ typedef struct {
 } VBO_t;
 
 typedef struct {
+    VBO_t vbo;
+    float* vertices;
+    size_t capacity;  // max number of lines
+    size_t count;     // current number of lines
+} line_batch_t;
+
+typedef struct {
     float m[16]; // 4x4 matrix
 } mat4;
 

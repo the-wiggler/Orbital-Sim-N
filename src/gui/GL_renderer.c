@@ -275,6 +275,110 @@ void freeSphere(sphere_mesh_t* sphere) {
     }
 }
 
+// line rendering stuff
+line_batch_t createLineBatch(size_t max_lines) {
+    line_batch_t batch = {0};
+
+    batch.capacity = max_lines;
+    batch.count = 0;
+
+    // allocate vertex buffer
+    size_t vertex_array_size = max_lines * 2 * 6 * sizeof(float);
+    batch.vertices = (float*)malloc(vertex_array_size);
+
+    if (!batch.vertices) {
+        fprintf(stderr, "Failed to allocate memory for line batch\n");
+        return batch;
+    }
+
+    // create VBO
+    glGenVertexArrays(1, &batch.vbo.VAO);
+    glGenBuffers(1, &batch.vbo.VBO);
+
+    glBindVertexArray(batch.vbo.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, batch.vbo.VBO);
+    glBufferData(GL_ARRAY_BUFFER, (long)vertex_array_size, NULL, GL_DYNAMIC_DRAW);
+
+    // position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // color
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+
+    return batch;
+}
+
+void addLine(line_batch_t* batch, float x1, float y1, float z1, float x2, float y2, float z2, float r, float g, float b) {
+    if (!batch || !batch->vertices || batch->count >= batch->capacity) {
+        return;
+    }
+
+    // calculate index for this line's data
+    size_t index = batch->count * 12; // 12 floats per line (2 vertices * 6 floats)
+
+    // first vertex
+    batch->vertices[index + 0] = x1;
+    batch->vertices[index + 1] = y1;
+    batch->vertices[index + 2] = z1;
+    batch->vertices[index + 3] = r;
+    batch->vertices[index + 4] = g;
+    batch->vertices[index + 5] = b;
+
+    // second vertex
+    batch->vertices[index + 6] = x2;
+    batch->vertices[index + 7] = y2;
+    batch->vertices[index + 8] = z2;
+    batch->vertices[index + 9] = r;
+    batch->vertices[index + 10] = g;
+    batch->vertices[index + 11] = b;
+
+    batch->count++;
+}
+
+void renderLines(line_batch_t* batch, GLuint shader_program) {
+    if (!batch || !batch->vertices || batch->count == 0) {
+        return;
+    }
+
+    // activate the shader program
+    glUseProgram(shader_program);
+
+    // update VBO with all line data
+    glBindBuffer(GL_ARRAY_BUFFER, batch->vbo.VBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (long)(batch->count * 12 * sizeof(float)), batch->vertices);
+
+    glBindVertexArray(batch->vbo.VAO);
+
+    mat4 identity_mat = mat4_identity();
+    setMatrixUniform(shader_program, "model", &identity_mat);
+
+    // draw all lines in one call
+    glDrawArrays(GL_LINES, 0, (GLsizei)(batch->count * 2));
+
+    // reset for next frame
+    batch->count = 0;
+}
+
+void freeLines(line_batch_t* batch) {
+    if (!batch) {
+        return;
+    }
+
+    if (batch->vertices) {
+        free(batch->vertices);
+        batch->vertices = NULL;
+    }
+
+    deleteVBO(batch->vbo);
+
+    batch->capacity = 0;
+    batch->count = 0;
+}
+
 // text rendering implementation
 text_renderer_t initTextRenderer(const char* fontPath, unsigned int fontSize, int screenWidth, int screenHeight) {
     text_renderer_t renderer = {0};
@@ -499,11 +603,21 @@ void cleanupTextRenderer(text_renderer_t* renderer) {
 }
 
 // render the coordinate plane to the screen
-void renderCoordinatePlane(sim_properties_t sim, GLuint shader_program, VBO_t axes_buffer) {
-    glBindVertexArray(axes_buffer.VAO);
-    mat4 axes_model_mat = mat4_scale(sim.wp.zoom, sim.wp.zoom, sim.wp.zoom);
-    setMatrixUniform(shader_program, "model", &axes_model_mat);
-    glDrawArrays(GL_LINES, 0, 10);
+void renderCoordinatePlane(sim_properties_t sim, line_batch_t* line_batch) {
+    float scale = sim.wp.zoom;
+
+    // X axis (red)
+    addLine(line_batch, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f, 0.0f, 0.0f);
+
+    // Y axis (green)
+    addLine(line_batch, 0.0f, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f, 0.0f);
+
+    // Z axis (blue)
+    addLine(line_batch, 0.0f, 0.0f, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f);
+
+    // perspective lines (gray)
+    addLine(line_batch, 10.0f * scale, 0.0f, -10.0f * scale, -10.0f * scale, 0.0f, 10.0f * scale, 0.3f, 0.3f, 0.3f);
+    addLine(line_batch, 10.0f * scale, 0.0f, 10.0f * scale, -10.0f * scale, 0.0f, -10.0f * scale, 0.3f, 0.3f, 0.3f);
 }
 
 // render the sim planets to the screen
@@ -560,10 +674,4 @@ void renderStats(sim_properties_t sim, text_renderer_t text_renderer) {
         cursor_pos[1] -= line_height;
     }
 
-    // write planet KE
-    for (int i = 0; i < sim.gb.count; i++) {
-        snprintf(text_buffer, sizeof(text_buffer), "%s's KE: %.3f", sim.gb.names[i], sim.gb.kinetic_energy[i]);
-        renderText(&text_renderer, text_buffer, cursor_pos[0], cursor_pos[1], 1.0f, white_color);
-        cursor_pos[1] -= line_height;
-    }
 }

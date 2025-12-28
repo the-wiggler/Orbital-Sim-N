@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
     SDL_GLContext glctx = windowInit.glContext;
 
     // create the shader programs
-    GLuint shaderProgram = createShaderProgram("../shaders/simple.vert", "../shaders/simple.frag");
+    GLuint shaderProgram = createShaderProgram("shaders/simple.vert", "shaders/simple.frag");
 
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
@@ -94,15 +94,19 @@ int main(int argc, char *argv[]) {
     // MESH/BUFFER SETUP                  //
     ////////////////////////////////////////
 
+    // create buffer for cube shape
     VBO_t unit_cube_buffer = createVBO(UNIT_CUBE_VERTICES, sizeof(UNIT_CUBE_VERTICES));
 
-    VBO_t axes_buffer = createVBO(AXES_LINES, sizeof(AXES_LINES));
-
+    // create buffer for cone shape
     VBO_t cone_buffer = createVBO(CONE_VERTICES, sizeof(CONE_VERTICES));
 
+    // create buffer for sphere shape
     sphere_mesh_t sphere_mesh = generateUnitSphere(15, 15);
     VBO_t sphere_buffer = createVBO(sphere_mesh.vertices, sphere_mesh.data_size);
     sim.wp.planet_model_vertex_count = (int)sphere_mesh.vertex_count; // I couldn't think of a better way to do this ngl
+
+    // create batch to hold all the line geometries we would ever want to draw!
+    line_batch_t line_batch = createLineBatch(1000);
 
     ////////////////////////////////////////
     // SIM THREAD INIT                    //
@@ -154,7 +158,7 @@ int main(int argc, char *argv[]) {
         castCamera(sim, shaderProgram);
 
         // draw coordinate plane
-        renderCoordinatePlane(sim, shaderProgram, axes_buffer);
+        renderCoordinatePlane(sim, &line_batch);
 
         // draw planets
         renderPlanets(sim, shaderProgram, sphere_buffer);
@@ -163,9 +167,13 @@ int main(int argc, char *argv[]) {
         renderCrafts(sim, shaderProgram, cone_buffer);
 
         // stats display
-        // TODO: fix the MAJOR slowdown involved with rendering text atm
+        // TODO: fix the MAJOR slowdown involved with rendering text atm - make a batching system for text
         renderStats(sim, textRenderer);
 
+        addLine(&line_batch, 0, 0, 0, 10, 10, 10, 1.0f, 0.0f, 0.0f);
+
+        // render all queued lines to draw
+        renderLines(&line_batch, shaderProgram);
         ////////////////////////////////////////////////////////
         // END OPENGL RENDERER
         ////////////////////////////////////////////////////////
@@ -206,8 +214,8 @@ int main(int argc, char *argv[]) {
     // Cleanup OpenGL resources
     freeSphere(&sphere_mesh);
     deleteVBO(unit_cube_buffer);
-    deleteVBO(axes_buffer);
     deleteVBO(sphere_buffer);
+    freeLines(&line_batch);
     glDeleteProgram(shaderProgram);
 
     fclose(filenames.global_data_FILE);

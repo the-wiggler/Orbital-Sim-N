@@ -148,6 +148,13 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMENT "Copying data files"
 )
 
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/shaders"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders"
+        COMMENT "Copying shader files"
+)
+
 # Windows: Copy SDL3 DLLs automatically
 if(WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

@@ -56,27 +56,6 @@ const float UNIT_CUBE_VERTICES[] = {
     -0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f
 };
 
-const float AXES_LINES[] = {
- // x axis (b
- -10.0f, 0.0f, 0.0f,  0.3f, 0.0f, 0.0f,
-  10.0f, 0.0f, 0.0f,  0.3f, 0.0f, 0.0f,
-
- // y axis (green)
-  0.0f, -10.0f, 0.0f,  0.0f, 0.3f, 0.0f,
-  0.0f,  10.0f, 0.0f,  0.0f, 0.3f, 0.0f,
-
- // z axis (blue)
-  0.0f, 0.0f, -10.0f,  0.0f, 0.0f, 0.3f,
-  0.0f, 0.0f,  10.0f,  0.0f, 0.0f, 0.3f,
-
- // cross lines
- 10.0f, 0.0f, -10.0f,  0.3f, 0.3f, 0.3f,
- -10.0f, 0.0f,  10.0f,  0.3f, 0.3f, 0.3f,
-
- 10.0f, 0.0f, 10.0f,  0.3f, 0.3f, 0.3f,
- -10.0f, 0.0f,  -10.0f,  0.3f, 0.3f, 0.3f,
-};
-
 const float CONE_VERTICES[] = {
     // positions          // colors
     // Side triangles (tip to base ring)
