@@ -66,6 +66,7 @@ find_package(SDL3 CONFIG REQUIRED)
 find_package(cJSON CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(Freetype REQUIRED)
 
 if(WIN32)
     find_package(PThreads4W REQUIRED)
@@ -105,6 +106,9 @@ set(SOURCES
 # Create executable
 add_executable(${PROJECT_NAME} ${SOURCES})
 
+# Include FreeType headers
+target_include_directories(${PROJECT_NAME} PRIVATE ${FREETYPE_INCLUDE_DIRS})
+
 # Windows-specific: hide console window
 if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
@@ -117,6 +121,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         cjson
         OpenGL::GL
         GLEW::GLEW
+        Freetype::Freetype
 )
 
 if(WIN32)

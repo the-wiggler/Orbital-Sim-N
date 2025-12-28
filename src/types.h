@@ -204,4 +204,21 @@ typedef struct {
     size_t vertex_count;
     size_t data_size;
 } sphere_mesh_t;
+
+typedef struct {
+    GLuint texture_id;  // ID handle of the glyph texture
+    int width;          // Width of glyph
+    int height;         // Height of glyph
+    int bearing_x;      // Offset from baseline to left of glyph
+    int bearing_y;      // Offset from baseline to top of glyph
+    unsigned int advance; // Horizontal offset to advance to next glyph
+} character_t;
+
+typedef struct {
+    GLuint VAO;
+    GLuint VBO;
+    GLuint shader_program;
+    character_t characters[128]; // ASCII character set
+} text_renderer_t;
+
 #endif

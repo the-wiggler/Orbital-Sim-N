@@ -25,4 +25,9 @@ void castCamera(sim_properties_t sim, GLuint shaderProgram);
 sphere_mesh_t generateUnitSphere(unsigned int stacks, unsigned int sectors);
 void freeSphere(sphere_mesh_t* sphere);
 
+// text rendering functions
+text_renderer_t initTextRenderer(const char* fontPath, unsigned int fontSize, int screenWidth, int screenHeight);
+void renderText(text_renderer_t* renderer, const char* text, float x, float y, float scale, float color[3]);
+void cleanupTextRenderer(text_renderer_t* renderer);
+
 #endif //ORBITSIMULATION_GL_RENDERER_H

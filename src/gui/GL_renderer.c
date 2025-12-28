@@ -6,7 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include "../globals.h"
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 char* loadShaderSource(const char* filepath) {
     FILE* file = fopen(filepath, "r");
@@ -268,5 +271,228 @@ void freeSphere(sphere_mesh_t* sphere) {
         sphere->vertices = NULL;
         sphere->vertex_count = 0;
         sphere->data_size = 0;
+    }
+}
+
+// text rendering implementation
+text_renderer_t initTextRenderer(const char* fontPath, unsigned int fontSize, int screenWidth, int screenHeight) {
+    text_renderer_t renderer = {0};
+
+    // initialize FreeType library
+    FT_Library ft;
+    if (FT_Init_FreeType(&ft)) {
+        fprintf(stderr, "ERROR::FREETYPE: Could not init FreeType Library\n");
+        return renderer;
+    }
+
+    // load font
+    FT_Face face;
+    if (FT_New_Face(ft, fontPath, 0, &face)) {
+        fprintf(stderr, "ERROR::FREETYPE: Failed to load font from %s\n", fontPath);
+        FT_Done_FreeType(ft);
+        return renderer;
+    }
+
+    // set font size
+    FT_Set_Pixel_Sizes(face, 0, fontSize);
+
+    // disable byte-alignment restriction in OpenGL
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    // load first 128 ASCII characters
+    for (unsigned char c = 0; c < 128; c++) {
+        // load character glyph
+        if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+            fprintf(stderr, "ERROR::FREETYPE: Failed to load Glyph for character %c\n", c);
+            continue;
+        }
+
+        // generate texture
+        GLuint texture;
+        glGenTextures(1, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RED,
+            (GLint)face->glyph->bitmap.width,
+            (GLint)face->glyph->bitmap.rows,
+            0,
+            GL_RED,
+            GL_UNSIGNED_BYTE,
+            face->glyph->bitmap.buffer
+        );
+
+        // set texture options
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // store character
+        character_t character = {
+            texture,
+            (GLint)face->glyph->bitmap.width,
+            (GLint)face->glyph->bitmap.rows,
+            face->glyph->bitmap_left,
+            face->glyph->bitmap_top,
+            (unsigned int)face->glyph->advance.x
+        };
+        renderer.characters[c] = character;
+    }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // cleanup FreeType resources
+    FT_Done_Face(face);
+    FT_Done_FreeType(ft);
+
+    // configure VAO/VBO for texture quads
+    glGenVertexArrays(1, &renderer.VAO);
+    glGenBuffers(1, &renderer.VBO);
+    glBindVertexArray(renderer.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, renderer.VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    // create shader program for text rendering
+    const char* vertexShaderSource =
+        "#version 330 core\n"
+        "layout (location = 0) in vec4 vertex; // <vec2 pos, vec2 tex>\n"
+        "out vec2 TexCoords;\n"
+        "uniform mat4 projection;\n"
+        "void main() {\n"
+        "    gl_Position = projection * vec4(vertex.xy, 0.0, 1.0);\n"
+        "    TexCoords = vertex.zw;\n"
+        "}\0";
+
+    const char* fragmentShaderSource =
+        "#version 330 core\n"
+        "in vec2 TexCoords;\n"
+        "out vec4 color;\n"
+        "uniform sampler2D text;\n"
+        "uniform vec3 textColor;\n"
+        "void main() {\n"
+        "    vec4 sampled = vec4(1.0, 1.0, 1.0, texture(text, TexCoords).r);\n"
+        "    color = vec4(textColor, 1.0) * sampled;\n"
+        "}\0";
+
+    // compile vertex shader
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+
+    // compile fragment shader
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+
+    // link shaders
+    renderer.shader_program = glCreateProgram();
+    glAttachShader(renderer.shader_program, vertexShader);
+    glAttachShader(renderer.shader_program, fragmentShader);
+    glLinkProgram(renderer.shader_program);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // set up orthographic projection matrix
+    glUseProgram(renderer.shader_program);
+    float projection[16] = {
+        2.0f / (float)screenWidth, 0.0f, 0.0f, 0.0f,
+        0.0f, 2.0f / (float)screenHeight, 0.0f, 0.0f,
+        0.0f, 0.0f, -1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f, 1.0f
+    };
+    GLint projLoc = glGetUniformLocation(renderer.shader_program, "projection");
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, projection);
+
+    return renderer;
+}
+
+void renderText(text_renderer_t* renderer, const char* text, float x, float y, float scale, float color[3]) {
+    if (!renderer || !text) {
+        return;
+    }
+
+    // enable blending for text transparency
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // activate shader and set color
+    glUseProgram(renderer->shader_program);
+    glUniform3f(glGetUniformLocation(renderer->shader_program, "textColor"), color[0], color[1], color[2]);
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(renderer->VAO);
+
+    // iterate through all characters
+    const char* c_ptr = text;
+    while (*c_ptr) {
+        character_t ch = renderer->characters[(unsigned char)*c_ptr];
+
+        float xpos = x + (float)ch.bearing_x * scale;
+        float ypos = y - (float)(ch.height - ch.bearing_y) * scale;
+
+        float w = (float)ch.width * scale;
+        float h = (float)ch.height * scale;
+
+        // update VBO for each character
+        float vertices[6][4] = {
+            { xpos,     ypos + h,   0.0f, 0.0f },
+            { xpos,     ypos,       0.0f, 1.0f },
+            { xpos + w, ypos,       1.0f, 1.0f },
+
+            { xpos,     ypos + h,   0.0f, 0.0f },
+            { xpos + w, ypos,       1.0f, 1.0f },
+            { xpos + w, ypos + h,   1.0f, 0.0f }
+        };
+
+        // render glyph texture over quad
+        glBindTexture(GL_TEXTURE_2D, ch.texture_id);
+
+        // update content of VBO memory
+        glBindBuffer(GL_ARRAY_BUFFER, renderer->VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        // render quad
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // advance cursor for next glyph (advance is in 1/64th pixels)
+        x += (float)(ch.advance >> 6) * scale;
+        c_ptr++;
+    }
+
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_BLEND);
+}
+
+void cleanupTextRenderer(text_renderer_t* renderer) {
+    if (!renderer) {
+        return;
+    }
+
+    // delete all character textures
+    for (int i = 0; i < 128; i++) {
+        if (renderer->characters[i].texture_id != 0) {
+            glDeleteTextures(1, &renderer->characters[i].texture_id);
+        }
+    }
+
+    // delete VAO and VBO
+    if (renderer->VAO != 0) {
+        glDeleteVertexArrays(1, &renderer->VAO);
+    }
+    if (renderer->VBO != 0) {
+        glDeleteBuffers(1, &renderer->VBO);
+    }
+
+    // delete shader program
+    if (renderer->shader_program != 0) {
+        glDeleteProgram(renderer->shader_program);
     }
 }

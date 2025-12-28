@@ -71,7 +71,7 @@ SDL_GL_init_t init_SDL_OPENGL_window(const char* title, int width, int height, U
     // enable VSync
     SDL_GL_SetSwapInterval(1);
 
-    printf("OpenGL version: %s\n", glGetString(GL_VERSION)); // yes this gives a warning, its supposed to be like this
+    printf("OpenGL version: %s\n", glGetString(GL_VERSION)); // yes this might show a warning, it's supposed to be like this
     printf("GLEW version: %s\n", glewGetString(GLEW_VERSION));
 
     return result;

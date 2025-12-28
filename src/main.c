@@ -83,6 +83,10 @@ int main(int argc, char *argv[]) {
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
 
+    // initialize the text renderer
+    text_renderer_t textRenderer = initTextRenderer("font.ttf", 24, (int)sim.wp.window_size_x, (int)sim.wp.window_size_y);
+    float white_color[] = { 1.0f, 1.0f, 1.0f};
+
     ////////////////////////////////////////
     // MESH/BUFFER SETUP                  //
     ////////////////////////////////////////
@@ -168,7 +172,7 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < sim.gs.count; i++) {
             // create a scale matrix
             float size_scale_factor = 0.1f; // arbitrary scale based on what looks nice on screen
-            mat4 scale_mat = mat4_scale(size_scale_factor, size_scale_factor, size_scale_factor);
+            mat4 scale_mat = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
             // create a translation matrix based on the current in-sim-world position of the spacecraft
             mat4 translate_mat = mat4_translation((float)sim.gs.pos_x[i] / SCALE, (float)sim.gs.pos_y[i] / SCALE, (float)sim.gs.pos_z[i] / SCALE);
             // multiply the two matrices together to get a final scale/position matrix for the planet model on the screen
@@ -176,7 +180,9 @@ int main(int argc, char *argv[]) {
             // apply matrix and render to screen
             setMatrixUniform(shaderProgram, "model", &spacecraft_model);
             glDrawArrays(GL_TRIANGLES, 0, 48);
-        }//
+        }
+        
+        renderText(&textRenderer, "Hello, world!", 10.0f, 10.0f, 1.0f, white_color);
 
         ////////////////////////////////////////////////////////
         // END OPENGL RENDERER
