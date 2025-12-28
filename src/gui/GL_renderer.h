@@ -7,7 +7,11 @@
 
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
 #include <GL/gl.h>
+#endif
 #include "../types.h"
 
 char* loadShaderSource(const char* filepath);

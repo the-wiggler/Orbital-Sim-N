@@ -4,7 +4,11 @@
 #include "../sim/bodies.h"
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
 #include <GL/gl.h>
+#endif
 #include "../math/matrix.h"
 
 // display error message using SDL dialog
@@ -31,7 +35,7 @@ window_params_t init_window_params() {
 
     wp.font_size = (float)wp.window_size_x / 50;
     wp.window_open = true;
-    wp.sim_running = true;
+    wp.sim_running = false;  // start paused until setup is complete
     wp.data_logging_enabled = false;
     wp.sim_time = 0;
 
@@ -50,6 +54,9 @@ SDL_GL_init_t init_SDL_OPENGL_window(const char* title, int width, int height, U
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#ifdef __APPLE__
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
@@ -65,8 +72,17 @@ SDL_GL_init_t init_SDL_OPENGL_window(const char* title, int width, int height, U
 
     // initialize OpenGL context and GLEW
     result.glContext = SDL_GL_CreateContext(result.window);
+    if (!result.glContext) {
+        fprintf(stderr, "Failed to create OpenGL context: %s\n", SDL_GetError());
+        return result;
+    }
+
     glewExperimental = GL_TRUE;
-    glewInit();
+    GLenum glewError = glewInit();
+    if (glewError != GLEW_OK) {
+        fprintf(stderr, "Error initializing GLEW: %s\n", glewGetErrorString(glewError));
+        return result;
+    }
 
     // enable VSync
     SDL_GL_SetSwapInterval(1);

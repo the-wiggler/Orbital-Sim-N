@@ -101,6 +101,7 @@ set(SOURCES
         src/math/matrix.h
         src/gui/models.c
         src/gui/models.h
+        src/gui/SDL_engine.c
 )
 
 # Create executable

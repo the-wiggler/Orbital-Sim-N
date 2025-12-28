@@ -16,7 +16,11 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <GL/glew.h>
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
 #include <GL/gl.h>
+#endif
 #include <stdbool.h>
 #include "gui/GL_renderer.h"
 #include "math/matrix.h"
@@ -105,7 +109,7 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
     // initialize simulation thread
     pthread_t simThread;
-    pthread_mutex_init(&sim_vars_mutex, NULL);
+    pthread_mutex_init(&sim_vars_mutex, NULL);//
 
     // creates the sim thread
     if (pthread_create(&simThread, NULL, physicsSim, &sim) != 0) {
@@ -118,6 +122,9 @@ int main(int argc, char *argv[]) {
     // temp: load JSON for now by default
     readSimulationJSON("simulation_data.json", &sim.gb, &sim.gs);
     sim.wp.time_step = 0.01;
+
+    // now that everything is initialized, start the simulation
+    sim.wp.sim_running = true;
 
     ////////////////////////////////////////////////////////
     // simulation loop                                    //
