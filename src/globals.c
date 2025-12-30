@@ -2,7 +2,7 @@
 
 pthread_mutex_t sim_vars_mutex;
 const double G = 6.67430E-11;
-const double M_PI = 3.14159265358979323846;
+const double PI = 3.14159265358979323846;
 const float M_PI_f = 3.14159265358979323846f;
 char* SIMULATION_FILENAME = "simulation_data.json";
 

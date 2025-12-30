@@ -13,6 +13,7 @@
 #include <GL/gl.h>
 #endif
 #include "../types.h"
+#include "font.h"
 
 char* loadShaderSource(const char* filepath);
 GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath);
@@ -40,6 +41,6 @@ void freeLines(line_batch_t* batch);
 void renderCoordinatePlane(sim_properties_t sim, line_batch_t* line_batch);
 void renderPlanets(sim_properties_t sim, GLuint shader_program, VBO_t planet_shape_buffer);
 void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape_buffer);
-void renderStats(sim_properties_t sim, line_batch_t* line_batch);
+void renderStats(sim_properties_t sim, line_batch_t* line_batch, font_t* font);
 
 #endif //ORBITSIMULATION_GL_RENDERER_H

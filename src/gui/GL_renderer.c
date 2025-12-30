@@ -9,6 +9,7 @@
 #include <string.h>
 #include "../globals.h"
 #include "../math/matrix.h"
+#include "font.h"
 
 char* loadShaderSource(const char* filepath) {
     FILE* file = fopen(filepath, "r");
@@ -205,16 +206,15 @@ sphere_mesh_t generateUnitSphere(unsigned int stacks, unsigned int sectors) {
     }
 
     float* data = sphere.vertices;
-    const float PI = 3.14159265359f;
 
     // generate vertices for each stack and sector
     for (unsigned int i = 0; i < stacks; ++i) {
-        float theta1 = (float)i * PI / (float)stacks;
-        float theta2 = (float)(i + 1) * PI / (float)stacks;
+        float theta1 = (float)i * M_PI_f / (float)stacks;
+        float theta2 = (float)(i + 1) * M_PI_f / (float)stacks;
 
         for (unsigned int j = 0; j < sectors; ++j) {
-            float phi1 = (float)j * 2.0f * PI / (float)sectors;
-            float phi2 = (float)(j + 1) * 2.0f * PI / (float)sectors;
+            float phi1 = (float)j * 2.0f * M_PI_f / (float)sectors;
+            float phi2 = (float)(j + 1) * 2.0f * M_PI_f / (float)sectors;
 
             // calculate 4 vertices of the quad
             // v1 (top-left)
@@ -430,33 +430,31 @@ void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape
 }
 
 // render the stats on the screen
-void renderStats(sim_properties_t sim, line_batch_t* line_batch) {
-
-    float white_color[] = { 1.0f, 1.0f, 1.0f};
+void renderStats(sim_properties_t sim, line_batch_t* line_batch, font_t* font) {
 
     // calculate proper line height
-    float line_height = 0.0f; // placeholder
+    float line_height = 20.0f; // placeholder
     float cursor_starting_pos[2] = { 10.0f, (float)sim.wp.window_size_y - line_height - 10.0f}; // starting pos of writing
     float cursor_pos[2] = { cursor_starting_pos[0], cursor_starting_pos[1] };
 
     // text buffer used to hold text written to the stats window
-    char text_buffer[32];
+    char text_buffer[64];
 
     // write planet velocities
     for (int i = 0; i < sim.gb.count; i++) {
-        snprintf(text_buffer, sizeof(text_buffer), "%s's velocity: %.3f", sim.gb.names[i], sim.gb.vel[i]);
-        // text rendering function will go here
+        snprintf(text_buffer, sizeof(text_buffer), "%s's velocity: %.3f m/s", sim.gb.names[i], sim.gb.vel[i]);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 1.0f);
         cursor_pos[1] -= line_height;
     }
 
     // draw lines between planets to show distance
     for (int i = 0; i < sim.gb.count; i++) {
         // planet pos 1
-        coord_t pp1 = { sim.gb.pos_x[i] / SCALE, sim.gb.pos_y[i] / SCALE, sim.gb.pos_z[i] / SCALE };
+        coord_t pp1 = { (float)sim.gb.pos_x[i] / SCALE, (float)sim.gb.pos_y[i] / SCALE, (float)sim.gb.pos_z[i] / SCALE };
         int pp2idx = i + 1;
         if (i + 1 > sim.gb.count - 1) pp2idx = 0;
         // planet pos 2
-        coord_t pp2 = { sim.gb.pos_x[pp2idx] / SCALE, sim.gb.pos_y[pp2idx] / SCALE, sim.gb.pos_z[pp2idx] / SCALE };
+        coord_t pp2 = { (float)sim.gb.pos_x[pp2idx] / SCALE, (float)sim.gb.pos_y[pp2idx] / SCALE, (float)sim.gb.pos_z[pp2idx] / SCALE };
 
         addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
     }

@@ -90,8 +90,6 @@ set(SOURCES
         src/utility/json_loader.c
         src/sim/simulation.h
         src/sim/simulation.c
-        src/gui/craft_view.c
-        src/gui/craft_view.h
         src/utility/telemetry_export.c
         src/utility/telemetry_export.h
         src/gui/GL_renderer.h
@@ -102,6 +100,8 @@ set(SOURCES
         src/gui/models.h
         src/gui/SDL_engine.c
         src/gui/stb_truetype.h
+        src/gui/font.c
+        src/gui/font.h
 )
 
 # Create executable
@@ -142,6 +142,13 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "${CMAKE_SOURCE_DIR}/shaders"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders"
         COMMENT "Copying shader files"
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
+        COMMENT "Copying assets"
 )
 
 # Windows: Copy SDL3 DLLs automatically

@@ -25,6 +25,7 @@
 #include "gui/GL_renderer.h"
 #include "math/matrix.h"
 #include "gui/models.h"
+#include "gui/font.h"
 
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
 
@@ -105,6 +106,9 @@ int main(int argc, char *argv[]) {
     // create batch to hold all the line geometries we would ever want to draw!
     line_batch_t line_batch = createLineBatch(1000);
 
+    // initialize font for text rendering
+    font_t font = initFont("assets/font.ttf", 24.0f);
+
     ////////////////////////////////////////
     // SIM THREAD INIT                    //
     ////////////////////////////////////////
@@ -164,10 +168,13 @@ int main(int argc, char *argv[]) {
         renderCrafts(sim, shaderProgram, cone_buffer);
 
         // stats display
-        renderStats(sim, &line_batch);
+        renderStats(sim, &line_batch, &font);
 
-        // render all queued lines to draw
+        // render all queued lines
         renderLines(&line_batch, shaderProgram);
+
+        // render all queued text
+        renderText(&font, sim.wp.window_size_x, sim.wp.window_size_y, 1, 1, 1);
         ////////////////////////////////////////////////////////
         // END OPENGL RENDERER
         ////////////////////////////////////////////////////////
@@ -210,6 +217,7 @@ int main(int argc, char *argv[]) {
     deleteVBO(unit_cube_buffer);
     deleteVBO(sphere_buffer);
     freeLines(&line_batch);
+    freeFont(&font);
     glDeleteProgram(shaderProgram);
 
     fclose(filenames.global_data_FILE);

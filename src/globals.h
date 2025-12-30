@@ -6,7 +6,7 @@
 
 extern pthread_mutex_t sim_vars_mutex;
 extern const double G;
-extern const double M_PI;
+extern const double PI;
 extern const float M_PI_f;
 extern char* SIMULATION_FILENAME;
 
