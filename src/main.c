@@ -87,9 +87,6 @@ int main(int argc, char *argv[]) {
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
 
-    // initialize the text renderer
-    text_renderer_t textRenderer = initTextRenderer("font.ttf", 16, (int)sim.wp.window_size_x, (int)sim.wp.window_size_y);
-
     ////////////////////////////////////////
     // MESH/BUFFER SETUP                  //
     ////////////////////////////////////////
@@ -167,9 +164,7 @@ int main(int argc, char *argv[]) {
         renderCrafts(sim, shaderProgram, cone_buffer);
 
         // stats display
-        // TODO: fix the MAJOR slowdown involved with rendering text atm - make a batching system for text
-        // TODO: figure out why text disappears when window is resized
-        renderStats(sim, textRenderer, &line_batch);
+        renderStats(sim, &line_batch);
 
         // render all queued lines to draw
         renderLines(&line_batch, shaderProgram);

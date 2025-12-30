@@ -26,7 +26,6 @@ typedef struct {
     coord_t camera_pos;    // camera position in world space (defined by a unit vector, whereas the magnitude is changed by the viewport zoom)
     float zoom;             // zoom level
 
-    float font_size;
     bool window_open;
     bool data_logging_enabled;
     bool sim_running;
@@ -155,11 +154,6 @@ typedef struct {
     bool measured_initial_energy;
     double previous_total_energy;
 
-    char vel_text[10][64];
-    char total_energy_text[64];
-    char delta_energy_text[64];
-    char error_text[64];
-    SDL_Color error_color;
     int cached_body_count;
 } stats_window_t;
 
@@ -218,21 +212,5 @@ typedef struct {
     size_t vertex_count;
     size_t data_size;
 } sphere_mesh_t;
-
-typedef struct {
-    GLuint texture_id;  // ID handle of the glyph texture
-    int width;          // Width of glyph
-    int height;         // Height of glyph
-    int bearing_x;      // Offset from baseline to left of glyph
-    int bearing_y;      // Offset from baseline to top of glyph
-    unsigned int advance; // Horizontal offset to advance to next glyph
-} character_t;
-
-typedef struct {
-    GLuint VAO;
-    GLuint VBO;
-    GLuint shader_program;
-    character_t characters[128]; // ASCII character set
-} text_renderer_t;
 
 #endif
