@@ -101,6 +101,7 @@ set(SOURCES
         src/gui/models.c
         src/gui/models.h
         src/gui/SDL_engine.c
+        src/gui/stb_truetype.h
 )
 
 # Create executable
