@@ -79,7 +79,6 @@ set(SOURCES
         src/main.c
         src/types.h
         src/globals.h
-        src/globals.c
         src/sim/bodies.h
         src/sim/bodies.c
         src/sim/spacecraft.h
@@ -94,14 +93,11 @@ set(SOURCES
         src/utility/telemetry_export.h
         src/gui/GL_renderer.h
         src/gui/GL_renderer.c
-        src/math/matrix.c
         src/math/matrix.h
         src/gui/models.c
         src/gui/models.h
         src/gui/SDL_engine.c
         src/gui/stb_truetype.h
-        src/gui/font.c
-        src/gui/font.h
 )
 
 # Create executable

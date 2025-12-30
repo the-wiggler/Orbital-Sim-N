@@ -25,9 +25,11 @@
 #include "gui/GL_renderer.h"
 #include "math/matrix.h"
 #include "gui/models.h"
-#include "gui/font.h"
 
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
+
+// Global mutex definition
+pthread_mutex_t sim_vars_mutex;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // PHYSICS SIMULATION THREAD

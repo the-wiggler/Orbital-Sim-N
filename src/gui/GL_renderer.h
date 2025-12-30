@@ -13,7 +13,6 @@
 #include <GL/gl.h>
 #endif
 #include "../types.h"
-#include "font.h"
 
 char* loadShaderSource(const char* filepath);
 GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath);
@@ -35,6 +34,18 @@ line_batch_t createLineBatch(size_t max_lines);
 void addLine(line_batch_t* batch, float x1, float y1, float z1, float x2, float y2, float z2, float r, float g, float b);
 void renderLines(line_batch_t* batch, GLuint shader_program);
 void freeLines(line_batch_t* batch);
+
+// text rendering
+typedef struct {
+    GLuint tex, shader, vao, vbo;
+    float* verts;
+    int count;
+} font_t;
+
+font_t initFont(const char* path, float size);
+void addText(font_t* font, float x, float y, const char* text, float scale);
+void renderText(font_t* font, float window_w, float window_h, float r, float g, float b);
+void freeFont(font_t* font);
 
 
 // features (should come last)
