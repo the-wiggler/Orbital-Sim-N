@@ -529,11 +529,40 @@ void renderStats(sim_properties_t sim, line_batch_t* line_batch, font_t* font) {
     // text buffer used to hold text written to the stats window
     char text_buffer[64];
 
-    // write planet velocities
-    for (int i = 0; i < sim.gb.count; i++) {
-        snprintf(text_buffer, sizeof(text_buffer), "%s's velocity: %.3f m/s", sim.gb.names[i], sim.gb.vel[i]);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 1.0f);
-        cursor_pos[1] += line_height;
+    // paused indication
+    if (sim.wp.sim_running) sprintf(text_buffer, "Sim running");
+    else sprintf(text_buffer, "Sim paused");
+    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
+    cursor_pos[1] += line_height;
+
+    // write time step
+    sprintf(text_buffer, "Step: %f", sim.wp.time_step);
+    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
+    cursor_pos[1] += line_height;
+
+    // time indication
+    double time = sim.wp.sim_time / 3600; // time in hours
+    if (time < 72.0) sprintf(text_buffer, "Time: %f hrs", time);
+    else if (time < 8766.0) sprintf(text_buffer, "Time: %f days", time / 24);
+    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
+    cursor_pos[1] += line_height;
+
+    // spacer
+    cursor_pos[1] += line_height;
+
+    // craft alt
+    for (int i = 0; i < sim.gs.count; i++) {
+        for (int j = 0; j < sim.gb.count; j++) {
+            double craft_dist_x = sim.gb.pos_x[j] - sim.gs.pos_x[i];
+            double craft_dist_y = sim.gb.pos_y[j] - sim.gs.pos_y[i];
+            double craft_dist_z = sim.gb.pos_z[j] - sim.gs.pos_z[i];
+            double craft_dist = sqrt(craft_dist_x * craft_dist_x +
+                craft_dist_y * craft_dist_y +
+                craft_dist_z * craft_dist_z) - sim.gb.radius[j]; // craft dist from planet in m
+            sprintf(text_buffer, "%s %.2f km from %s", sim.gs.names[i], craft_dist / 1000, sim.gb.names[j]);
+            addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
+            cursor_pos[1] += line_height;
+        }
     }
 
     // draw lines between planets to show distance

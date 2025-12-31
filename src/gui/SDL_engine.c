@@ -7,6 +7,8 @@
 #include "../sim/bodies.h"
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
+
+#include "../utility/json_loader.h"
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #else
@@ -49,13 +51,24 @@ window_params_t init_window_params() {
 
     wp.frame_counter = 0;
 
-    // init text input
-    wp.cmd_text_box[0] = '\0';
-    wp.cmd_text_box_length = 0;
-    wp.cmd_pos_x = 0.02f * wp.window_size_x;
-    wp.cmd_pos_y = wp.window_size_y - 0.1f * wp.window_size_y;
-
     return wp;
+}
+
+console_t init_console(window_params_t wp) {
+    console_t console = {0};
+
+    // init text input
+    console.cmd_text_box[0] = '\0';
+    console.cmd_text_box_length = 0;
+    console.cmd_pos_x = 0.02f * wp.window_size_x;
+    console.cmd_pos_y = wp.window_size_y - 0.1f * wp.window_size_y;
+
+    // init console log box
+    console.log[0] = '\0';
+    console.log_pos_x = console.cmd_pos_x;
+    console.log_pos_y = console.cmd_pos_y + 0.05f * wp.window_size_y;
+
+    return console;
 }
 
 SDL_GL_init_t init_SDL_OPENGL_window(const char* title, int width, int height, Uint32* outWindowID) {
@@ -126,7 +139,7 @@ static void handleMouseMotionEvent(const SDL_Event* event, sim_properties_t* sim
         // calculate mouse movement delta
         float delta_x = event->motion.x - wp->drag_last_x;
 
-        // convert mouse movement to rotation angle (adjust sensitivity as needed)
+        // convert mouse movement to rotation angle
         float rotation_sensitivity = 0.01f;
         float rotation_angle = delta_x * rotation_sensitivity;
 
@@ -145,8 +158,8 @@ static void handleMouseButtonDownEvent(const SDL_Event* event, sim_properties_t*
     // body_properties_t* gb = &sim->gb;
     // spacecraft_properties_t* sc = &sim->gs;
 
-    // check if right mouse button or middle mouse button (for dragging)
-    if (event->button.button == SDL_BUTTON_RIGHT || event->button.button == SDL_BUTTON_MIDDLE) {
+    // check if right mouse button (for dragging)
+    if (event->button.button == SDL_BUTTON_RIGHT) {
         wp->is_dragging = true;
         wp->drag_last_x = event->button.x;
         wp->drag_last_y = event->button.y;
@@ -175,51 +188,79 @@ static void handleMouseWheelEvent(const SDL_Event* event, sim_properties_t* sim)
     }
 }
 
-//
 static void parseRunCommands(char* cmd, sim_properties_t* sim) {
+    console_t* console = &sim->console;
+
     if (strncmp(cmd, "step ", 4) == 0) {
         char* argument = cmd + 4;
-        sim->wp.time_step = atof(argument);
+        sim->wp.time_step = strtod(argument, &argument);
+
+        sprintf(console->log, "step set to %f", sim->wp.time_step);
     }
-    else if (strcmp(cmd, "pause") == 0 || strcmp(cmd, "p") == 0) sim->wp.sim_running = false;
-    else if (strcmp(cmd, "resume") == 0 || strcmp(cmd, "r") == 0) sim->wp.sim_running = true;
+    else if (strcmp(cmd, "pause") == 0 || strcmp(cmd, "p") == 0) {
+        sim->wp.sim_running = false;
+        sprintf(console->log, "sim paused");
+    }
+    else if (strcmp(cmd, "resume") == 0 || strcmp(cmd, "r") == 0) {
+        sim->wp.sim_running = true;
+        sprintf(console->log, "sim resumed");
+    }
+    else if (strcmp(cmd, "load") == 0) {
+        if (sim->gb.count == 0) {
+            readSimulationJSON("simulation_data.json", &sim->gb, &sim->gs);
+            sprintf(console->log, "%d planets and %d craft loaded from json file", sim->gb.count, sim->gs.count);
+        }
+        else sprintf(console->log, "Warning: system already loaded, reset before loading another");
+    }
+    else if (strcmp(cmd, "reset") == 0) {
+        sim->wp.reset_sim = true;
+        sprintf(console->log, "sim reset");
+    }
+    else {
+        sprintf(console->log, "unknown command: %s", cmd);
+    }
 }
 
 // handles keyboard events
 static void handleKeyboardEvent(const SDL_Event* event, sim_properties_t* sim) {
+    console_t* console = &sim->console;
     window_params_t* wp = &sim->wp;
 
-    if (event->key.key == SDLK_BACKSPACE && wp->cmd_text_box_length > 0) {
-        wp->cmd_text_box_length -= 1;
-        wp->cmd_text_box[wp->cmd_text_box_length] = '\0';
+    if (event->key.key == SDLK_BACKSPACE && console->cmd_text_box_length > 0) {
+        console->cmd_text_box_length -= 1;
+        console->cmd_text_box[console->cmd_text_box_length] = '\0';
     }
     else if (event->key.key == SDLK_RETURN || event->key.key == SDLK_KP_ENTER) {
-        parseRunCommands(wp->cmd_text_box, sim);
-        wp->cmd_text_box[0] = '\0';
-        wp->cmd_text_box_length = 0;
+        // clear log because a new command will show a new log message!
+        console->log[0] = '\0';
+        // if the enter key is pressed, then the command should be queued!
+        parseRunCommands(console->cmd_text_box, sim);
+        console->cmd_text_box[0] = '\0';
+        console->cmd_text_box_length = 0;
     }
 }
 
 // handles text input events
 static void handleTextInputEvent(const SDL_Event* event, sim_properties_t* sim) {
-    window_params_t* wp = &sim->wp;
+    console_t* console = &sim->console;
 
     size_t text_len = strlen(event->text.text);
-    if (wp->cmd_text_box_length + text_len < 255) {
-        strcat(wp->cmd_text_box, event->text.text);
-        wp->cmd_text_box_length += text_len;
+    if (console->cmd_text_box_length + text_len < 255) {
+        strcat(console->cmd_text_box, event->text.text);
+        console->cmd_text_box_length += (int)text_len;
     }
 }
 
 // handles window resize events
 static void handleWindowResizeEvent(const SDL_Event* event, sim_properties_t* sim) {
     window_params_t* wp = &sim->wp;
+    console_t* console = &sim->console;
 
     wp->window_size_x = (float)event->window.data1;
     wp->window_size_y = (float)event->window.data2;
 
-    wp->cmd_pos_x = 0.02f * wp->window_size_x;
-    wp->cmd_pos_y = wp->window_size_y - 0.1f * wp->window_size_y;
+    console->cmd_pos_x = 0.02f * wp->window_size_x;
+    console->cmd_pos_y = wp->window_size_y - 0.1f * wp->window_size_y;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -273,20 +314,22 @@ void runEventCheck(SDL_Event* event, sim_properties_t* sim) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// TEXT INPUT RENDERING
+// CONSOLE RENDERING
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void renderCMDWindow(sim_properties_t* sim, font_t* font) {
+    console_t* console = &sim->console;
     window_params_t* wp = &sim->wp;
 
-    float x = wp->cmd_pos_x;
-    float y = wp->cmd_pos_y;
-
-    addText(font, x, y, wp->cmd_text_box, 1.0f);
+    // display what's in the text box
+    addText(font, console->cmd_pos_x, console->cmd_pos_y, console->cmd_text_box, 1.0f);
 
     // blinking cursor
     if ((wp->frame_counter / 30) % 2 == 0) {
         char cursor_text[256];
-        snprintf(cursor_text, sizeof(cursor_text), "%s_", wp->cmd_text_box);
-        addText(font, x, y, cursor_text, 1.0f);
+        snprintf(cursor_text, sizeof(cursor_text), "%s_", console->cmd_text_box);
+        addText(font, console->cmd_pos_x, console->cmd_pos_y, cursor_text, 1.0f);
     }
+
+    // display whatever text is in the log box (resets when enter is pressed)
+    addText(font, console->log_pos_x, console->log_pos_y, console->log, 0.8f);
 }

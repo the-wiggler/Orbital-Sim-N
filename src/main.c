@@ -75,8 +75,9 @@ int main(int argc, char *argv[]) {
     // initialize SDL
     SDL_Init(SDL_INIT_VIDEO);
 
-    // window parameters
+    // window parameters & command prompt init
     sim.wp = init_window_params();
+    sim.console = init_console(sim.wp);
 
     // SDL and OpenGL window
     SDL_GL_init_t windowInit = init_SDL_OPENGL_window("Orbit Simulation N",
@@ -126,8 +127,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // temp: load JSON for now by default
-    readSimulationJSON("simulation_data.json", &sim.gb, &sim.gs);
+    // default time step
     sim.wp.time_step = 0.01;
 
     ////////////////////////////////////////////////////////

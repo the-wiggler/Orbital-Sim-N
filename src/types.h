@@ -47,11 +47,15 @@ typedef struct {
 
     int planet_model_vertex_count;
     int frame_counter;
+} window_params_t;
 
+typedef struct {
     char cmd_text_box[256];
+    char log[256];
     int cmd_text_box_length;
     float cmd_pos_x, cmd_pos_y;
-} window_params_t;
+    float log_pos_x, log_pos_y;
+} console_t;
 
 typedef struct {
     int count;
@@ -148,6 +152,7 @@ typedef struct {
     body_properties_t gb; // global bodies
     spacecraft_properties_t gs; // global spacecraft
     window_params_t wp; // window properties
+    console_t console; // in-window console
     double system_kinetic_energy, system_potential_energy; // total energies of the whole system (reset each iteration)
 } sim_properties_t;
 
