@@ -42,8 +42,8 @@ typedef struct {
     bool is_zooming_out;
     bool is_zooming_in;
 
-    bool craft_view_shown;
-    bool main_view_shown;
+    // debug stuff
+    bool draw_lines_between_bodies;
 
     int planet_model_vertex_count;
     int frame_counter;

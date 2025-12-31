@@ -519,7 +519,7 @@ void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape
 }
 
 // render the stats on the screen
-void renderStats(sim_properties_t sim, line_batch_t* line_batch, font_t* font) {
+void renderStats(sim_properties_t sim, font_t* font) {
 
     // calculate proper line height
     float line_height = 20.0f; // placeholder
@@ -564,17 +564,21 @@ void renderStats(sim_properties_t sim, line_batch_t* line_batch, font_t* font) {
             cursor_pos[1] += line_height;
         }
     }
+}
 
-    // draw lines between planets to show distance
-    for (int i = 0; i < sim.gb.count; i++) {
-        // planet pos 1
-        coord_t pp1 = { (float)sim.gb.pos_x[i] / SCALE, (float)sim.gb.pos_y[i] / SCALE, (float)sim.gb.pos_z[i] / SCALE };
-        int pp2idx = i + 1;
-        if (i + 1 > sim.gb.count - 1) pp2idx = 0;
-        // planet pos 2
-        coord_t pp2 = { (float)sim.gb.pos_x[pp2idx] / SCALE, (float)sim.gb.pos_y[pp2idx] / SCALE, (float)sim.gb.pos_z[pp2idx] / SCALE };
+// renders debug features when they are enabled
+void renderDebug(const sim_properties_t sim, line_batch_t* line_batch) {
 
-        addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
+    if (sim.wp.draw_lines_between_bodies) {
+        // draw lines between planets to show distance
+        for (int i = 0; i < sim.gb.count; i++) {
+            // planet pos 1
+            coord_t pp1 = { (float)sim.gb.pos_x[i] / SCALE, (float)sim.gb.pos_y[i] / SCALE, (float)sim.gb.pos_z[i] / SCALE };
+            int pp2idx = i + 1;
+            if (i + 1 > sim.gb.count - 1) pp2idx = 0;
+            // planet pos 2
+            coord_t pp2 = { (float)sim.gb.pos_x[pp2idx] / SCALE, (float)sim.gb.pos_y[pp2idx] / SCALE, (float)sim.gb.pos_z[pp2idx] / SCALE };
+            addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
+        }
     }
-
 }

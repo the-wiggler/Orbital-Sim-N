@@ -167,7 +167,10 @@ int main(int argc, char *argv[]) {
         renderCrafts(sim, shaderProgram, cone_buffer);
 
         // stats display
-        renderStats(sim, &line_batch, &font);
+        renderStats(sim, &font);
+
+        // renders debug things if they are enabled
+        renderDebug(sim, &line_batch);
 
         // command window display
         renderCMDWindow(&sim, &font);
@@ -191,7 +194,7 @@ int main(int argc, char *argv[]) {
         // unlock sim vars mutex when done
         pthread_mutex_unlock(&sim_vars_mutex);
 
-        // increment frame counter for frame-based timing
+        // increment frame counter
         sim.wp.frame_counter++;
 
         // present the renderer to the screen

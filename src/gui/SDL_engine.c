@@ -46,8 +46,8 @@ window_params_t init_window_params() {
 
     wp.is_dragging = false;
 
-    wp.main_view_shown = true;
-    wp.craft_view_shown = false;
+    // initial debug toggles
+    wp.draw_lines_between_bodies = false;
 
     wp.frame_counter = 0;
 
@@ -216,9 +216,26 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
         sim->wp.reset_sim = true;
         sprintf(console->log, "sim reset");
     }
+    else if (strncmp(cmd, "enable ", 7) == 0) {
+        char* argument = cmd + 7;
+        if (strcmp(argument, "guidance-lines") == 0) {
+            sim->wp.draw_lines_between_bodies = true;
+            sprintf(console->log, "enabled guidance lines");
+        }
+        else sprintf(console->log, "unknown argument after command: %s", argument);
+    }
+    else if (strncmp(cmd, "disable ", 8) == 0) {
+        char* argument = cmd + 8;
+        if (strcmp(argument, "guidance-lines") == 0) {
+            sim->wp.draw_lines_between_bodies = false;
+            sprintf(console->log, "disabled guidance lines");
+        }
+        else sprintf(console->log, "unknown argument after disable: %s", argument);
+    }
     else {
         sprintf(console->log, "unknown command: %s", cmd);
     }
+
 }
 
 // handles keyboard events
