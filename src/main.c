@@ -72,6 +72,11 @@ int main(int argc, char *argv[]) {
         .global_data_FILE = fopen("global_data.bin", "wb")
     };
 
+    // force X11 on Linux (fixes text input issues on wayland)
+#ifdef __linux__
+    SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
+#endif
+
     // initialize SDL
     SDL_Init(SDL_INIT_VIDEO);
 
