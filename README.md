@@ -135,7 +135,7 @@ The build system automatically copies required assets (shaders, fonts, data file
 ### Build with Conan Dependencies
 ```sh
 mkdir build && cd build
-conan install .. --build=missing -s build_type=Release
+conan install .. --build=missing -s build_type=Release # for web build, run with `-pr ../web`
 cmake .. -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
 cmake --build .
 ```

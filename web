@@ -1,0 +1,10 @@
+[settings]
+arch=wasm
+build_type=Release
+compiler=emcc
+compiler.version=4.0
+compiler.threads=posix
+os=Emscripten
+
+[conf]
+tools.build:compiler_executables = {"c": "emcc", "cpp": "em++"}
