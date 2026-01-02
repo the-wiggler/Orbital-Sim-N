@@ -24,10 +24,19 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
             -mtune=native
             -flto=auto
             -funroll-loops
-            -mavx2 -mfma
             -fno-math-errno -fno-trapping-math
             -DNDEBUG
     )
+
+    # Architecture-specific SIMD optimizations
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i686")
+        # x86/x64: Use AVX2 and FMA instructions
+        add_compile_options(-mavx2 -mfma)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM64")
+        # ARM: Use NEON instructions (enabled by -march=native on ARM)
+        # No additional flags needed as -march=native handles this
+    endif()
+
     add_link_options(-flto=auto)    # Enable LTO during linking
 
     # GCC-specific optimizations

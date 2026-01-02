@@ -146,8 +146,8 @@ static void handleMouseMotionEvent(const SDL_Event* event, sim_properties_t* sim
         float rotation_sensitivity = 0.01f;
         float rotation_angle = delta_x * rotation_sensitivity;
 
-        // rotate camera position around Y axis
-        mat4 rotation = mat4_rotationY(rotation_angle);
+        // rotate camera position around Z axis
+        mat4 rotation = mat4_rotationZ(rotation_angle);
         wp->camera_pos = mat4_transformPoint(rotation, wp->camera_pos);
 
         // update last mouse position for next frame

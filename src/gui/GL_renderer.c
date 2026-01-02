@@ -144,7 +144,7 @@ mat4 createViewMatrix_originCentered(const float cameraPos[3]) {
     mat4 viewMatrix;
     float forward[3] = {-cameraPos[0], -cameraPos[1], -cameraPos[2]};
     normalize_3d(forward);
-    float up[3] = {0.0f, 1.0f, 0.0f};
+    float up[3] = {0.0f, 0.0f, 1.0f};  // Z is now "up"
     float right[3];
     cross_product_3d(forward, up, right);
     normalize_3d(right);
@@ -250,26 +250,26 @@ sphere_mesh_t generateUnitSphere(unsigned int stacks, unsigned int sectors) {
             float phi1 = (float)j * 2.0f * M_PI_f / (float)sectors;
             float phi2 = (float)(j + 1) * 2.0f * M_PI_f / (float)sectors;
 
-            // calculate 4 vertices of the quad
+            // calculate 4 vertices of the quad (using Z as up)
             // v1 (top-left)
             float v1_x = cosf(phi1) * sinf(theta1);
-            float v1_y = cosf(theta1);
-            float v1_z = sinf(phi1) * sinf(theta1);
+            float v1_y = sinf(phi1) * sinf(theta1);
+            float v1_z = cosf(theta1);
 
             // v2 (bottom-left)
             float v2_x = cosf(phi1) * sinf(theta2);
-            float v2_y = cosf(theta2);
-            float v2_z = sinf(phi1) * sinf(theta2);
+            float v2_y = sinf(phi1) * sinf(theta2);
+            float v2_z = cosf(theta2);
 
             // v3 (bottom-right)
             float v3_x = cosf(phi2) * sinf(theta2);
-            float v3_y = cosf(theta2);
-            float v3_z = sinf(phi2) * sinf(theta2);
+            float v3_y = sinf(phi2) * sinf(theta2);
+            float v3_z = cosf(theta2);
 
             // v4 (top-right)
             float v4_x = cosf(phi2) * sinf(theta1);
-            float v4_y = cosf(theta1);
-            float v4_z = sinf(phi2) * sinf(theta1);
+            float v4_y = sinf(phi2) * sinf(theta1);
+            float v4_z = cosf(theta1);
 
             // first triangle (v1, v2, v3)
             // v1
@@ -532,18 +532,18 @@ void freeFont(font_t* font) {
 void renderCoordinatePlane(sim_properties_t sim, line_batch_t* line_batch) {
     float scale = sim.wp.zoom;
 
-    // X axis (red)
+    // X axis (red) - horizontal
     addLine(line_batch, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f, 0.0f, 0.0f);
 
-    // Y axis (green)
+    // Y axis (green) - horizontal
     addLine(line_batch, 0.0f, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f, 0.0f);
 
-    // Z axis (blue)
+    // Z axis (blue) - vertical "up"
     addLine(line_batch, 0.0f, 0.0f, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f);
 
-    // perspective lines (gray)
-    addLine(line_batch, 10.0f * scale, 0.0f, -10.0f * scale, -10.0f * scale, 0.0f, 10.0f * scale, 0.3f, 0.3f, 0.3f);
-    addLine(line_batch, 10.0f * scale, 0.0f, 10.0f * scale, -10.0f * scale, 0.0f, -10.0f * scale, 0.3f, 0.3f, 0.3f);
+    // perspective lines in X-Y plane (gray)
+    addLine(line_batch, 10.0f * scale, 10.0f * scale, 0.0f, -10.0f * scale, -10.0f * scale, 0.0f, 0.3f, 0.3f, 0.3f);
+    addLine(line_batch, 10.0f * scale, -10.0f * scale, 0.0f, -10.0f * scale, 10.0f * scale, 0.0f, 0.3f, 0.3f, 0.3f);
 }
 
 // render the sim planets to the screen
@@ -569,16 +569,15 @@ void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape
     for (int i = 0; i < sim.gs.count; i++) {
         // create a scale matrix
         float size_scale_factor = 0.1f; // arbitrary scale based on what looks nice on screen
-        mat4 scale_mat = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
-        // create rotation matrix based on the quaternion angle that the spacecraft is in.
-        mat4 rotation_mat = quaternionToMatrix(sim.gs.attitude[i]);//
-        mat4 temp = mat4_mul(rotation_mat, scale_mat);
-        // create a translation matrix based on the current in-sim-world position of the spacecraft
-        mat4 translate_mat = mat4_translation((float)sim.gs.pos_x[i] / SCALE, (float)sim.gs.pos_y[i] / SCALE, (float)sim.gs.pos_z[i] / SCALE);
-        // multiply the two matrices together to get a final scale/position matrix for the planet model on the screen
-        mat4 spacecraft_model = mat4_mul(translate_mat, temp);
+        mat4 S = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
+        mat4 R = quaternionToMatrix(sim.gs.attitude[i]); // create rotation matrix based on the quaternion angle that the spacecraft is in.
+        mat4 T = mat4_translation((float)sim.gs.pos_x[i] / SCALE, (float)sim.gs.pos_y[i] / SCALE, (float)sim.gs.pos_z[i] / SCALE); // create a translation matrix based on the current in-sim-world position of the spacecraft
+
+        mat4 temp = mat4_mul(R, S);
+        mat4 model = mat4_mul(T, temp);
+
         // apply matrix and render to screen
-        setMatrixUniform(shader_program, "model", &spacecraft_model);
+        setMatrixUniform(shader_program, "model", &model);
         glDrawArrays(GL_TRIANGLES, 0, 48);
     }
 }
