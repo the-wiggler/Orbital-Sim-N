@@ -570,10 +570,13 @@ void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape
         // create a scale matrix
         float size_scale_factor = 0.1f; // arbitrary scale based on what looks nice on screen
         mat4 scale_mat = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
+        // create rotation matrix based on the quaternion angle that the spacecraft is in.
+        mat4 rotation_mat = quaternionToMatrix(sim.gs.attitude[i]);//
+        mat4 temp = mat4_mul(rotation_mat, scale_mat);
         // create a translation matrix based on the current in-sim-world position of the spacecraft
         mat4 translate_mat = mat4_translation((float)sim.gs.pos_x[i] / SCALE, (float)sim.gs.pos_y[i] / SCALE, (float)sim.gs.pos_z[i] / SCALE);
         // multiply the two matrices together to get a final scale/position matrix for the planet model on the screen
-        mat4 spacecraft_model = mat4_mul(translate_mat, scale_mat);
+        mat4 spacecraft_model = mat4_mul(translate_mat, temp);
         // apply matrix and render to screen
         setMatrixUniform(shader_program, "model", &spacecraft_model);
         glDrawArrays(GL_TRIANGLES, 0, 48);
@@ -634,11 +637,11 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch) {
         // draw lines between planets to show distance
         for (int i = 0; i < sim->gb.count; i++) {
             // planet pos 1
-            coord_t pp1 = { (float)sim->gb.pos_x[i] / SCALE, (float)sim->gb.pos_y[i] / SCALE, (float)sim->gb.pos_z[i] / SCALE };
+            vec3_f pp1 = { (float)sim->gb.pos_x[i] / SCALE, (float)sim->gb.pos_y[i] / SCALE, (float)sim->gb.pos_z[i] / SCALE };
             int pp2idx = i + 1;
             if (i + 1 > sim->gb.count - 1) pp2idx = 0;
             // planet pos 2
-            coord_t pp2 = { (float)sim->gb.pos_x[pp2idx] / SCALE, (float)sim->gb.pos_y[pp2idx] / SCALE, (float)sim->gb.pos_z[pp2idx] / SCALE };
+            vec3_f pp2 = { (float)sim->gb.pos_x[pp2idx] / SCALE, (float)sim->gb.pos_y[pp2idx] / SCALE, (float)sim->gb.pos_z[pp2idx] / SCALE };
             addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
         }
     }
@@ -659,8 +662,8 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch) {
                 int curr_idx = (sim->wp.body_path_counter + j + 1) % PATH_CACHE_LENGTH;
                 int next_idx = (sim->wp.body_path_counter + j + 2) % PATH_CACHE_LENGTH;
 
-                coord_t p1 = sim->gb.path_cache[i][curr_idx];
-                coord_t p2 = sim->gb.path_cache[i][next_idx];
+                vec3_f p1 = sim->gb.path_cache[i][curr_idx];
+                vec3_f p2 = sim->gb.path_cache[i][next_idx];
 
                 // only draw if both points are valid (not zero)
                 if ((p1.x != 0.0f || p1.y != 0.0f || p1.z != 0.0f) &&
