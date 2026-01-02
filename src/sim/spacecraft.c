@@ -35,8 +35,8 @@ void craft_checkBurnSchedule(const spacecraft_properties_t* sc, const int i, con
                 const double rel_vel_z = sc->vel_z[i] - gb->vel_z[target_id];
                 // first we create 3d velocity direction vector
                 vec3 velocity_direction = {rel_vel_x, rel_vel_y, rel_vel_z};
-                // default forward direction the spacecrafts local positive x axis, meaning the front of the craft
-                vec3 default_forward = {1.0, 0.0, 0.0};
+                // default forward direction the spacecrafts local positive y axis, meaning the front of the craft
+                vec3 default_forward = {0.0, 1.0, 0.0};
                 // create quaternion to rotate from default forward to velocity direction
                 quaternion_t base_rotation = quaternionFromTwoVectors(default_forward, velocity_direction);
                 // apply burn heading offset
@@ -113,8 +113,8 @@ void craft_applyThrust(const spacecraft_properties_t* sc, const int i) {
         const double current_thrust = sc->thrust[i] * sc->throttle[i];
 
         // this defines the default vector position in which the engine applies the thrust relative to the spacecraft
-        // in this case, setting x to 1 means that we are defining the "front" as the positive X direction relative to the craft.
-        vec3 engine_thrust_direction = {1.0, 0.0, 0.0};
+        // in this case, setting y to 1 means that we are defining the "front" as the positive Y direction relative to the craft.
+        vec3 engine_thrust_direction = {0.0, 1.0, 0.0};
 
         // then we rotate the thrust direction by the spacecrafts defined attitude in space
         vec3 world_thrust = quaternionRotate(sc->attitude[i], engine_thrust_direction);
