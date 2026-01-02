@@ -9,63 +9,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Compiler-specific flags
-if(EMSCRIPTEN)
-    target_compile_options(${PROJECT_NAME} PRIVATE
-            -msimd128
-    )
-elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
-    add_compile_options(-Wall -Wextra)
-    if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        # Aggressive optimization flags for maximum performance
-        add_compile_options(
-                -O3
-                -march=native
-                -mtune=native
-                -flto=auto
-                -funroll-loops
-                -mavx2 -mfma
-                -fno-math-errno -fno-trapping-math
-                -DNDEBUG
-        )
-        add_link_options(-flto=auto)    # Enable LTO during linking
-
-        # GCC-specific optimizations
-        if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-            add_compile_options(-fno-stack-protector)  # Remove stack protection overhead
-        endif()
-    endif()
-    # For profiling: keep debug symbols and prevent aggressive inlining
-    if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-        add_compile_options(-O1 -g -fno-inline)
-    endif()
-elseif(MSVC)
-    if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        # MSVC optimization flags
-        add_compile_options(
-                /O2                    # Maximum optimization
-                /GL                    # Whole program optimization
-                /arch:AVX2             # Use AVX2 instructions if available
-                /fp:fast               # Fast floating-point model
-        )
-        add_link_options(/LTCG)    # Link-time code generation
-    endif()
-endif()
-
-# macOS-specific: Add Homebrew paths for package discovery
-if(APPLE)
-    # Try common Homebrew installation paths
-    if(EXISTS "/opt/homebrew")
-        # Apple Silicon Macs
-        list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")
-    elseif(EXISTS "/usr/local")
-        # Intel Macs
-        list(APPEND CMAKE_PREFIX_PATH "/usr/local")
-    endif()
-endif()
-
-# Find required packages
-# Note: On Linux, ensure these are installed via package manager or built from source
+# --- 1. FIND PACKAGES ---
 find_package(SDL3 CONFIG REQUIRED)
 find_package(cJSON CONFIG REQUIRED)
 
@@ -81,7 +25,7 @@ else()
     find_package(Threads REQUIRED)
 endif()
 
-# Source files
+# --- 2. DEFINE SOURCES ---
 set(SOURCES
         src/main.c
         src/types.h
@@ -103,11 +47,10 @@ set(SOURCES
         src/math/matrix.h
         src/gui/models.c
         src/gui/models.h
-        src/gui/SDL_engine.c
         src/gui/stb_truetype.h
 )
 
-# Create executable
+# --- 3. CREATE EXECUTABLE ---
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Windows-specific: hide console window
@@ -115,23 +58,76 @@ if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-set(EXTRA_LIBS "")
-
+# --- 4. COMPILER FLAGS & OPTIMIZATIONS ---
 if(EMSCRIPTEN)
-    # Emscripten specific linker flags for WebGL 2 (OpenGL ES 3.0)
+    # --- WEB ASSEMBLY FLAGS ---
+    target_compile_options(${PROJECT_NAME} PRIVATE -msimd128)
+
+    # Linker flags for WebGL 2
     target_link_options(${PROJECT_NAME} PRIVATE
             "-sUSE_WEBGL2=1"
             "-sFULL_ES3=1"
+            "-sALLOW_MEMORY_GROWTH=1" # Recommended for sims
     )
-else()
-    find_package(OpenGL REQUIRED)
-    find_package(GLEW REQUIRED)
 
+    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+
+elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+    # --- DESKTOP (GCC/CLANG) FLAGS ---
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
+
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        target_compile_options(${PROJECT_NAME} PRIVATE
+                -O3
+                -march=native
+                -mtune=native
+                -flto=auto
+                -funroll-loops
+                -mavx2 -mfma
+                -fno-math-errno -fno-trapping-math
+                -DNDEBUG
+        )
+        target_link_options(${PROJECT_NAME} PRIVATE -flto=auto)
+
+        if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+            target_compile_options(${PROJECT_NAME} PRIVATE -fno-stack-protector)
+        endif()
+    endif()
+
+    if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        target_compile_options(${PROJECT_NAME} PRIVATE -O1 -g -fno-inline)
+    endif()
+
+elseif(MSVC)
+    # --- WINDOWS (MSVC) FLAGS ---
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        target_compile_options(${PROJECT_NAME} PRIVATE
+                /O2
+                /GL
+                /arch:AVX2
+                /fp:fast
+        )
+        target_link_options(${PROJECT_NAME} PRIVATE /LTCG)
+    endif()
+endif()
+
+# --- 5. INCLUDE PATHS (macOS) ---
+if(APPLE)
+    if(EXISTS "/opt/homebrew")
+        target_include_directories(${PROJECT_NAME} PRIVATE "/opt/homebrew/include")
+        link_directories("/opt/homebrew/lib")
+    elseif(EXISTS "/usr/local")
+        target_include_directories(${PROJECT_NAME} PRIVATE "/usr/local/include")
+        link_directories("/usr/local/lib")
+    endif()
+endif()
+
+# --- 6. LINK LIBRARIES ---
+set(EXTRA_LIBS "")
+if(NOT EMSCRIPTEN)
     list(APPEND EXTRA_LIBS OpenGL::GL GLEW::GLEW)
 endif()
 
-# Link libraries
-# Change: Use namespaced targets (e.g., cJSON::cJSON) for Linux case-sensitivity
 target_link_libraries(${PROJECT_NAME} PRIVATE
         SDL3::SDL3
         cjson
@@ -141,12 +137,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE PThreads4W::PThreads4W)
 else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
-    # CRITICAL FIX for Linux: Explicitly link the math library
-    target_link_libraries(${PROJECT_NAME} PRIVATE m)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads m)
 endif()
 
-# Copy assets to build directory
+# --- 7. ASSET COPYING ---
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/data"
@@ -168,7 +162,6 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMENT "Copying assets"
 )
 
-# Windows: Copy SDL3 DLLs automatically
 if(WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
