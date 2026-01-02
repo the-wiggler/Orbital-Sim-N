@@ -18,11 +18,13 @@ if(NOT EMSCRIPTEN)
     find_package(GLEW REQUIRED)
 endif()
 
-if(WIN32)
-    find_package(PThreads4W REQUIRED)
-else()
-    set(THREADS_PREFER_PTHREAD_FLAG ON)
-    find_package(Threads REQUIRED)
+if(NOT EMSCRIPTEN)
+    if(WIN32)
+        find_package(PThreads4W REQUIRED)
+    else()
+        set(THREADS_PREFER_PTHREAD_FLAG ON)
+        find_package(Threads REQUIRED)
+    endif()
 endif()
 
 # --- 2. DEFINE SOURCES ---
@@ -61,13 +63,14 @@ endif()
 # --- 4. COMPILER FLAGS & OPTIMIZATIONS ---
 if(EMSCRIPTEN)
     # --- WEB ASSEMBLY FLAGS ---
-    target_compile_options(${PROJECT_NAME} PRIVATE -msimd128)
+    target_compile_options(${PROJECT_NAME} PRIVATE -msimd128 -pthread)
 
     # Linker flags for WebGL 2
     target_link_options(${PROJECT_NAME} PRIVATE
             "-sUSE_WEBGL2=1"
             "-sFULL_ES3=1"
-            "-sALLOW_MEMORY_GROWTH=1" # Recommended for sims
+            "-sUSE_PTHREADS=1"
+            "-pthread"
     )
 
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
@@ -134,10 +137,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         ${EXTRA_LIBS}
 )
 
-if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE PThreads4W::PThreads4W)
-else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads m)
+if(NOT EMSCRIPTEN)
+    if(WIN32)
+        target_link_libraries(${PROJECT_NAME} PRIVATE PThreads4W::PThreads4W)
+    else()
+        target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads m)
+    endif()
 endif()
 
 # --- 7. ASSET COPYING ---
