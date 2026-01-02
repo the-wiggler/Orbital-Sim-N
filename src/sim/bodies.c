@@ -107,7 +107,7 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     double* temp_force_y = (double*)realloc(gb->force_y, new_size * sizeof(double));
     double* temp_force_z = (double*)realloc(gb->force_z, new_size * sizeof(double));
     double* temp_kinetic = (double*)realloc(gb->kinetic_energy, new_size * sizeof(double));
-    coord_t** temp_path_cache = (coord_t**)realloc(gb->path_cache, new_size * sizeof(coord_t*));
+    vec3_f** temp_path_cache = (vec3_f**)realloc(gb->path_cache, new_size * sizeof(vec3_f*));
 
     gb->names = temp_names;
     gb->mass = temp_mass;
@@ -169,7 +169,7 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     gb->kinetic_energy[idx] = 0.5 * mass * gb->vel[idx] * gb->vel[idx];
 
     // allocate path cache array for this body
-    gb->path_cache[idx] = (coord_t*)calloc(PATH_CACHE_LENGTH, sizeof(coord_t));
+    gb->path_cache[idx] = (vec3_f*)calloc(PATH_CACHE_LENGTH, sizeof(vec3_f));
     if (gb->path_cache[idx] == NULL) {
         displayError("ERROR", "Error: Failed to allocate memory for path cache\n");
         return;

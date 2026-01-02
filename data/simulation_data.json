@@ -42,8 +42,8 @@
       "pos_y": 0.0,
       "pos_z": 0.0,
       "vel_x": 0.0,
-      "vel_y": 7700.0,
-      "vel_z": 0.0,
+      "vel_y": 0.0,
+      "vel_z": 7700.0,
 
       "dry_mass": 5500.0,
       "fuel_mass": 18000.0,
@@ -59,10 +59,10 @@
         {
           "burn_target": "Earth",
           "burn_type": "tangent",
-          "start_time": 0.0,
-          "duration": 0.0,
+          "start_time": 7200.0,
+          "duration": 100000.0,
           "heading": 0.0,
-          "throttle": 0.0
+          "throttle": 1.0
         },
         {
           "burn_target": "Earth",

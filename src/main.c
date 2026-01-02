@@ -134,11 +134,11 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
     // initialize simulation thread
     pthread_t simThread;
-    pthread_mutex_init(&sim_vars_mutex, NULL);//
+    pthread_mutex_init(&sim_vars_mutex, NULL);
 
     // creates the sim thread
     if (pthread_create(&simThread, NULL, physicsSim, &sim) != 0) {
-        displayError("ERROR", "Error when creating physics simulation process");
+        displayError("ERROR", "error when creating simulation process thread");
         sim.wp.sim_running = false;
         sim.wp.window_open = false;
         return 1;

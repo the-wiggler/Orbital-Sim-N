@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "../math/matrix.h"
+
 void displayError(const char* title, const char* message);
 
 // check and activate burns
@@ -18,25 +20,41 @@ void craft_checkBurnSchedule(const spacecraft_properties_t* sc, const int i, con
             sc->throttle[i] = sc->burn_properties[i][j].throttle;
 
             // calculate attitude based on burn type
-            double final_attitude = 0.0;
+            quaternion_t final_attitude = {};
             const burn_properties_t* burn = &sc->burn_properties[i][j];
             const int target_id = burn->burn_target_id;
 
             if (burn->relative_burn_target.absolute) {
                 // absolute: heading is in absolute space coordinates
-                final_attitude = burn->burn_heading;
+                vec3 absolute_axis = {0.0, 0.0, 1.0};
+                final_attitude = quaternionFromAxisAngle(absolute_axis, burn->burn_heading);
             } else if (burn->relative_burn_target.tangent) {
                 // tangent: heading is relative to the velocity vector (tangent to orbit)
                 const double rel_vel_x = sc->vel_x[i] - gb->vel_x[target_id];
                 const double rel_vel_y = sc->vel_y[i] - gb->vel_y[target_id];
-                const double velocity_angle = atan2(rel_vel_y, rel_vel_x);
-                final_attitude = velocity_angle + burn->burn_heading;
+                const double rel_vel_z = sc->vel_z[i] - gb->vel_z[target_id];
+                // first we create 3d velocity direction vector
+                vec3 velocity_direction = {rel_vel_x, rel_vel_y, rel_vel_z};
+                // default forward direction the spacecrafts local positive x axis, meaning the front of the craft
+                vec3 default_forward = {1.0, 0.0, 0.0};
+                // create quaternion to rotate from default forward to velocity direction
+                quaternion_t base_rotation = quaternionFromTwoVectors(default_forward, velocity_direction);
+                // apply burn heading offset
+                if (burn->burn_heading != 0.0) {
+                    // normalize velocity to get rotation axis
+                    double vel_mag = sqrt(rel_vel_x * rel_vel_x + rel_vel_y * rel_vel_y + rel_vel_z * rel_vel_z);
+                    vec3 rotation_axis = {rel_vel_x / vel_mag, rel_vel_y / vel_mag, rel_vel_z / vel_mag};
+                    quaternion_t offset_rotation = quaternionFromAxisAngle(rotation_axis, burn->burn_heading);
+                    // quaternion multiplication is right-to-left: offset * base means "first base, then offset"
+                    final_attitude = quaternionMul(offset_rotation, base_rotation);
+                } else {
+                    final_attitude = base_rotation;
+                }
             } else if (burn->relative_burn_target.normal) {
-                // normal: heading is relative to the normal vector (perpendicular to orbit)
-                const double rel_vel_x = sc->vel_x[i] - gb->vel_x[target_id];
-                const double rel_vel_y = sc->vel_y[i] - gb->vel_y[target_id];
-                const double velocity_angle = atan2(rel_vel_y, rel_vel_x);
-                final_attitude = velocity_angle + PI / 2.0 + burn->burn_heading;
+                displayError("ERROR", "Normal burns are currently unsupported. Please reconfigure. Sorry! :(");
+            }
+            else {
+                displayError("ERROR", "Failed at determining burn type. If you see this you suck at coding lol");
             }
 
             sc->attitude[i] = final_attitude;
@@ -93,8 +111,18 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
 void craft_applyThrust(const spacecraft_properties_t* sc, const int i) {
     if (sc->engine_on[i] && sc->fuel_mass[i] > 0) {
         const double current_thrust = sc->thrust[i] * sc->throttle[i];
-        sc->grav_force_x[i] += current_thrust * cos(sc->attitude[i]);
-        sc->grav_force_y[i] += current_thrust * sin(sc->attitude[i]);
+
+        // this defines the default vector position in which the engine applies the thrust relative to the spacecraft
+        // in this case, setting x to 1 means that we are defining the "front" as the positive X direction relative to the craft.
+        vec3 engine_thrust_direction = {1.0, 0.0, 0.0};
+
+        // then we rotate the thrust direction by the spacecrafts defined attitude in space
+        vec3 world_thrust = quaternionRotate(sc->attitude[i], engine_thrust_direction);
+
+        // now we apply that thrust in the rotated direction in world space
+        sc->grav_force_x[i] += current_thrust * world_thrust.x;
+        sc->grav_force_y[i] += current_thrust * world_thrust.y;
+        sc->grav_force_z[i] += current_thrust * world_thrust.z;
     }
 }
 
@@ -158,7 +186,7 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
     double* temp_pos_x = REALLOC_ARRAY(pos_x, double);
     double* temp_pos_y = REALLOC_ARRAY(pos_y, double);
     double* temp_pos_z = REALLOC_ARRAY(pos_z, double);
-    double* temp_attitude = REALLOC_ARRAY(attitude, double);
+    quaternion_t* temp_attitude = REALLOC_ARRAY(attitude, quaternion_t);
     double* temp_vel_x = REALLOC_ARRAY(vel_x, double);
     double* temp_vel_y = REALLOC_ARRAY(vel_y, double);
     double* temp_vel_z = REALLOC_ARRAY(vel_z, double);
@@ -252,7 +280,8 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
     sc->grav_force_x[idx] = 0.0;
     sc->grav_force_y[idx] = 0.0;
     sc->grav_force_z[idx] = 0.0;
-    sc->attitude[idx] = attitude;
+    vec3 start_axis = {0.0, 0.0, 1.0};
+    sc->attitude[idx] = quaternionFromAxisAngle(start_axis, attitude);
     sc->dry_mass[idx] = dry_mass;
     sc->fuel_mass[idx] = fuel_mass;
     sc->current_total_mass[idx] = dry_mass + fuel_mass;
