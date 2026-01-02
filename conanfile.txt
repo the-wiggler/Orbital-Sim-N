@@ -1,0 +1,12 @@
+[requires]
+sdl/3.2.20
+cjson/1.7.19
+opengl/system
+glew/2.2.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[layout]
+cmake_layout

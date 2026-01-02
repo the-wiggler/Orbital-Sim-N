@@ -131,3 +131,11 @@ The simulation is configured via `simulation_data.json`:
 Use CMake to build the project:
 
 The build system automatically copies required assets (shaders, fonts, data files) to the build directory.
+
+### Build with Conan Dependencies
+```sh
+mkdir build && cd build
+conan install .. --build=missing -s build_type=Release
+cmake .. -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+```
