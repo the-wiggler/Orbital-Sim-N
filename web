@@ -2,9 +2,15 @@
 arch=wasm
 build_type=Release
 compiler=emcc
-compiler.version=3.0
+compiler.cppstd=11
+compiler.libcxx=libc++
 compiler.threads=posix
+compiler.version=4.0.10
 os=Emscripten
 
+[tool_requires]
+emsdk/3.1.73
+
 [conf]
-tools.build:compiler_executables = {"c": "emcc", "cpp": "em++"}
+tools.build:exelinkflags=['-sALLOW_MEMORY_GROWTH=1', '-sMAXIMUM_MEMORY=4GB', '-sINITIAL_MEMORY=64MB']
+tools.build:sharedlinkflags=['-sALLOW_MEMORY_GROWTH=1', '-sMAXIMUM_MEMORY=4GB', '-sINITIAL_MEMORY=64MB']

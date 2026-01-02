@@ -10,7 +10,11 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Compiler-specific flags
-if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+if(EMSCRIPTEN)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+            -msimd128
+    )
+elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     add_compile_options(-Wall -Wextra)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         # Aggressive optimization flags for maximum performance
@@ -64,8 +68,11 @@ endif()
 # Note: On Linux, ensure these are installed via package manager or built from source
 find_package(SDL3 CONFIG REQUIRED)
 find_package(cJSON CONFIG REQUIRED)
-find_package(OpenGL REQUIRED)
-find_package(GLEW REQUIRED)
+
+if(NOT EMSCRIPTEN)
+    find_package(OpenGL REQUIRED)
+    find_package(GLEW REQUIRED)
+endif()
 
 if(WIN32)
     find_package(PThreads4W REQUIRED)
@@ -108,13 +115,27 @@ if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
+set(EXTRA_LIBS "")
+
+if(EMSCRIPTEN)
+    # Emscripten specific linker flags for WebGL 2 (OpenGL ES 3.0)
+    target_link_options(${PROJECT_NAME} PRIVATE
+            "-sUSE_WEBGL2=1"
+            "-sFULL_ES3=1"
+    )
+else()
+    find_package(OpenGL REQUIRED)
+    find_package(GLEW REQUIRED)
+
+    list(APPEND EXTRA_LIBS OpenGL::GL GLEW::GLEW)
+endif()
+
 # Link libraries
 # Change: Use namespaced targets (e.g., cJSON::cJSON) for Linux case-sensitivity
 target_link_libraries(${PROJECT_NAME} PRIVATE
         SDL3::SDL3
         cjson
-        OpenGL::GL
-        GLEW::GLEW
+        ${EXTRA_LIBS}
 )
 
 if(WIN32)

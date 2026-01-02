@@ -136,6 +136,7 @@ The build system automatically copies required assets (shaders, fonts, data file
 ```sh
 mkdir build && cd build
 conan install .. --build=missing -s build_type=Release -pr ../web
-cmake .. -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+call .\Release\generators\conanbuild.bat
+cmake .. -G "MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
 cmake --build .
 ```
