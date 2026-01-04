@@ -58,9 +58,6 @@ typedef struct {
 
     // visual stuff
     bool draw_lines_between_bodies;
-    bool draw_body_paths;
-    int body_path_counter;
-    bool body_path_filled;
 
 } window_params_t;
 

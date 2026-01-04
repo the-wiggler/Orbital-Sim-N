@@ -46,9 +46,6 @@ window_params_t init_window_params(void) {
 
     // initial debug toggles
     wp.draw_lines_between_bodies = false;
-    wp.draw_body_paths = true;
-    wp.body_path_counter = 0;
-    wp.body_path_filled = false;
 
     wp.frame_counter = 0;
 
@@ -223,10 +220,6 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
             sim->wp.draw_lines_between_bodies = true;
             sprintf(console->log, "enabled guidance lines");
         }
-        else if (strcmp(argument, "body-paths") == 0) {
-            sim->wp.draw_body_paths = true;
-            sprintf(console->log, "enabled body paths");
-        }
         else sprintf(console->log, "unknown argument after command: %s", argument);
     }
     else if (strncmp(cmd, "disable ", 8) == 0) {
@@ -234,10 +227,6 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
         if (strcmp(argument, "guidance-lines") == 0) {
             sim->wp.draw_lines_between_bodies = false;
             sprintf(console->log, "disabled guidance lines");
-        }
-        else if (strcmp(argument, "body-paths") == 0) {
-            sim->wp.draw_body_paths = false;
-            sprintf(console->log, "disabled body paths");
         }
         else sprintf(console->log, "unknown argument after disable: %s", argument);
     }

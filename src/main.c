@@ -2,19 +2,21 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <pthread.h>
 
 #include "globals.h"
 #include "types.h"
+#include "math/matrix.h"
 #include "sim/simulation.h"
 #include "gui/SDL_engine.h"
-#include "utility/telemetry_export.h"
 #include "gui/GL_renderer.h"
-#include "math/matrix.h"
 #include "gui/models.h"
+#include "utility/telemetry_export.h"
+#include "utility/sim_thread.h"
 
 #ifdef _WIN32
     #include <windows.h>
+#else
+    #include <pthread.h>
 #endif
 
 #include <SDL3/SDL.h>
@@ -33,11 +35,6 @@
     #include <GL/glew.h>
 #endif
 
-// NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
-
-// Global mutex definition
-pthread_mutex_t sim_vars_mutex;
-
 // Context structure to pass data to the main loop function
 // This unifies the requirements for both Native and WASM
 typedef struct {
@@ -52,25 +49,54 @@ typedef struct {
     binary_filenames_t* filenames;
 } AppContext;
 
+// NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
+
+// Global mutex definition
+mutex_t sim_mutex;
+// this is purposely made a global var in this file
+// as it is expected that mutex locks should not be
+// hidden within other files
+
+// NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // PHYSICS SIMULATION THREAD
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void* physicsSim(void* args) {
+#ifdef _WIN32
+DWORD WINAPI physicsSim_win32(LPVOID args) {
     sim_properties_t* sim = (sim_properties_t*)args;
     while (sim->wp.window_open) {
         while (sim->wp.sim_running) {
             // lock mutex before accessing data
-            pthread_mutex_lock(&sim_vars_mutex);
+            mutex_lock(&sim_mutex);
 
             // DOES ALL BODY AND CRAFT CALCULATIONS:
             runCalculations(sim);
 
             // unlock mutex when done :)
-            pthread_mutex_unlock(&sim_vars_mutex);
+            mutex_unlock(&sim_mutex);
+        }
+    }
+    return 0;
+}
+#else
+void* physicsSim(void* args) {
+    sim_properties_t* sim = (sim_properties_t*)args;
+    while (sim->wp.window_open) {
+        while (sim->wp.sim_running) {
+            // lock mutex before accessing data
+            mutex_lock(&sim_mutex);
+
+            // DOES ALL BODY AND CRAFT CALCULATIONS:
+            runCalculations(sim);
+
+            // unlock mutex when done :)
+            mutex_unlock(&sim_mutex);
         }
     }
     return NULL;
 }
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // UNIFIED MAIN LOOP STEP
@@ -88,71 +114,84 @@ void mainLoopStep(void* arg) {
         return;
     }
 
-    // clears previous frame from the screen
+	// clears previous frame from the screen
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // lock body_sim mutex for reading
-    pthread_mutex_lock(&sim_vars_mutex);
-
-    // user input event checking logic
+    // user input event checking logic (modifies UI state, no lock needed)
     SDL_Event event;
-    runEventCheck(&event, s);
+    runEventCheck(&event, &sim);
+
+    // lock mutex and quickly snapshot simulation data for rendering
+    mutex_lock(&sim_mutex);
+
+    // make a quick copy for rendering
+    sim_properties_t sim_snapshot = sim;
+
+    mutex_unlock(&sim_mutex);
 
     ////////////////////////////////////////////////////////
     // OPENGL RENDERER
     ////////////////////////////////////////////////////////
     // update viewport for window resizing
-    glViewport(0, 0, (int)s->wp.window_size_x, (int)s->wp.window_size_y);
+    glViewport(0, 0, (int)sim_snapshot.wp.window_size_x, (int)sim_snapshot.wp.window_size_y);
 
     // use shader program
-    glUseProgram(ctx->shaderProgram);
+    glUseProgram(shaderProgram);
 
     // casts the camera to the required orientation and zoom (always points to the origin)
-    castCamera(*s, ctx->shaderProgram);
+    castCamera(sim_snapshot, shaderProgram);
 
     // draw coordinate plane
-    renderCoordinatePlane(*s, ctx->line_batch);
+    renderCoordinatePlane(sim_snapshot, &line_batch);
 
     // draw planets
-    renderPlanets(*s, ctx->shaderProgram, ctx->sphere_buffer);
+    renderPlanets(sim_snapshot, shaderProgram, sphere_buffer);
 
     // draw crafts
-    renderCrafts(*s, ctx->shaderProgram, ctx->cone_buffer);
+    renderCrafts(sim_snapshot, shaderProgram, cone_buffer);
 
     // stats display
-    renderStats(*s, ctx->font);
+    renderStats(sim_snapshot, &font);
 
     // renders visuals things if they are enabled
-    renderVisuals(s, ctx->line_batch);
+    renderVisuals(&sim_snapshot, &line_batch);
 
     // command window display
-    renderCMDWindow(s, ctx->font);
+    renderCMDWindow(&sim_snapshot, &font);
 
     // render all queued lines
-    renderLines(ctx->line_batch, ctx->shaderProgram);
+    renderLines(&line_batch, shaderProgram);
 
     // render all queued text
-    renderText(ctx->font, s->wp.window_size_x, s->wp.window_size_y, 1, 1, 1);
+    renderText(&font, sim_snapshot.wp.window_size_x, sim_snapshot.wp.window_size_y, 1, 1, 1);
     ////////////////////////////////////////////////////////
     // END OPENGL RENDERER
     ////////////////////////////////////////////////////////
 
-    if (s->wp.data_logging_enabled) {
-        exportTelemetryBinary(*ctx->filenames, s);
+    // log data
+    if (sim.wp.data_logging_enabled) {
+        mutex_lock(&sim_mutex);
+
+        exportTelemetryBinary(filenames, &sim);
+
+        mutex_unlock(&sim_mutex);
     }
 
     // check if sim needs to be reset
-    if (s->wp.reset_sim) resetSim(s);
+    if (sim.wp.reset_sim) {
+        mutex_lock(&sim_mutex);
 
-    // unlock sim vars mutex when done
-    pthread_mutex_unlock(&sim_vars_mutex);
+        resetSim(&sim);
+
+        mutex_unlock(&sim_mutex);
+    }
 
     // increment frame counter
-    s->wp.frame_counter++;
+    sim.wp.frame_counter++;
 
     // present the renderer to the screen
-    SDL_GL_SwapWindow(ctx->window);
+    SDL_GL_SwapWindow(window);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -176,8 +215,8 @@ int main(int argc, char *argv[]) {
         .global_data_FILE = fopen("global_data.bin", "wb")
     };
 
-    // force X11 on Linux (fixes text input issues on wayland)
 #ifdef __linux__
+    // force X11 on Linux (fixes text input issues on wayland)
     SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
 #endif
 
@@ -236,20 +275,15 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
     // SIM THREAD INIT                    //
     ////////////////////////////////////////
-    // initialize simulation thread
+    // Initialize mutex
+    mutex_init(&sim_mutex);
+
+#ifdef _WIN32
+    HANDLE sim_thread = CreateThread(NULL, 0, physicsSim_win32, &sim, 0, NULL);
+#else
     pthread_t simThread;
-    pthread_mutex_init(&sim_vars_mutex, NULL);
-
-    // creates the sim thread
-    if (pthread_create(&simThread, NULL, physicsSim, &sim) != 0) {
-        displayError("ERROR", "Error when creating simulation process thread");
-        sim.wp.sim_running = false;
-        sim.wp.window_open = false;
-        return 1;
-    }
-
-    // default time step
-    sim.wp.time_step = 0.01;
+    pthread_create(&simThread, NULL, physicsSim, &sim)
+#endif
 
     ////////////////////////////////////////////////////////
     // PREPARE APP CONTEXT                                //
@@ -269,6 +303,8 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////////////////////
     // SIMULATION LOOP                                    //
     ////////////////////////////////////////////////////////
+    // default time step
+    sim.wp.time_step = 0.01;
 
 #ifdef __EMSCRIPTEN__
     // WebAssembly: Hand control to the browser's main loop
@@ -287,15 +323,20 @@ int main(int argc, char *argv[]) {
     // but the OS/Browser reclaims memory anyway.
 
     // wait for simulation thread
+#ifdef _WIN32
+    WaitForSingleObject(sim_thread, INFINITE);
+    CloseHandle(sim_thread);
+#else
     pthread_join(simThread, NULL);
+#endif
 
-    // destroy mutex
-    pthread_mutex_destroy(&sim_vars_mutex);
+    // destroy mutex (cross-platform)
+    mutex_destroy(&sim_mutex);
 
     // cleanup all allocated sim memory
     cleanup(&sim);
 
-    // Cleanup OpenGL resources
+    // cleanup OpenGL resources
     freeSphere(&sphere_mesh);
     deleteVBO(unit_cube_buffer);
     deleteVBO(sphere_buffer);

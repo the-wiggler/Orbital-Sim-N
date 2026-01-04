@@ -63,8 +63,6 @@ void resetSim(sim_properties_t* sim) {
     wp->sim_time = 0;
     // change sim reset flag back to false
     wp->reset_sim = false;
-    wp->body_path_counter = 0;
-    wp->body_path_filled = false;
 
     // free all bodies from memory
     if (gb != NULL) {

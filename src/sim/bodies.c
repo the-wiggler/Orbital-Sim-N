@@ -168,13 +168,6 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     gb->force_z[idx] = 0.0;
     gb->kinetic_energy[idx] = 0.5 * mass * gb->vel[idx] * gb->vel[idx];
 
-    // allocate path cache array for this body
-    gb->path_cache[idx] = (vec3_f*)calloc(PATH_CACHE_LENGTH, sizeof(vec3_f));
-    if (gb->path_cache[idx] == NULL) {
-        displayError("ERROR", "Error: Failed to allocate memory for path cache\n");
-        return;
-    }
-
     // increment the body count
     gb->count++;
 }

@@ -1,16 +1,12 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
-#include <pthread.h>
 #include <SDL3/SDL.h>
-
-extern pthread_mutex_t sim_vars_mutex;
 #define G 6.67430E-11
 #define PI 3.14159265358979323846
 #define M_PI_f 3.14159265358979323846f
 static const char* SIMULATION_FILENAME = "simulation_data.json";
 #define SCALE 1e7f // scales in-sim meters to openGL coordinates -- this is an arbitrary number that can be adjusted
-#define PATH_CACHE_LENGTH 200
 
 static const SDL_Color TEXT_COLOR = {210, 210, 210, 255};
 static const SDL_Color BUTTON_COLOR = {30,30,30, 255};
