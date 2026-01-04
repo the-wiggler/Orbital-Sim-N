@@ -6,78 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>
 #include "../globals.h"
 #include "../math/matrix.h"
 
-// Refactor / Improve this at some point
-#ifdef __EMSCRIPTEN__
-// Embedded WebGL2-compatible shader sources for the web build to avoid fopen on the virtual FS.
-// These mirror the files in /shaders but are written for GLSL ES 3.00 (WebGL2).
-static const char* EMSCRIPTEN_SIMPLE_VERT =
-    "#version 300 es\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "layout (location = 1) in vec3 aColor;\n"
-    "out vec3 vertexColor;\n"
-    "uniform mat4 model;\n"
-    "uniform mat4 view;\n"
-    "uniform mat4 projection;\n"
-    "void main() {\n"
-    "    gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
-    "    vertexColor = aColor;\n"
-    "}\n";
-
-static const char* EMSCRIPTEN_SIMPLE_FRAG =
-    "#version 300 es\n"
-    "precision mediump float;\n"
-    "in vec3 vertexColor;\n"
-    "out vec4 FragColor;\n"
-    "void main() {\n"
-    "    FragColor = vec4(vertexColor, 1.0);\n"
-    "}\n";
-
-static const char* EMSCRIPTEN_TEXT_VERT =
-    "#version 300 es\n"
-    "layout (location = 0) in vec4 vertex;\n" // xy = pos, zw = texcoord
-    "out vec2 uv;\n"
-    "uniform mat4 proj;\n"
-    "void main() {\n"
-    "    gl_Position = proj * vec4(vertex.xy, 0.0, 1.0);\n"
-    "    uv = vertex.zw;\n"
-    "}\n";
-
-static const char* EMSCRIPTEN_TEXT_FRAG =
-    "#version 300 es\n"
-    "precision mediump float;\n"
-    "in vec2 uv;\n"
-    "out vec4 FragColor;\n"
-    "uniform sampler2D tex;\n"
-    "uniform vec3 color;\n"
-    "void main() {\n"
-    "    float a = texture(tex, uv).r;\n"
-    "    if (a < 0.5) discard;\n"
-    "    FragColor = vec4(color, 1.0);\n"
-    "}\n";
-
-static const char* duplicate_cstr(const char* s) {
-    if (!s) return NULL;
-    size_t n = strlen(s) + 1;
-    char* out = (char*)malloc(n);
-    if (out) memcpy(out, s, n);
-    return out;
-}
-#endif
-
 char* loadShaderSource(const char* filepath) {
-#ifdef __EMSCRIPTEN__
-    // In the Emscripten build, the shaders may not be available as files.
-    // Provide embedded sources for known shader paths.
-    if (strcmp(filepath, "shaders/simple.vert") == 0) return (char*)duplicate_cstr(EMSCRIPTEN_SIMPLE_VERT);
-    if (strcmp(filepath, "shaders/simple.frag") == 0) return (char*)duplicate_cstr(EMSCRIPTEN_SIMPLE_FRAG);
-    if (strcmp(filepath, "shaders/text.vert") == 0)   return (char*)duplicate_cstr(EMSCRIPTEN_TEXT_VERT);
-    if (strcmp(filepath, "shaders/text.frag") == 0)   return (char*)duplicate_cstr(EMSCRIPTEN_TEXT_FRAG);
-#endif
-    FILE* file = fopen(filepath, "r");
+    FILE* file = fopen(filepath, "rb");  // Open in binary mode to avoid Windows CRLF conversion issues
     if (!file) {
         fprintf(stderr, "Failed to open shader file: %s\n", filepath);
         return NULL;
@@ -88,9 +21,14 @@ char* loadShaderSource(const char* filepath) {
     fseek(file, 0, SEEK_SET);
 
     char* source = (char*)malloc(size + 1);
+    if (!source) {
+        fprintf(stderr, "Failed to allocate memory for shader source\n");
+        fclose(file);
+        return NULL;
+    }
 
-    fread(source, 1, size, file);
-    source[size] = '\0';
+    size_t bytesRead = fread(source, 1, size, file);
+    source[bytesRead] = '\0';  // Use actual bytes read, not file size
 
     fclose(file);
     return source;
@@ -100,10 +38,14 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     // load shader sources from files
     char* vertexShaderSource = loadShaderSource(vertexPath);
     char* fragmentShaderSource = loadShaderSource(fragmentPath);
-    if (!vertexShaderSource || !fragmentShaderSource) {
-        // Avoid using an incomplete program; return 0 if loading failed.
-        if (vertexShaderSource) free(vertexShaderSource);
-        if (fragmentShaderSource) free(fragmentShaderSource);
+
+    if (!vertexShaderSource) {
+        fprintf(stderr, "Failed to load vertex shader: %s\n", vertexPath);
+        return 0;
+    }
+    if (!fragmentShaderSource) {
+        fprintf(stderr, "Failed to load fragment shader: %s\n", fragmentPath);
+        free(vertexShaderSource);
         return 0;
     }
 
@@ -112,16 +54,52 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     glShaderSource(vertexShader, 1, (const char**)&vertexShaderSource, NULL);
     glCompileShader(vertexShader);
 
+    // check vertex shader compilation
+    GLint success;
+    GLchar infoLog[512];
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        fprintf(stderr, "ERROR: Vertex shader compilation failed (%s):\n%s\n", vertexPath, infoLog);
+        free(vertexShaderSource);
+        free(fragmentShaderSource);
+        return 0;
+    }
+
     // compile the fragment shader
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, (const char**)&fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
+
+    // check fragment shader compilation
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        fprintf(stderr, "ERROR: Fragment shader compilation failed (%s):\n%s\n", fragmentPath, infoLog);
+        glDeleteShader(vertexShader);
+        free(vertexShaderSource);
+        free(fragmentShaderSource);
+        return 0;
+    }
 
     // link the shaders into a program
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
+
+    // check linking errors
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        fprintf(stderr, "ERROR: Shader program linking failed:\n%s\n", infoLog);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+        free(vertexShaderSource);
+        free(fragmentShaderSource);
+        return 0;
+    }
+
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
@@ -129,6 +107,7 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     free(vertexShaderSource);
     free(fragmentShaderSource);
 
+    printf("Successfully compiled shader program: %s + %s\n", vertexPath, fragmentPath);
     return shaderProgram;
 }
 
@@ -164,7 +143,7 @@ mat4 createViewMatrix_originCentered(const float cameraPos[3]) {
     mat4 viewMatrix;
     float forward[3] = {-cameraPos[0], -cameraPos[1], -cameraPos[2]};
     normalize_3d(forward);
-    float up[3] = {0.0f, 1.0f, 0.0f};
+    float up[3] = {0.0f, 0.0f, 1.0f};  // Z is now "up"
     float right[3];
     cross_product_3d(forward, up, right);
     normalize_3d(right);
@@ -270,26 +249,26 @@ sphere_mesh_t generateUnitSphere(unsigned int stacks, unsigned int sectors) {
             float phi1 = (float)j * 2.0f * M_PI_f / (float)sectors;
             float phi2 = (float)(j + 1) * 2.0f * M_PI_f / (float)sectors;
 
-            // calculate 4 vertices of the quad
+            // calculate 4 vertices of the quad (using Z as up)
             // v1 (top-left)
             float v1_x = cosf(phi1) * sinf(theta1);
-            float v1_y = cosf(theta1);
-            float v1_z = sinf(phi1) * sinf(theta1);
+            float v1_y = sinf(phi1) * sinf(theta1);
+            float v1_z = cosf(theta1);
 
             // v2 (bottom-left)
             float v2_x = cosf(phi1) * sinf(theta2);
-            float v2_y = cosf(theta2);
-            float v2_z = sinf(phi1) * sinf(theta2);
+            float v2_y = sinf(phi1) * sinf(theta2);
+            float v2_z = cosf(theta2);
 
             // v3 (bottom-right)
             float v3_x = cosf(phi2) * sinf(theta2);
-            float v3_y = cosf(theta2);
-            float v3_z = sinf(phi2) * sinf(theta2);
+            float v3_y = sinf(phi2) * sinf(theta2);
+            float v3_z = cosf(theta2);
 
             // v4 (top-right)
             float v4_x = cosf(phi2) * sinf(theta1);
-            float v4_y = cosf(theta1);
-            float v4_z = sinf(phi2) * sinf(theta1);
+            float v4_y = sinf(phi2) * sinf(theta1);
+            float v4_z = cosf(theta1);
 
             // first triangle (v1, v2, v3)
             // v1
@@ -444,26 +423,7 @@ font_t initFont(const char* path, float size) {
 
     FILE* fp = fopen(path, "rb");
     if (!fp) {
-        // Graceful fallback: create an empty 1x1 texture and fully initialize buffers and shader
-        // so text functions become no-ops without crashing when the font file isn't available
-        unsigned char zero = 0;
-        glGenTextures(1, &f.tex);
-        glBindTexture(GL_TEXTURE_2D, f.tex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 1, 1, 0, GL_RED, GL_UNSIGNED_BYTE, &zero);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        f.shader = createShaderProgram("shaders/text.vert", "shaders/text.frag");
-        f.verts = malloc(MAX_CHARS * 24 * sizeof(float));
-        f.count = 0;
-
-        glGenVertexArrays(1, &f.vao);
-        glGenBuffers(1, &f.vbo);
-        glBindVertexArray(f.vao);
-        glBindBuffer(GL_ARRAY_BUFFER, f.vbo);
-        glBufferData(GL_ARRAY_BUFFER, MAX_CHARS * 24 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-        glEnableVertexAttribArray(0);
+        fprintf(stderr, "Failed to open font file: %s\n", path);
         return f;
     }
     fseek(fp, 0, SEEK_END);
@@ -485,6 +445,12 @@ font_t initFont(const char* path, float size) {
     free(bmp);
 
     f.shader = createShaderProgram("shaders/text.vert", "shaders/text.frag");
+    if (f.shader == 0) {
+        fprintf(stderr, "Failed to create text shader program\n");
+        glDeleteTextures(1, &f.tex);
+        return f;
+    }
+
     f.verts = malloc(MAX_CHARS * 24 * sizeof(float));
 
     glGenVertexArrays(1, &f.vao);
@@ -495,6 +461,7 @@ font_t initFont(const char* path, float size) {
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
     glEnableVertexAttribArray(0);
 
+    printf("Successfully initialized font: %s\n", path);
     return f;
 }
 
@@ -544,7 +511,7 @@ void renderText(font_t* font, float window_w, float window_h, float r, float g, 
     font->count = 0;
 }
 
-void freeFont(font_t* font) {
+void freeFont(const font_t* font) {
     free(font->verts);
     glDeleteTextures(1, &font->tex);
     glDeleteProgram(font->shader);
@@ -564,18 +531,18 @@ void freeFont(font_t* font) {
 void renderCoordinatePlane(sim_properties_t sim, line_batch_t* line_batch) {
     float scale = sim.wp.zoom;
 
-    // X axis (red)
+    // X axis (red) - horizontal
     addLine(line_batch, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f, 0.0f, 0.0f);
 
-    // Y axis (green)
+    // Y axis (green) - horizontal
     addLine(line_batch, 0.0f, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f, 0.0f);
 
-    // Z axis (blue)
+    // Z axis (blue) - vertical "up"
     addLine(line_batch, 0.0f, 0.0f, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f);
 
-    // perspective lines (gray)
-    addLine(line_batch, 10.0f * scale, 0.0f, -10.0f * scale, -10.0f * scale, 0.0f, 10.0f * scale, 0.3f, 0.3f, 0.3f);
-    addLine(line_batch, 10.0f * scale, 0.0f, 10.0f * scale, -10.0f * scale, 0.0f, -10.0f * scale, 0.3f, 0.3f, 0.3f);
+    // perspective lines in X-Y plane (gray)
+    addLine(line_batch, 10.0f * scale, 10.0f * scale, 0.0f, -10.0f * scale, -10.0f * scale, 0.0f, 0.3f, 0.3f, 0.3f);
+    addLine(line_batch, 10.0f * scale, -10.0f * scale, 0.0f, -10.0f * scale, 10.0f * scale, 0.0f, 0.3f, 0.3f, 0.3f);
 }
 
 // render the sim planets to the screen
@@ -601,13 +568,15 @@ void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape
     for (int i = 0; i < sim.gs.count; i++) {
         // create a scale matrix
         float size_scale_factor = 0.1f; // arbitrary scale based on what looks nice on screen
-        mat4 scale_mat = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
-        // create a translation matrix based on the current in-sim-world position of the spacecraft
-        mat4 translate_mat = mat4_translation((float)sim.gs.pos_x[i] / SCALE, (float)sim.gs.pos_y[i] / SCALE, (float)sim.gs.pos_z[i] / SCALE);
-        // multiply the two matrices together to get a final scale/position matrix for the planet model on the screen
-        mat4 spacecraft_model = mat4_mul(translate_mat, scale_mat);
+        mat4 S = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
+        mat4 R = quaternionToMatrix(sim.gs.attitude[i]); // create rotation matrix based on the quaternion angle that the spacecraft is in.
+        mat4 T = mat4_translation((float)sim.gs.pos_x[i] / SCALE, (float)sim.gs.pos_y[i] / SCALE, (float)sim.gs.pos_z[i] / SCALE); // create a translation matrix based on the current in-sim-world position of the spacecraft
+
+        mat4 temp = mat4_mul(R, S);
+        mat4 model = mat4_mul(T, temp);
+
         // apply matrix and render to screen
-        setMatrixUniform(shader_program, "model", &spacecraft_model);
+        setMatrixUniform(shader_program, "model", &model);
         glDrawArrays(GL_TRIANGLES, 0, 48);
     }
 }
@@ -666,11 +635,11 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch) {
         // draw lines between planets to show distance
         for (int i = 0; i < sim->gb.count; i++) {
             // planet pos 1
-            coord_t pp1 = { (float)sim->gb.pos_x[i] / SCALE, (float)sim->gb.pos_y[i] / SCALE, (float)sim->gb.pos_z[i] / SCALE };
+            vec3_f pp1 = { (float)sim->gb.pos_x[i] / SCALE, (float)sim->gb.pos_y[i] / SCALE, (float)sim->gb.pos_z[i] / SCALE };
             int pp2idx = i + 1;
             if (i + 1 > sim->gb.count - 1) pp2idx = 0;
             // planet pos 2
-            coord_t pp2 = { (float)sim->gb.pos_x[pp2idx] / SCALE, (float)sim->gb.pos_y[pp2idx] / SCALE, (float)sim->gb.pos_z[pp2idx] / SCALE };
+            vec3_f pp2 = { (float)sim->gb.pos_x[pp2idx] / SCALE, (float)sim->gb.pos_y[pp2idx] / SCALE, (float)sim->gb.pos_z[pp2idx] / SCALE };
             addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
         }
     }
@@ -691,8 +660,8 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch) {
                 int curr_idx = (sim->wp.body_path_counter + j + 1) % PATH_CACHE_LENGTH;
                 int next_idx = (sim->wp.body_path_counter + j + 2) % PATH_CACHE_LENGTH;
 
-                coord_t p1 = sim->gb.path_cache[i][curr_idx];
-                coord_t p2 = sim->gb.path_cache[i][next_idx];
+                vec3_f p1 = sim->gb.path_cache[i][curr_idx];
+                vec3_f p2 = sim->gb.path_cache[i][next_idx];
 
                 // only draw if both points are valid (not zero)
                 if ((p1.x != 0.0f || p1.y != 0.0f || p1.z != 0.0f) &&
