@@ -85,6 +85,11 @@ if(EMSCRIPTEN)
             "-sFULL_ES3=1"
             "-sUSE_PTHREADS=1"
             "-pthread"
+
+            # Mappings for virtual filesystem
+            "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets@/assets"
+            "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/shaders/web@/shaders"
+            "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data@/"
     )
 
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
