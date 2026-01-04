@@ -76,7 +76,7 @@ void* physicsSim(void* args) {
 // UNIFIED MAIN LOOP STEP
 // This function runs exactly one frame of rendering and logic.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void main_loop_step(void* arg) {
+void mainLoopStep(void* arg) {
     AppContext* ctx = (AppContext*)arg;
     sim_properties_t* s = ctx->sim;
 
@@ -272,11 +272,11 @@ int main(int argc, char *argv[]) {
 
 #ifdef __EMSCRIPTEN__
     // WebAssembly: Hand control to the browser's main loop
-    emscripten_set_main_loop_arg(main_loop_step, &ctx, 0, 1);
+    emscripten_set_main_loop_arg(mainLoopStep, &ctx, 0, 1);
 #else
     // Native: Run standard while loop
     while (sim.wp.window_open) {
-        main_loop_step(&ctx);
+        mainLoopStep(&ctx);
     }
 #endif
 
