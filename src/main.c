@@ -35,8 +35,6 @@
     #include <GL/glew.h>
 #endif
 
-// NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
-
 // Global mutex definition
 mutex_t sim_mutex;
 // this is purposely made a global var in this file
@@ -181,44 +179,62 @@ int main(int argc, char *argv[]) {
     // default time step
     sim.wp.time_step = 0.01;
 
-    // Native: Run standard while loop
     while (sim.wp.window_open) {
         // clears previous frame from the screen
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         // user input event checking logic (modifies UI state, no lock needed)
         SDL_Event event;
         runEventCheck(&event, &sim);
+
         // lock mutex and quickly snapshot simulation data for rendering
         mutex_lock(&sim_mutex);
+
         // make a quick copy for rendering
         sim_properties_t sim_snapshot = sim;
+
         mutex_unlock(&sim_mutex);
+
         ////////////////////////////////////////////////////////
         // OPENGL RENDERER
         ////////////////////////////////////////////////////////
         // update viewport for window resizing
         glViewport(0, 0, (int)sim_snapshot.wp.window_size_x, (int)sim_snapshot.wp.window_size_y);
+
         // use shader program
         glUseProgram(shaderProgram);
+
         // casts the camera to the required orientation and zoom (always points to the origin)
         castCamera(sim_snapshot, shaderProgram);
+
         // draw coordinate plane
         renderCoordinatePlane(sim_snapshot, &line_batch);
+
         // draw planets
         renderPlanets(sim_snapshot, shaderProgram, sphere_buffer);
+
         // draw crafts
         renderCrafts(sim_snapshot, shaderProgram, cone_buffer);
+
         // stats display
         renderStats(sim_snapshot, &font);
+
         // renders visuals things if they are enabled
         renderVisuals(&sim_snapshot, &line_batch);
+
         // command window display
         renderCMDWindow(&sim_snapshot, &font);
+
         // render all queued lines
         renderLines(&line_batch, shaderProgram);
+
         // render all queued text
         renderText(&font, sim_snapshot.wp.window_size_x, sim_snapshot.wp.window_size_y, 1, 1, 1);
+        ////////////////////////////////////////////////////////
+        // END OPENGL RENDERER
+        ////////////////////////////////////////////////////////
+
         // log data
         if (sim.wp.data_logging_enabled) {
             mutex_lock(&sim_mutex);
@@ -227,6 +243,7 @@ int main(int argc, char *argv[]) {
 
             mutex_unlock(&sim_mutex);
         }
+
         // check if sim needs to be reset
         if (sim.wp.reset_sim) {
             mutex_lock(&sim_mutex);
@@ -235,8 +252,10 @@ int main(int argc, char *argv[]) {
 
             mutex_unlock(&sim_mutex);
         }
+
         // increment frame counter
         sim.wp.frame_counter++;
+
         // present the renderer to the screen
         SDL_GL_SwapWindow(window);
 
@@ -244,6 +263,9 @@ int main(int argc, char *argv[]) {
         emscripten_sleep(0);
 #endif
     }
+    ////////////////////////////////////////////////////////
+    // end of simulation loop                             //
+    ////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////
     // CLEAN UP                                       //
