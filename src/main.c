@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     HANDLE sim_thread = CreateThread(NULL, 0, physicsSim_win32, &sim, 0, NULL);
 #else
     pthread_t simThread;
-    pthread_create(&simThread, NULL, physicsSim, &sim)
+    pthread_create(&simThread, NULL, physicsSim, &sim);
 #endif
 
     ////////////////////////////////////////////////////////
