@@ -104,10 +104,10 @@ void* physicsSim(void* args) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void mainLoopStep(void* arg) {
     AppContext* ctx = (AppContext*)arg;
-    sim_properties_t* s = ctx->sim;
+    sim_properties_t* sim = ctx->sim;
 
     // handle loop cancellation for Emscripten if window is closed
-    if (!s->wp.window_open) {
+    if (!sim->wp.window_open) {
         #ifdef __EMSCRIPTEN__
         emscripten_cancel_main_loop();
         #endif
@@ -120,13 +120,13 @@ void mainLoopStep(void* arg) {
 
     // user input event checking logic (modifies UI state, no lock needed)
     SDL_Event event;
-    runEventCheck(&event, &sim);
+    runEventCheck(&event, sim);
 
     // lock mutex and quickly snapshot simulation data for rendering
     mutex_lock(&sim_mutex);
 
     // make a quick copy for rendering
-    sim_properties_t sim_snapshot = sim;
+    sim_properties_t sim_snapshot = *sim;
 
     mutex_unlock(&sim_mutex);
 
@@ -137,61 +137,61 @@ void mainLoopStep(void* arg) {
     glViewport(0, 0, (int)sim_snapshot.wp.window_size_x, (int)sim_snapshot.wp.window_size_y);
 
     // use shader program
-    glUseProgram(shaderProgram);
+    glUseProgram(ctx->shaderProgram);
 
     // casts the camera to the required orientation and zoom (always points to the origin)
-    castCamera(sim_snapshot, shaderProgram);
+    castCamera(sim_snapshot, ctx->shaderProgram);
 
     // draw coordinate plane
-    renderCoordinatePlane(sim_snapshot, &line_batch);
+    renderCoordinatePlane(sim_snapshot, ctx->line_batch);
 
     // draw planets
-    renderPlanets(sim_snapshot, shaderProgram, sphere_buffer);
+    renderPlanets(sim_snapshot, ctx->shaderProgram, ctx->sphere_buffer);
 
     // draw crafts
-    renderCrafts(sim_snapshot, shaderProgram, cone_buffer);
+    renderCrafts(sim_snapshot, ctx->shaderProgram, ctx->cone_buffer);
 
     // stats display
-    renderStats(sim_snapshot, &font);
+    renderStats(sim_snapshot, ctx->font);
 
     // renders visuals things if they are enabled
-    renderVisuals(&sim_snapshot, &line_batch);
+    renderVisuals(&sim_snapshot, ctx->line_batch);
 
     // command window display
-    renderCMDWindow(&sim_snapshot, &font);
+    renderCMDWindow(&sim_snapshot, ctx->font);
 
     // render all queued lines
-    renderLines(&line_batch, shaderProgram);
+    renderLines(ctx->line_batch, ctx->shaderProgram);
 
     // render all queued text
-    renderText(&font, sim_snapshot.wp.window_size_x, sim_snapshot.wp.window_size_y, 1, 1, 1);
+    renderText(ctx->font, sim_snapshot.wp.window_size_x, sim_snapshot.wp.window_size_y, 1, 1, 1);
     ////////////////////////////////////////////////////////
     // END OPENGL RENDERER
     ////////////////////////////////////////////////////////
 
     // log data
-    if (sim.wp.data_logging_enabled) {
+    if (sim->wp.data_logging_enabled) {
         mutex_lock(&sim_mutex);
 
-        exportTelemetryBinary(filenames, &sim);
+        exportTelemetryBinary(*ctx->filenames, sim);
 
         mutex_unlock(&sim_mutex);
     }
 
     // check if sim needs to be reset
-    if (sim.wp.reset_sim) {
+    if (sim->wp.reset_sim) {
         mutex_lock(&sim_mutex);
 
-        resetSim(&sim);
+        resetSim(sim);
 
         mutex_unlock(&sim_mutex);
     }
 
     // increment frame counter
-    sim.wp.frame_counter++;
+    sim->wp.frame_counter++;
 
     // present the renderer to the screen
-    SDL_GL_SwapWindow(window);
+    SDL_GL_SwapWindow(ctx->window);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
