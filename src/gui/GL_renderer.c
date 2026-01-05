@@ -439,7 +439,16 @@ font_t initFont(const char* path, float size) {
 
     glGenTextures(1, &f.tex);
     glBindTexture(GL_TEXTURE_2D, f.tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, ATLAS, ATLAS, 0, GL_RED, GL_UNSIGNED_BYTE, bmp);
+
+    GLint internalFormat = GL_RED;
+
+#ifdef __EMSCRIPTEN__
+    // WebGL needs a different internal format
+    internalFormat = GL_R8;
+#endif
+
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, ATLAS, ATLAS, 0, GL_RED, GL_UNSIGNED_BYTE, bmp);
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     free(bmp);

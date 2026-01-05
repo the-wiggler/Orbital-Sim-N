@@ -142,3 +142,28 @@ Note: Due to the nature of time step based simulation, the craft burn time may n
 Use CMake to build the project:
 
 The build system automatically copies required assets (shaders, fonts, data files) to the build directory.
+
+### Web Build Instructions
+#### Build with Conan Dependencies for Web
+```sh
+mkdir build && cd build
+conan install .. --build=missing -s build_type=Release -pr ../web
+call ./Release/generators/conanbuild.bat
+# Use either
+# Windows: cmake .. -G "MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+# Or
+# Linux: cmake .. -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+```
+
+#### Quick local server with correct headers
+For local testing of the WebAssembly build with pthreads, the repository includes a small helper server that sets the required COOP/COEP headers and opens the page automatically.
+
+Usage examples:
+- `python serve_web.py` — auto-detects the build folder and opens OrbitSimulation.html on 127.0.0.1:8000
+- `python serve_web.py --root build/Release` — specify the directory that contains OrbitSimulation.html
+- `python serve_web.py --port 8080` — choose a different port
+
+The server adds these headers on every response so that threads are enabled in the browser:
+- Cross-Origin-Opener-Policy: same-origin
+- Cross-Origin-Embedder-Policy: require-corp

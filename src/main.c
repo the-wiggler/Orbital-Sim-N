@@ -1,27 +1,37 @@
 #include <stdio.h>
+#include <math.h>
+#include <stdbool.h>
+
 #include "globals.h"
 #include "types.h"
 #include "sim/simulation.h"
 #include "gui/SDL_engine.h"
+#include "gui/GL_renderer.h"
+#include "gui/models.h"
 #include "utility/telemetry_export.h"
+#include "utility/sim_thread.h"
+
 #ifdef _WIN32
     #include <windows.h>
 #else
     #include <pthread.h>
 #endif
-#include <stdlib.h>
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#include <GL/glew.h>
+
 #ifdef __APPLE__
-#include <OpenGL/gl.h>
+    #include <OpenGL/gl.h>
 #else
-#include <GL/gl.h>
+    #include <GL/gl.h>
 #endif
-#include <stdbool.h>
-#include "gui/GL_renderer.h"
-#include "gui/models.h"
-#include "utility/sim_thread.h"
+
+#ifdef __EMSCRIPTEN__
+    #include <emscripten/emscripten.h>
+    #include <GLES3/gl3.h>
+#else
+    #include <GL/glew.h>
+#endif
 
 // Global mutex definition
 mutex_t sim_mutex;
@@ -246,6 +256,10 @@ int main(int argc, char *argv[]) {
 
         // present the renderer to the screen
         SDL_GL_SwapWindow(window);
+
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(0);
+#endif
     }
     ////////////////////////////////////////////////////////
     // end of simulation loop                             //
