@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdbool.h>
-
 #include "globals.h"
 #include "types.h"
 #include "sim/simulation.h"

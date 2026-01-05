@@ -107,7 +107,6 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     double* temp_force_y = (double*)realloc(gb->force_y, new_size * sizeof(double));
     double* temp_force_z = (double*)realloc(gb->force_z, new_size * sizeof(double));
     double* temp_kinetic = (double*)realloc(gb->kinetic_energy, new_size * sizeof(double));
-    vec3_f** temp_path_cache = (vec3_f**)realloc(gb->path_cache, new_size * sizeof(vec3_f*));
 
     gb->names = temp_names;
     gb->mass = temp_mass;
@@ -130,7 +129,6 @@ void body_addOrbitalBody(body_properties_t* gb, const char* name, const double m
     gb->force_y = temp_force_y;
     gb->force_z = temp_force_z;
     gb->kinetic_energy = temp_kinetic;
-    gb->path_cache = temp_path_cache;
 
     int idx = gb->count;
 

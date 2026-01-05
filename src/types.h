@@ -93,8 +93,6 @@ typedef struct {
     double* force_y;
     double* force_z;
     double* kinetic_energy;
-
-    vec3_f** path_cache; // array of pointers, one per body, each pointing to PATH_CACHE_LENGTH coords
 } body_properties_t;
 
 typedef struct {
