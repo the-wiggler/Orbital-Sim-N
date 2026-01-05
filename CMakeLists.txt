@@ -84,6 +84,7 @@ if(EMSCRIPTEN)
             "-sUSE_WEBGL2=1"
             "-sFULL_ES3=1"
             "-sUSE_PTHREADS=1"
+            "-sASYNCIFY=1"
             "-pthread"
 
             # Mappings for virtual filesystem
