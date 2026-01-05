@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     ////////////////////////////////////////////////////////
-    // SIMULATION LOOP                                    //
+    // simulation loop                                    //
     ////////////////////////////////////////////////////////
     // default time step
     sim.wp.time_step = 0.01;
