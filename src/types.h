@@ -58,6 +58,8 @@ typedef struct {
 
     // visual stuff
     bool draw_lines_between_bodies;
+    bool draw_inclination_height;
+    bool draw_planet_path;
 
 } window_params_t;
 
@@ -236,5 +238,13 @@ typedef struct {
     float* verts;
     int count;
 } font_t;
+
+// planet path tracking
+typedef struct {
+    vec3* positions;
+    int* counts;
+    int capacity;
+    int num_planets;
+} planet_paths_t;
 
 #endif

@@ -639,7 +639,7 @@ void renderStats(sim_properties_t sim, font_t* font) {
 }
 
 // renders debug features when they are enabled
-void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch) {
+void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch, planet_paths_t* planet_paths) {
     if (sim->wp.draw_lines_between_bodies) {
         // draw lines between planets to show distance
         for (int i = 0; i < sim->gb.count; i++) {
@@ -650,6 +650,29 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch) {
             // planet pos 2
             vec3_f pp2 = { (float)sim->gb.pos_x[pp2idx] / SCALE, (float)sim->gb.pos_y[pp2idx] / SCALE, (float)sim->gb.pos_z[pp2idx] / SCALE };
             addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
+        }
+    }
+    if (sim->wp.draw_inclination_height) {
+        for (int i = 0; i < sim->gb.count; i++) {
+            // planet world pos and its 2d world coordinate (bottom_pos)
+            vec3_f pp = { (float)sim->gb.pos_x[i] / SCALE, (float)sim->gb.pos_y[i] / SCALE, (float)sim->gb.pos_z[i] / SCALE };
+            float r, g, b;
+            if (pp.z > 0) { r = 0.5f, g = 0.5f; b = 1.0f; }
+            else { r = 1.0f, g = 0.5f; b = 0.5f; }
+            addLine(line_batch, pp.x, pp.y, pp.z, pp.x, pp.y, 0, r, g, b);
+        }
+    }
+    if (sim->wp.draw_planet_path && planet_paths->num_planets > 0) {
+        // draw orbital paths for all planets
+        for (int p = 0; p < planet_paths->num_planets; p++) {
+            int base = p * planet_paths->capacity;
+            for (int i = 1; i < planet_paths->counts[p]; i++) {
+                vec3 p1 = planet_paths->positions[base + i - 1];
+                vec3 p2 = planet_paths->positions[base + i];
+                // convert from double to float only at render time
+                addLine(line_batch, (float)p1.x, (float)p1.y, (float)p1.z,
+                                    (float)p2.x, (float)p2.y, (float)p2.z, 0.5f, 1.0f, 0.5f);
+            }
         }
     }
 }

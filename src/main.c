@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "globals.h"
 #include "types.h"
 #include "sim/simulation.h"
@@ -43,24 +44,10 @@ mutex_t sim_mutex;
 // PHYSICS SIMULATION THREAD
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _WIN32
-DWORD WINAPI physicsSim_win32(LPVOID args) {
-    sim_properties_t* sim = (sim_properties_t*)args;
-    while (sim->wp.window_open) {
-        while (sim->wp.sim_running) {
-            // lock mutex before accessing data
-            mutex_lock(&sim_mutex);
-
-            // DOES ALL BODY AND CRAFT CALCULATIONS:
-            runCalculations(sim);
-
-            // unlock mutex when done :)
-            mutex_unlock(&sim_mutex);
-        }
-    }
-    return 0;
-}
+DWORD WINAPI physicsSim(LPVOID args) {
 #else
 void* physicsSim(void* args) {
+#endif
     sim_properties_t* sim = (sim_properties_t*)args;
     while (sim->wp.window_open) {
         while (sim->wp.sim_running) {
@@ -74,9 +61,12 @@ void* physicsSim(void* args) {
             mutex_unlock(&sim_mutex);
         }
     }
+#ifdef _WIN32
+    return 0;
+#else
     return NULL;
-}
 #endif
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN :)
@@ -149,6 +139,9 @@ int main(int argc, char *argv[]) {
     // create batch to hold all the line geometries we would ever want to draw!
     line_batch_t line_batch = createLineBatch(1000);
 
+    // planet path tracking
+    planet_paths_t planet_paths = {0};
+
     // initialize font for text rendering
     font_t font = initFont("assets/font.ttf", 24.0f);
     if (font.shader == 0) {
@@ -163,7 +156,7 @@ int main(int argc, char *argv[]) {
     mutex_init(&sim_mutex);
 
 #ifdef _WIN32
-    HANDLE sim_thread = CreateThread(NULL, 0, physicsSim_win32, &sim, 0, NULL);
+    HANDLE sim_thread = CreateThread(NULL, 0, physicsSim, &sim, 0, NULL);
 #else
     pthread_t simThread;
     pthread_create(&simThread, NULL, physicsSim, &sim);
@@ -188,45 +181,77 @@ int main(int argc, char *argv[]) {
         mutex_lock(&sim_mutex);
 
         // make a quick copy for rendering
-        sim_properties_t sim_snapshot = sim;
+        sim_properties_t sim_copy = sim;
 
         mutex_unlock(&sim_mutex);
+
+        // initialize or resize planet paths if needed
+        if (sim_copy.gb.count > 0 && planet_paths.num_planets != sim_copy.gb.count) {
+            free(planet_paths.positions);
+            free(planet_paths.counts);
+            planet_paths.num_planets = sim_copy.gb.count;
+            planet_paths.capacity = 1000;
+            planet_paths.positions = malloc(planet_paths.num_planets * planet_paths.capacity * sizeof(vec3));
+            planet_paths.counts = calloc(planet_paths.num_planets, sizeof(int));
+        }
+
+        // record planet paths
+        if (sim.wp.frame_counter % 10 == 0 && sim_copy.gb.count > 0) {
+            for (int p = 0; p < sim_copy.gb.count; p++) {
+                int idx = p * planet_paths.capacity + planet_paths.counts[p];
+                if (planet_paths.counts[p] < planet_paths.capacity) {
+                    // add new point
+                    planet_paths.positions[idx].x = sim_copy.gb.pos_x[p] / SCALE;
+                    planet_paths.positions[idx].y = sim_copy.gb.pos_y[p] / SCALE;
+                    planet_paths.positions[idx].z = sim_copy.gb.pos_z[p] / SCALE;
+                    planet_paths.counts[p]++;
+                } else {
+                    int base = p * planet_paths.capacity;
+                    for (int i = 1; i < planet_paths.capacity; i++) {
+                        planet_paths.positions[base + i - 1] = planet_paths.positions[base + i];
+                    }
+                    planet_paths.positions[base + planet_paths.capacity - 1].x = sim_copy.gb.pos_x[p] / SCALE;
+                    planet_paths.positions[base + planet_paths.capacity - 1].y = sim_copy.gb.pos_y[p] / SCALE;
+                    planet_paths.positions[base + planet_paths.capacity - 1].z = sim_copy.gb.pos_z[p] / SCALE;
+                }
+            }
+        }
 
         ////////////////////////////////////////////////////////
         // OPENGL RENDERER
         ////////////////////////////////////////////////////////
         // update viewport for window resizing
-        glViewport(0, 0, (int)sim_snapshot.wp.window_size_x, (int)sim_snapshot.wp.window_size_y);
+        glViewport(0, 0, (int)sim_copy.wp.window_size_x, (int)sim_copy.wp.window_size_y);
 
         // use shader program
         glUseProgram(shaderProgram);
 
         // casts the camera to the required orientation and zoom (always points to the origin)
-        castCamera(sim_snapshot, shaderProgram);
+        castCamera(sim_copy, shaderProgram);
 
         // draw coordinate plane
-        renderCoordinatePlane(sim_snapshot, &line_batch);
+        renderCoordinatePlane(sim_copy, &line_batch);
 
         // draw planets
-        renderPlanets(sim_snapshot, shaderProgram, sphere_buffer);
+        renderPlanets(sim_copy, shaderProgram, sphere_buffer);
 
         // draw crafts
-        renderCrafts(sim_snapshot, shaderProgram, cone_buffer);
+        renderCrafts(sim_copy, shaderProgram, cone_buffer);
 
         // stats display
-        renderStats(sim_snapshot, &font);
+        renderStats(sim_copy, &font);
 
         // renders visuals things if they are enabled
-        renderVisuals(&sim_snapshot, &line_batch);
+        renderVisuals(&sim_copy, &line_batch, &planet_paths);
 
         // command window display
-        renderCMDWindow(&sim_snapshot, &font);
+        renderCMDWindow(&sim_copy, &font);
 
         // render all queued lines
         renderLines(&line_batch, shaderProgram);
 
         // render all queued text
-        renderText(&font, sim_snapshot.wp.window_size_x, sim_snapshot.wp.window_size_y, 1, 1, 1);
+        renderText(&font, sim_copy.wp.window_size_x, sim_copy.wp.window_size_y, 1, 1, 1);
         ////////////////////////////////////////////////////////
         // END OPENGL RENDERER
         ////////////////////////////////////////////////////////
@@ -247,6 +272,11 @@ int main(int argc, char *argv[]) {
             resetSim(&sim);
 
             mutex_unlock(&sim_mutex);
+
+            // reset planet paths
+            for (int i = 0; i < planet_paths.num_planets; i++) {
+                planet_paths.counts[i] = 0;
+            }
         }
 
         // increment frame counter
@@ -280,6 +310,10 @@ int main(int argc, char *argv[]) {
 
     // cleanup all allocated sim memory
     cleanup(&sim);
+
+    // cleanup planet paths
+    free(planet_paths.positions);
+    free(planet_paths.counts);
 
     // cleanup OpenGL resources
     freeSphere(&sphere_mesh);

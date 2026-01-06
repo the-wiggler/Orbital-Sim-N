@@ -44,8 +44,10 @@ window_params_t init_window_params(void) {
 
     wp.is_dragging = false;
 
-    // initial debug toggles
+    // initial visual defaults
     wp.draw_lines_between_bodies = false;
+    wp.draw_inclination_height = true;
+    wp.draw_planet_path = true;
 
     wp.frame_counter = 0;
 

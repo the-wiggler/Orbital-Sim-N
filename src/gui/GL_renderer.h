@@ -45,6 +45,6 @@ void renderCoordinatePlane(sim_properties_t sim, line_batch_t* line_batch);
 void renderPlanets(sim_properties_t sim, GLuint shader_program, VBO_t planet_shape_buffer);
 void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape_buffer);
 void renderStats(sim_properties_t sim, font_t* font);
-void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch);
+void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch, planet_paths_t* planet_paths);
 
 #endif //ORBITSIMULATION_GL_RENDERER_H
