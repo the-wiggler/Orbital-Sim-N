@@ -30,7 +30,7 @@ jobs:
     - name: Cleanup to specific files only
       run: |
         cd build
-        find . -type f ! -name 'index.html' ! -name 'OrbitSimulation.wasm' ! -name 'OrbitSimulation.js' ! -name 'OrbitSimulation.data' -delete
+        find . -type f ! -name 'index.html' ! -name 'OrbitSimulation.wasm' ! -name 'OrbitSimulation.js' ! -name 'OrbitSimulation.data' ! -name 'coi-serviceworker.js' -delete
         find . -type d -empty -delete
 
     - name: Deploy to target repo Pages
