@@ -27,6 +27,29 @@ A real-time 3D gravitational physics simulator built in C with OpenGL and SDL3.
   - Each burn type can be configured with a rotation heading offset
 
 ## Usage
+
+### Controls
+
+#### Mouse Controls
+- **Right Mouse Button + Drag**: Rotate camera around the scene
+- **Mouse Wheel Up**: Zoom in
+- **Mouse Wheel Down**: Zoom out
+
+#### Console Commands
+The program features a command-line interface at the bottom of the window. Available commands:
+
+| Command | Description |
+|---------|-------------|
+| `load` | Load simulation from `simulation_data.json` |
+| `pause` or `p` | Pause the simulation |
+| `resume` or `r` | Resume the simulation |
+| `reset` | Reset the simulation to initial state |
+| `step <value>` | Set simulation time step (e.g., `step 0.01`) |
+| `enable guidance-lines` | Show lines between celestial bodies |
+| `disable guidance-lines` | Hide lines between celestial bodies |
+
+**Note**: Type commands in the console at the bottom of the window and press Enter to execute.
+
 ### Configuration Files
 
 The simulation is configured via `simulation_data.json`:
