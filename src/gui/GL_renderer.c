@@ -675,4 +675,36 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch, planet_paths
             }
         }
     }
+
+    // initialize or resize planet paths if needed
+    if (sim->gb.count > 0 && planet_paths->num_planets != sim->gb.count) {
+        free(planet_paths->positions);
+        free(planet_paths->counts);
+        planet_paths->num_planets = sim->gb.count;
+        planet_paths->capacity = PATH_CAPACITY;
+        planet_paths->positions = malloc(planet_paths->num_planets * planet_paths->capacity * sizeof(vec3));
+        planet_paths->counts = calloc(planet_paths->num_planets, sizeof(int));
+    }
+
+    // record planet paths
+    if (sim->wp.frame_counter % 5 == 0 && sim->gb.count > 0) {
+        for (int p = 0; p < sim->gb.count; p++) {
+            int idx = p * planet_paths->capacity + planet_paths->counts[p];
+            if (planet_paths->counts[p] < planet_paths->capacity) {
+                // add new point
+                planet_paths->positions[idx].x = sim->gb.pos_x[p] / SCALE;
+                planet_paths->positions[idx].y = sim->gb.pos_y[p] / SCALE;
+                planet_paths->positions[idx].z = sim->gb.pos_z[p] / SCALE;
+                planet_paths->counts[p]++;
+            } else {
+                int base = p * planet_paths->capacity;
+                for (int i = 1; i < planet_paths->capacity; i++) {
+                    planet_paths->positions[base + i - 1] = planet_paths->positions[base + i];
+                }
+                planet_paths->positions[base + planet_paths->capacity - 1].x = sim->gb.pos_x[p] / SCALE;
+                planet_paths->positions[base + planet_paths->capacity - 1].y = sim->gb.pos_y[p] / SCALE;
+                planet_paths->positions[base + planet_paths->capacity - 1].z = sim->gb.pos_z[p] / SCALE;
+            }
+        }
+    }
 }

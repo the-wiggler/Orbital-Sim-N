@@ -185,38 +185,6 @@ int main(int argc, char *argv[]) {
 
         mutex_unlock(&sim_mutex);
 
-        // initialize or resize planet paths if needed
-        if (sim_copy.gb.count > 0 && planet_paths.num_planets != sim_copy.gb.count) {
-            free(planet_paths.positions);
-            free(planet_paths.counts);
-            planet_paths.num_planets = sim_copy.gb.count;
-            planet_paths.capacity = PATH_CAPACITY;
-            planet_paths.positions = malloc(planet_paths.num_planets * planet_paths.capacity * sizeof(vec3));
-            planet_paths.counts = calloc(planet_paths.num_planets, sizeof(int));
-        }
-
-        // record planet paths
-        if (sim.wp.frame_counter % 1 == 0 && sim_copy.gb.count > 0) {
-            for (int p = 0; p < sim_copy.gb.count; p++) {
-                int idx = p * planet_paths.capacity + planet_paths.counts[p];
-                if (planet_paths.counts[p] < planet_paths.capacity) {
-                    // add new point
-                    planet_paths.positions[idx].x = sim_copy.gb.pos_x[p] / SCALE;
-                    planet_paths.positions[idx].y = sim_copy.gb.pos_y[p] / SCALE;
-                    planet_paths.positions[idx].z = sim_copy.gb.pos_z[p] / SCALE;
-                    planet_paths.counts[p]++;
-                } else {
-                    int base = p * planet_paths.capacity;
-                    for (int i = 1; i < planet_paths.capacity; i++) {
-                        planet_paths.positions[base + i - 1] = planet_paths.positions[base + i];
-                    }
-                    planet_paths.positions[base + planet_paths.capacity - 1].x = sim_copy.gb.pos_x[p] / SCALE;
-                    planet_paths.positions[base + planet_paths.capacity - 1].y = sim_copy.gb.pos_y[p] / SCALE;
-                    planet_paths.positions[base + planet_paths.capacity - 1].z = sim_copy.gb.pos_z[p] / SCALE;
-                }
-            }
-        }
-
         ////////////////////////////////////////////////////////
         // OPENGL RENDERER
         ////////////////////////////////////////////////////////
