@@ -203,12 +203,18 @@ if(WIN32)
     )
 endif()
 
-# WASM: Copy index.html to build directory
+# WASM: Copy files to build directory
 if(EMSCRIPTEN)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy
             "${CMAKE_SOURCE_DIR}/web/index.html"
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/index.html"
             COMMENT "Copying index.html to build directory"
+    )
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            "${CMAKE_SOURCE_DIR}/web/coi-serviceworker.js"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/coi-serviceworker.js"
+            COMMENT "Copying coi-serviceworker.js to build directory"
     )
 endif()
