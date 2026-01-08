@@ -36,7 +36,7 @@ jobs:
     - name: Deploy to target repo Pages
       uses: peaceiris/actions-gh-pages@v4
       with:
-        github_token: ${{ secrets.PAT }}
+        personal_token: ${{ secrets.PAT }}
         publish_dir: ./build
         external_repository: the-wiggler/the-wiggler.github.io
         publish_branch: main
