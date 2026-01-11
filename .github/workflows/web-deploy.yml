@@ -38,6 +38,6 @@ jobs:
       with:
         personal_token: ${{ secrets.PAT }}
         publish_dir: ./build
-        external_repository: the-wiggler/the-wiggler.github.io
+        external_repository: toastyy-1/toastyy-1.github.io
         publish_branch: main
         force_orphan: true
