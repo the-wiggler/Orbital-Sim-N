@@ -8,192 +8,127 @@
 
 void displayError(const char* title, const char* message);
 
-// at the end of each sim loop, this function should be run to calculate the changes in
-// the force values based on other parameters. for example, using F to find a based on m.
+// calculates gravitational force between two bodies and applies it to both
 // i is the body that has the force applied to it, whilst j is the body applying force to i
 void body_calculateGravForce(sim_properties_t* sim, const int i, const int j) {
-    const body_properties_t* bodies = &sim->gb;
+    body_t* bi = &sim->gb.bodies[i];
+    body_t* bj = &sim->gb.bodies[j];
 
     // calculate the distance between the two bodies
-    const double delta_pos_x = bodies->pos_x[j] - bodies->pos_x[i];
-    const double delta_pos_y = bodies->pos_y[j] - bodies->pos_y[i];
-    const double delta_pos_z = bodies->pos_z[j] - bodies->pos_z[i];
-    const double r_squared = delta_pos_x * delta_pos_x + delta_pos_y * delta_pos_y + delta_pos_z * delta_pos_z;
+    vec3 delta_pos = vec3_sub(bj->pos, bi->pos);
+    double r_squared = vec3_mag_sq(delta_pos);
 
     // planet collision logic -- checks if planets are too close
-    const double radius_squared = bodies->radius[i] * bodies->radius[i];
+    double radius_squared = bi->radius * bi->radius;
     if (r_squared < radius_squared) {
         sim->wp.sim_running = false;
         sim->wp.reset_sim = true;
         char err_txt[128];
-        snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", bodies->names[i], bodies->names[j]);
+        snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", bi->name, bj->name);
         displayError("PLANET COLLISION", err_txt);
         return;
     }
 
-    // optimized version of the gravitation equation because computers dislike division
     // force = (G * m1 * m2) * delta / r^3
-    const double r = sqrt(r_squared);
-    const double r_cubed = r_squared * r;
-    const double force_factor = (G * bodies->mass[i] * bodies->mass[j]) / r_cubed;
+    double r = sqrt(r_squared);
+    double r_cubed = r_squared * r;
+    double force_factor = (G * bi->mass * bj->mass) / r_cubed;
 
-    const double force_x = force_factor * delta_pos_x;
-    const double force_y = force_factor * delta_pos_y;
-    const double force_z = force_factor * delta_pos_z;
+    vec3 force = vec3_scale(delta_pos, force_factor);
 
-    // applies force to both bodies (since they apply the same force on one another)
-    bodies->force_x[i] += force_x;
-    bodies->force_y[i] += force_y;
-    bodies->force_z[i] += force_z;
-    bodies->force_x[j] -= force_x;
-    bodies->force_y[j] -= force_y;
-    bodies->force_z[j] -= force_z;
+    // applies force to both bodies (Newton's third law)
+    bi->force = vec3_add(bi->force, force);
+    bj->force = vec3_sub(bj->force, force);
 }
 
-// this calculates the changes of velocity and position based on the force values
-// this uses a method called velocity verlet integration
-void body_updateMotion(const body_properties_t* bodies, const int i, const double dt) {
+// calculates changes of velocity and position based on force values
+// uses velocity verlet integration
+void body_updateMotion(body_t* body, const double dt) {
     // calculate the current acceleration from the force on the object
-    bodies->acc_x[i] = bodies->force_x[i] / bodies->mass[i];
-    bodies->acc_y[i] = bodies->force_y[i] / bodies->mass[i];
-    bodies->acc_z[i] = bodies->force_z[i] / bodies->mass[i];
+    body->acc = vec3_scale(body->force, 1.0 / body->mass);
 
     // update position using current velocity and acceleration
-    bodies->pos_x[i] += (bodies->vel_x[i] * dt) + (0.5 * bodies->acc_x[i] * dt * dt);
-    bodies->pos_y[i] += (bodies->vel_y[i] * dt) + (0.5 * bodies->acc_y[i] * dt * dt);
-    bodies->pos_z[i] += (bodies->vel_z[i] * dt) + (0.5 * bodies->acc_z[i] * dt * dt);
+    vec3 vel_term = vec3_scale(body->vel, dt);
+    vec3 acc_term = vec3_scale(body->acc, 0.5 * dt * dt);
+    body->pos = vec3_add(body->pos, vec3_add(vel_term, acc_term));
 
     // update velocity using average of current and previous acceleration
-    // on first step, acc_prev will be zero, so we use current acceleration
-    bodies->vel_x[i] += 0.5 * (bodies->acc_x[i] + bodies->acc_x_prev[i]) * dt;
-    bodies->vel_y[i] += 0.5 * (bodies->acc_y[i] + bodies->acc_y_prev[i]) * dt;
-    bodies->vel_z[i] += 0.5 * (bodies->acc_z[i] + bodies->acc_z_prev[i]) * dt;
-    bodies->vel[i] = sqrt(bodies->vel_x[i] * bodies->vel_x[i] + bodies->vel_y[i] * bodies->vel_y[i] + bodies->vel_z[i] * bodies->vel_z[i]);
+    vec3 avg_acc = vec3_scale(vec3_add(body->acc, body->acc_prev), 0.5);
+    body->vel = vec3_add(body->vel, vec3_scale(avg_acc, dt));
+    body->vel_mag = vec3_mag(body->vel);
 
     // store current acceleration for next iteration
-    bodies->acc_x_prev[i] = bodies->acc_x[i];
-    bodies->acc_y_prev[i] = bodies->acc_y[i];
-    bodies->acc_z_prev[i] = bodies->acc_z[i];
+    body->acc_prev = body->acc;
 }
 
 // calculates the kinetic energy of a target body
-void body_calculateKineticEnergy(const body_properties_t* bodies, const int i) {
+void body_calculateKineticEnergy(body_t* body) {
     // calculate kinetic energy (0.5mv^2)
-    bodies->kinetic_energy[i] = 0.5 * bodies->mass[i] * bodies->vel[i] * bodies->vel[i];
+    body->kinetic_energy = 0.5 * body->mass * body->vel_mag * body->vel_mag;
 }
 
 // updates the rotational attitude of a body based on its rotational velocity
-void body_updateRotation(const body_properties_t* bodies, const int i, const double dt) {
-    if (bodies->rotational_v[i] != 0.0) {
-        // extract the rotation axis from the current attitude (this is the tilted spin axis)
-        // the spin axis is the body's local z axis transformed to world coordinates
+void body_updateRotation(body_t* body, const double dt) {
+    if (body->rotational_v != 0.0) {
+        // extract the rotation axis from the current attitude
         vec3 local_z = {0.0, 0.0, 1.0};
-        vec3 world_spin_axis = quaternionRotate(bodies->attitude[i], local_z);
+        vec3 world_spin_axis = quaternionRotate(body->attitude, local_z);
 
         // create a rotation around this world-space axis
-        double rotation_angle = bodies->rotational_v[i] * dt;
+        double rotation_angle = body->rotational_v * dt;
         quaternion_t delta_rotation = quaternionFromAxisAngle(world_spin_axis, rotation_angle);
 
-        // apply rotation in world frame (left multiply to rotate around world-space axis)
-        bodies->attitude[i] = quaternionMul(delta_rotation, bodies->attitude[i]);
+        // apply rotation in world frame
+        body->attitude = quaternionMul(delta_rotation, body->attitude);
     }
 }
 
 // function to add a new body to the system
-void body_addOrbitalBody(body_properties_t* gb, const char* name, const double mass, const double radius, const double x_pos, const double y_pos, const double z_pos, const double x_vel, const double y_vel, const double z_vel) {
-    int new_size = gb->count + 1;
-
-    // reallocate all arrays
-    char** temp_names = (char**)realloc(gb->names, new_size * sizeof(char*));
-    double* temp_mass = (double*)realloc(gb->mass, new_size * sizeof(double));
-    double* temp_radius = (double*)realloc(gb->radius, new_size * sizeof(double));
-    float* temp_pixel_radius = (float*)realloc(gb->pixel_radius, new_size * sizeof(float));
-    double* temp_pos_x = (double*)realloc(gb->pos_x, new_size * sizeof(double));
-    double* temp_pos_y = (double*)realloc(gb->pos_y, new_size * sizeof(double));
-    double* temp_pos_z = (double*)realloc(gb->pos_z, new_size * sizeof(double));
-    double* temp_vel_x = (double*)realloc(gb->vel_x, new_size * sizeof(double));
-    double* temp_vel_y = (double*)realloc(gb->vel_y, new_size * sizeof(double));
-    double* temp_vel_z = (double*)realloc(gb->vel_z, new_size * sizeof(double));
-    double* temp_vel = (double*)realloc(gb->vel, new_size * sizeof(double));
-    double* temp_acc_x = (double*)realloc(gb->acc_x, new_size * sizeof(double));
-    double* temp_acc_y = (double*)realloc(gb->acc_y, new_size * sizeof(double));
-    double* temp_acc_z = (double*)realloc(gb->acc_z, new_size * sizeof(double));
-    double* temp_acc_x_prev = (double*)realloc(gb->acc_x_prev, new_size * sizeof(double));
-    double* temp_acc_y_prev = (double*)realloc(gb->acc_y_prev, new_size * sizeof(double));
-    double* temp_acc_z_prev = (double*)realloc(gb->acc_z_prev, new_size * sizeof(double));
-    double* temp_force_x = (double*)realloc(gb->force_x, new_size * sizeof(double));
-    double* temp_force_y = (double*)realloc(gb->force_y, new_size * sizeof(double));
-    double* temp_force_z = (double*)realloc(gb->force_z, new_size * sizeof(double));
-    double* temp_kinetic = (double*)realloc(gb->kinetic_energy, new_size * sizeof(double));
-    double* temp_rotational_v = (double*)realloc(gb->rotational_v, new_size * sizeof(double));
-    quaternion_t* temp_attitude = (quaternion_t*)realloc(gb->attitude, new_size * sizeof(quaternion_t));
-
-    gb->names = temp_names;
-    gb->mass = temp_mass;
-    gb->radius = temp_radius;
-    gb->pixel_radius = temp_pixel_radius;
-    gb->pos_x = temp_pos_x;
-    gb->pos_y = temp_pos_y;
-    gb->pos_z = temp_pos_z;
-    gb->vel_x = temp_vel_x;
-    gb->vel_y = temp_vel_y;
-    gb->vel_z = temp_vel_z;
-    gb->vel = temp_vel;
-    gb->acc_x = temp_acc_x;
-    gb->acc_y = temp_acc_y;
-    gb->acc_z = temp_acc_z;
-    gb->acc_x_prev = temp_acc_x_prev;
-    gb->acc_y_prev = temp_acc_y_prev;
-    gb->acc_z_prev = temp_acc_z_prev;
-    gb->force_x = temp_force_x;
-    gb->force_y = temp_force_y;
-    gb->force_z = temp_force_z;
-    gb->kinetic_energy = temp_kinetic;
-    gb->rotational_v = temp_rotational_v;
-    gb->attitude = temp_attitude;
+void body_addOrbitalBody(body_properties_t* gb, const char* name, const double mass,
+                         const double radius, vec3 pos, vec3 vel) {
+    // grow capacity if needed (amortized growth)
+    if (gb->count >= gb->capacity) {
+        int new_capacity = gb->capacity == 0 ? 4 : gb->capacity * 2;
+        body_t* temp = (body_t*)realloc(gb->bodies, new_capacity * sizeof(body_t));
+        if (temp == NULL) {
+            displayError("ERROR", "Failed to allocate memory for body");
+            return;
+        }
+        gb->bodies = temp;
+        gb->capacity = new_capacity;
+    }
 
     int idx = gb->count;
+    body_t* body = &gb->bodies[idx];
 
-    // allocate memory for the name and copy it
-    gb->names[idx] = (char*)malloc(strlen(name) + 1);
-    if (gb->names[idx] == NULL) {
+    // allocate and copy name
+    body->name = (char*)malloc(strlen(name) + 1);
+    if (body->name == NULL) {
         displayError("ERROR", "Error: Failed to allocate memory for body name\n");
         return;
     }
 #ifdef WIN32
-    strcpy_s(gb->names[idx], strlen(name) + 1, name);
+    strcpy_s(body->name, strlen(name) + 1, name);
 #else
-    strcpy(gb->names[idx], name);
+    strcpy(body->name, name);
 #endif
 
-    // initialize the new body
-    gb->mass[idx] = mass;
-    gb->radius[idx] = radius;
-    gb->pixel_radius[idx] = 0.0f;
-    gb->pos_x[idx] = x_pos;
-    gb->pos_y[idx] = y_pos;
-    gb->pos_z[idx] = z_pos;
-    gb->vel_x[idx] = x_vel;
-    gb->vel_y[idx] = y_vel;
-    gb->vel_z[idx] = z_vel;
-    gb->vel[idx] = sqrt(x_vel * x_vel + y_vel * y_vel + z_vel * z_vel);
-    gb->acc_x[idx] = 0.0;
-    gb->acc_y[idx] = 0.0;
-    gb->acc_z[idx] = 0.0;
-    gb->acc_x_prev[idx] = 0.0;
-    gb->acc_y_prev[idx] = 0.0;
-    gb->acc_z_prev[idx] = 0.0;
-    gb->force_x[idx] = 0.0;
-    gb->force_y[idx] = 0.0;
-    gb->force_z[idx] = 0.0;
-    gb->kinetic_energy[idx] = 0.5 * mass * gb->vel[idx] * gb->vel[idx];
+    // initialize properties
+    body->mass = mass;
+    body->radius = radius;
+    body->SOI_radius = 0.0;
+    body->pixel_radius = 0.0f;
 
-    gb->rotational_v[idx] = 0.0;
-    gb->attitude[idx].w = 1.0;
-    gb->attitude[idx].x = 0.0;
-    gb->attitude[idx].y = 0.0;
-    gb->attitude[idx].z = 0.0;
+    body->pos = pos;
+    body->vel = vel;
+    body->vel_mag = vec3_mag(vel);
+    body->acc = vec3_zero();
+    body->acc_prev = vec3_zero();
+    body->force = vec3_zero();
 
-    // increment the body count
+    body->kinetic_energy = 0.5 * mass * body->vel_mag * body->vel_mag;
+    body->rotational_v = 0.0;
+    body->attitude = (quaternion_t){1.0, 0.0, 0.0, 0.0};
+
     gb->count++;
 }

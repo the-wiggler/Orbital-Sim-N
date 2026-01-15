@@ -31,51 +31,36 @@
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 0.0,
       "attitude_angle": 0.1
-    },
-    {
-      "name": "Planet 3",
-      "mass": 5e22,
-      "pos_x": -194400000,
-      "pos_y": 0,
-      "pos_z": 0,
-      "vel_x": 0,
-      "vel_y": 0,
-      "vel_z": 1500,
-      "radius": 1737000,
-      "rotational_v": 0.0001,
-      "attitude_axis_x": 0.0,
-      "attitude_axis_y": 1.0,
-      "attitude_axis_z": 0.0,
-      "attitude_angle": 0.0
     }
   ],
   "spacecraft": [
     {
       "name": "Apollo Test Craft",
 
-      "pos_x": 6671000.0,
+      "position_relative_to": "Earth",
+      "pos_x": 6556000.0,
       "pos_y": 0.0,
       "pos_z": 0.0,
       "vel_x": 0.0,
-      "vel_y": 7700.0,
+      "vel_y": 7793.0,
       "vel_z": 0.0,
 
-      "dry_mass": 5500.0,
-      "fuel_mass": 18000.0,
-      "thrust": 450000.0,
+      "dry_mass": 11900.0,
+      "fuel_mass": 18600.0,
+      "thrust": 91190.0,
       "specific_impulse": 314.0,
-      "mass_flow_rate": 146.0,
+      "mass_flow_rate": 29.6,
 
       "attitude": 0.0,
-      "moment_of_inertia": 20000.0,
+      "moment_of_inertia": 23000.0,
       "nozzle_gimbal_range": 0.105,
 
       "burns": [
         {
           "burn_target": "Earth",
           "burn_type": "tangent",
-          "start_time": 4800.0,
-          "duration": 100.0,
+          "start_time": 5400.0,
+          "duration": 350.0,
           "heading": 0.0,
           "throttle": 1.0
         },

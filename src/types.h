@@ -72,32 +72,33 @@ typedef struct {
     float log_pos_x, log_pos_y;
 } console_t;
 
+// celestial body
+typedef struct {
+    char* name;
+
+    double mass;
+    double radius;
+    double SOI_radius;
+    float pixel_radius;
+
+    vec3 pos;
+    vec3 vel;
+    double vel_mag;
+    vec3 acc;
+    vec3 acc_prev;
+    vec3 force;
+
+    double kinetic_energy;
+
+    double rotational_v;     // angular velocity (rad/s)
+    quaternion_t attitude;   // orientation quaternion
+} body_t;
+
+// container for all bodies
 typedef struct {
     int count;
-
-    char** names;
-    double* mass;
-    double* radius;
-    float* pixel_radius;
-    double* pos_x;
-    double* pos_y;
-    double* pos_z;
-    double* vel_x;
-    double* vel_y;
-    double* vel_z;
-    double* vel;
-    double* acc_x;
-    double* acc_y;
-    double* acc_z;
-    double* acc_x_prev;
-    double* acc_y_prev;
-    double* acc_z_prev;
-    double* force_x;
-    double* force_y;
-    double* force_z;
-    double* kinetic_energy;
-    double* rotational_v; // the rate (rad/s) in which the body rotates (should stay constant)
-    quaternion_t* attitude; // the rotational axis by which the planet rotates (used for orbital inclination and whatnot)
+    int capacity;
+    body_t* bodies;
 } body_properties_t;
 
 typedef struct {
@@ -115,53 +116,48 @@ typedef struct {
     relative_burn_target_t relative_burn_target; // the axis of rotation the burn heading will be measured from
 } burn_properties_t;
 
+// craft
+typedef struct {
+    char* name;
+
+    double current_total_mass;
+    double dry_mass;
+    double fuel_mass;
+
+    vec3 pos;
+    vec3 vel;
+    double vel_mag;
+    vec3 acc;
+    vec3 acc_prev;
+    vec3 grav_force;
+
+    quaternion_t attitude;
+    double rotational_v;
+    double rotational_a;
+    double momentum;
+    double moment_of_inertia;
+    double torque;
+
+    double thrust;
+    double mass_flow_rate;
+    double specific_impulse;
+    double throttle;
+    double nozzle_gimbal_range;
+    double nozzle_velocity;
+    bool engine_on;
+
+    int SOI_planet_id;
+    int SOI_planet_dist;
+
+    int num_burns;
+    burn_properties_t* burn_properties;
+} spacecraft_t;
+
+// container for all spacecraft
 typedef struct {
     int count;
-
-    char** names;
-
-    double* current_total_mass;
-    double* dry_mass;
-    double* fuel_mass;
-
-    double* pos_x;
-    double* pos_y;
-    double* pos_z;
-    quaternion_t* attitude;
-
-    double* vel_x;
-    double* vel_y;
-    double* vel_z;
-    double* vel;
-    double* rotational_v;
-
-    double* momentum;
-
-    double* acc_x;
-    double* acc_y;
-    double* acc_z;
-    double* acc_x_prev;
-    double* acc_y_prev;
-    double* acc_z_prev;
-    double* rotational_a;
-
-    double* moment_of_inertia;
-
-    double* grav_force_x;
-    double* grav_force_y;
-    double* grav_force_z;
-    double* torque;
-
-    double* thrust;
-    double* mass_flow_rate;
-    double* specific_impulse;
-    double* throttle;
-    double* nozzle_gimbal_range;
-    double* nozzle_velocity;
-    bool* engine_on;
-
-    int* num_burns;
-    burn_properties_t** burn_properties;
+    int capacity;
+    spacecraft_t* spacecraft;
 } spacecraft_properties_t;
 
 // container for all the sim elements

@@ -12,7 +12,7 @@ void displayError(const char* title, const char* message);
 
 int findBurnTargetID(const body_properties_t* gb, const char* target_name) {
     for (int i = 0; i < gb->count; i++) {
-        if (strcmp(gb->names[i], target_name) == 0) {
+        if (strcmp(gb->bodies[i].name, target_name) == 0) {
             return i;
         }
     }
@@ -30,6 +30,27 @@ relative_burn_target_t findRelativeBurnType(const char* input_burn_type) {
 
     displayError("ERROR", "Invalid relative burn type");
     return (relative_burn_target_t){0};
+}
+
+// finds the body position by name for relative spacecraft positioning
+vec3 findBodyPosition(const body_properties_t* gb, const char* body_name) {
+    for (int i = 0; i < gb->count; i++) {
+        if (strcmp(gb->bodies[i].name, body_name) == 0) {
+            return gb->bodies[i].pos;
+        }
+    }
+    displayError("ERROR", "Body not found for relative positioning");
+    return vec3_zero();
+}
+
+// finds the body velocity by name for relative spacecraft positioning
+vec3 findBodyVelocity(const body_properties_t* gb, const char* body_name) {
+    for (int i = 0; i < gb->count; i++) {
+        if (strcmp(gb->bodies[i].name, body_name) == 0) {
+            return gb->bodies[i].vel;
+        }
+    }
+    return vec3_zero();
 }
 
 // json handling logic for reading json files
@@ -90,21 +111,27 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
             cJSON* attitude_axis_z = cJSON_GetObjectItemCaseSensitive(body, "attitude_axis_z");
             cJSON* attitude_angle = cJSON_GetObjectItemCaseSensitive(body, "attitude_angle");
 
+            vec3 pos = {
+                pos_x_item->valuedouble,
+                pos_y_item->valuedouble,
+                pos_z_item->valuedouble
+            };
+            vec3 vel = {
+                vel_x_item->valuedouble,
+                vel_y_item->valuedouble,
+                vel_z_item->valuedouble
+            };
+
             body_addOrbitalBody(gb,
                                 name_item->valuestring,
                                 mass_item->valuedouble,
                                 radius_item->valuedouble,
-                                pos_x_item->valuedouble,
-                                pos_y_item->valuedouble,
-                                pos_z_item ? pos_z_item->valuedouble : 0.0,
-                                vel_x_item->valuedouble,
-                                vel_y_item->valuedouble,
-                                vel_z_item ? vel_z_item->valuedouble : 0.0);
+                                pos, vel);
 
             // set rotational velocity if present in JSON
-            int body_idx = gb->count - 1;
+            body_t* added_body = &gb->bodies[gb->count - 1];
             if (rotational_v_item != NULL) {
-                gb->rotational_v[body_idx] = rotational_v_item->valuedouble;
+                added_body->rotational_v = rotational_v_item->valuedouble;
             }
 
             // set attitude if present in JSON
@@ -115,7 +142,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
                     attitude_axis_y->valuedouble,
                     attitude_axis_z->valuedouble
                 };
-                gb->attitude[body_idx] = quaternionFromAxisAngle(axis, attitude_angle->valuedouble);
+                added_body->attitude = quaternionFromAxisAngle(axis, attitude_angle->valuedouble);
             }
         }
     }
@@ -132,6 +159,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
             cJSON* vel_x_item = cJSON_GetObjectItemCaseSensitive(craft, "vel_x");
             cJSON* vel_y_item = cJSON_GetObjectItemCaseSensitive(craft, "vel_y");
             cJSON* vel_z_item = cJSON_GetObjectItemCaseSensitive(craft, "vel_z");
+            cJSON* position_relative_to_item = cJSON_GetObjectItemCaseSensitive(craft, "position_relative_to");
             cJSON* dry_mass_item = cJSON_GetObjectItemCaseSensitive(craft, "dry_mass");
             cJSON* fuel_mass_item = cJSON_GetObjectItemCaseSensitive(craft, "fuel_mass");
             cJSON* thrust_item = cJSON_GetObjectItemCaseSensitive(craft, "thrust");
@@ -183,14 +211,32 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
                 }
             }
 
+            // calculate final position and velocity for the craft
+            vec3 final_pos = {
+                pos_x_item->valuedouble,
+                pos_y_item->valuedouble,
+                pos_z_item->valuedouble
+            };
+            vec3 final_vel = {
+                vel_x_item->valuedouble,
+                vel_y_item->valuedouble,
+                vel_z_item->valuedouble
+            };
+
+            if (position_relative_to_item != NULL && cJSON_IsString(position_relative_to_item)) {
+                const char* relative_to = position_relative_to_item->valuestring;
+                if (strcmp(relative_to, "absolute") != 0) {
+                    // if the position is relative to a body, add its position and velocity
+                    vec3 body_pos = findBodyPosition(gb, relative_to);
+                    vec3 body_vel = findBodyVelocity(gb, relative_to);
+                    final_pos = vec3_add(final_pos, body_pos);
+                    final_vel = vec3_add(final_vel, body_vel);
+                }
+            }
+
             craft_addSpacecraft(sc,
                                 name_item->valuestring,
-                                pos_x_item->valuedouble,
-                                pos_y_item->valuedouble,
-                                pos_z_item ? pos_z_item->valuedouble : 0.0,
-                                vel_x_item->valuedouble,
-                                vel_y_item->valuedouble,
-                                vel_z_item ? vel_z_item->valuedouble : 0.0,
+                                final_pos, final_vel,
                                 dry_mass_item->valuedouble,
                                 fuel_mass_item->valuedouble,
                                 thrust_item->valuedouble,

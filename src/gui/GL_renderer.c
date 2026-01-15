@@ -513,7 +513,6 @@ void freeFont(const font_t* font) {
 
 
 
-
 // render the coordinate plane to the screen
 void renderCoordinatePlane(sim_properties_t sim, line_batch_t* line_batch) {
     float scale = sim.wp.zoom;
@@ -536,15 +535,20 @@ void renderCoordinatePlane(sim_properties_t sim, line_batch_t* line_batch) {
 void renderPlanets(sim_properties_t sim, GLuint shader_program, VBO_t planet_shape_buffer) {
     glBindVertexArray(planet_shape_buffer.VAO);
     for (int i = 0; i < sim.gb.count; i++) {
-        // create a scale matrix based on the radius of the planet (pulled from JSON data)
-        float size_scale_factor = (float)sim.gb.radius[i] / SCALE;
+        body_t* body = &sim.gb.bodies[i];
+
+        // create a scale matrix based on the radius of the planet
+        float size_scale_factor = (float)body->radius / SCALE;
         mat4 scale_mat = mat4_scale(size_scale_factor, size_scale_factor, size_scale_factor);
 
         // create a rotation matrix based on the planet's attitude quaternion
-        mat4 rotation_mat = quaternionToMatrix(sim.gb.attitude[i]);
+        mat4 rotation_mat = quaternionToMatrix(body->attitude);
 
-        // create a translation matrix based on the current in-sim-world position of the planet
-        mat4 translate_mat = mat4_translation((float)sim.gb.pos_x[i] / SCALE, (float)sim.gb.pos_y[i] / SCALE, (float)sim.gb.pos_z[i] / SCALE);
+        // create a translation matrix based on the current position
+        mat4 translate_mat = mat4_translation(
+            (float)body->pos.x / SCALE,
+            (float)body->pos.y / SCALE,
+            (float)body->pos.z / SCALE);
 
         // multiply matrices together
         mat4 temp = mat4_mul(rotation_mat, scale_mat);
@@ -560,11 +564,16 @@ void renderPlanets(sim_properties_t sim, GLuint shader_program, VBO_t planet_sha
 void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape_buffer) {
     glBindVertexArray(craft_shape_buffer.VAO);
     for (int i = 0; i < sim.gs.count; i++) {
+        spacecraft_t* craft = &sim.gs.spacecraft[i];
+
         // create a scale matrix
-        float size_scale_factor = 0.1f; // arbitrary scale based on what looks nice on screen
+        float size_scale_factor = 0.1f;
         mat4 S = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
-        mat4 R = quaternionToMatrix(sim.gs.attitude[i]); // create rotation matrix based on the quaternion angle that the spacecraft is in.
-        mat4 T = mat4_translation((float)sim.gs.pos_x[i] / SCALE, (float)sim.gs.pos_y[i] / SCALE, (float)sim.gs.pos_z[i] / SCALE); // create a translation matrix based on the current in-sim-world position of the spacecraft
+        mat4 R = quaternionToMatrix(craft->attitude);
+        mat4 T = mat4_translation(
+            (float)craft->pos.x / SCALE,
+            (float)craft->pos.y / SCALE,
+            (float)craft->pos.z / SCALE);
 
         mat4 temp = mat4_mul(R, S);
         mat4 model = mat4_mul(T, temp);
@@ -579,8 +588,8 @@ void renderCrafts(sim_properties_t sim, GLuint shader_program, VBO_t craft_shape
 void renderStats(sim_properties_t sim, font_t* font) {
 
     // calculate proper line height
-    float line_height = 20.0f; // placeholder
-    float cursor_starting_pos[2] = { 10.0f, line_height + 10.0f}; // starting pos of writing
+    float line_height = 20.0f;
+    float cursor_starting_pos[2] = { 10.0f, line_height + 10.0f};
     float cursor_pos[2] = { cursor_starting_pos[0], cursor_starting_pos[1] };
 
     // text buffer used to hold text written to the stats window
@@ -598,7 +607,7 @@ void renderStats(sim_properties_t sim, font_t* font) {
     cursor_pos[1] += line_height;
 
     // time indication
-    double time = sim.wp.sim_time / 3600; // time in hours
+    double time = sim.wp.sim_time / 3600;
     if (time < 72.0) sprintf(text_buffer, "Time: %f hrs", time);
     else if (time < 8766.0) sprintf(text_buffer, "Time: %f days", time / 24);
     addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
@@ -609,14 +618,12 @@ void renderStats(sim_properties_t sim, font_t* font) {
 
     // craft alt
     for (int i = 0; i < sim.gs.count; i++) {
+        spacecraft_t* craft = &sim.gs.spacecraft[i];
         for (int j = 0; j < sim.gb.count; j++) {
-            double craft_dist_x = sim.gb.pos_x[j] - sim.gs.pos_x[i];
-            double craft_dist_y = sim.gb.pos_y[j] - sim.gs.pos_y[i];
-            double craft_dist_z = sim.gb.pos_z[j] - sim.gs.pos_z[i];
-            double craft_dist = sqrt(craft_dist_x * craft_dist_x +
-                craft_dist_y * craft_dist_y +
-                craft_dist_z * craft_dist_z) - sim.gb.radius[j]; // craft dist from planet in m
-            sprintf(text_buffer, "%s %.2f km from %s", sim.gs.names[i], craft_dist / 1000, sim.gb.names[j]);
+            body_t* body = &sim.gb.bodies[j];
+            vec3 delta = vec3_sub(body->pos, craft->pos);
+            double craft_dist = vec3_mag(delta) - body->radius;
+            sprintf(text_buffer, "%s %.2f km from %s", craft->name, craft_dist / 1000, body->name);
             addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
             cursor_pos[1] += line_height;
         }
@@ -624,20 +631,6 @@ void renderStats(sim_properties_t sim, font_t* font) {
 }
 
 void renderPlanetPaths(sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* planet_paths) {
-    if (sim->wp.draw_planet_path && planet_paths->num_objects > 0) {
-        // draw orbital paths for all planets
-        for (int p = 0; p < planet_paths->num_objects; p++) {
-            int base = p * planet_paths->capacity;
-            for (int i = 1; i < planet_paths->counts[p]; i++) {
-                vec3 p1 = planet_paths->positions[base + i - 1];
-                vec3 p2 = planet_paths->positions[base + i];
-                // convert from double to float only at render time
-                addLine(line_batch, (float)p1.x, (float)p1.y, (float)p1.z,
-                                    (float)p2.x, (float)p2.y, (float)p2.z, 0.5f, 1.0f, 0.5f);
-            }
-        }
-    }
-
     // initialize or resize planet paths if needed
     if (sim->gb.count > 0 && planet_paths->num_objects != sim->gb.count) {
         free(planet_paths->positions);
@@ -648,24 +641,37 @@ void renderPlanetPaths(sim_properties_t* sim, line_batch_t* line_batch, object_p
         planet_paths->counts = calloc(planet_paths->num_objects, sizeof(int));
     }
 
+    if (sim->wp.draw_planet_path && planet_paths->num_objects > 0 && planet_paths->positions != NULL && planet_paths->counts != NULL) {
+        // draw orbital paths for all planets
+        for (int p = 0; p < planet_paths->num_objects; p++) {
+            int base = p * planet_paths->capacity;
+            for (int i = 1; i < planet_paths->counts[p]; i++) {
+                vec3 p1 = planet_paths->positions[base + i - 1];
+                vec3 p2 = planet_paths->positions[base + i];
+                addLine(line_batch, (float)p1.x, (float)p1.y, (float)p1.z,
+                                    (float)p2.x, (float)p2.y, (float)p2.z, 0.5f, 1.0f, 0.5f);
+            }
+        }
+    }
+
     // record planet paths
-    if (sim->wp.frame_counter % 5 == 0 && sim->gb.count > 0) {
+    if (sim->wp.frame_counter % 5 == 0 && sim->gb.count > 0 && planet_paths->counts != NULL && planet_paths->positions != NULL) {
         for (int p = 0; p < sim->gb.count; p++) {
+            body_t* body = &sim->gb.bodies[p];
             int idx = p * planet_paths->capacity + planet_paths->counts[p];
             if (planet_paths->counts[p] < planet_paths->capacity) {
-                // add new point
-                planet_paths->positions[idx].x = sim->gb.pos_x[p] / SCALE;
-                planet_paths->positions[idx].y = sim->gb.pos_y[p] / SCALE;
-                planet_paths->positions[idx].z = sim->gb.pos_z[p] / SCALE;
+                planet_paths->positions[idx].x = body->pos.x / SCALE;
+                planet_paths->positions[idx].y = body->pos.y / SCALE;
+                planet_paths->positions[idx].z = body->pos.z / SCALE;
                 planet_paths->counts[p]++;
             } else {
                 int base = p * planet_paths->capacity;
                 for (int i = 1; i < planet_paths->capacity; i++) {
                     planet_paths->positions[base + i - 1] = planet_paths->positions[base + i];
                 }
-                planet_paths->positions[base + planet_paths->capacity - 1].x = sim->gb.pos_x[p] / SCALE;
-                planet_paths->positions[base + planet_paths->capacity - 1].y = sim->gb.pos_y[p] / SCALE;
-                planet_paths->positions[base + planet_paths->capacity - 1].z = sim->gb.pos_z[p] / SCALE;
+                planet_paths->positions[base + planet_paths->capacity - 1].x = body->pos.x / SCALE;
+                planet_paths->positions[base + planet_paths->capacity - 1].y = body->pos.y / SCALE;
+                planet_paths->positions[base + planet_paths->capacity - 1].z = body->pos.z / SCALE;
             }
         }
     }
@@ -673,20 +679,19 @@ void renderPlanetPaths(sim_properties_t* sim, line_batch_t* line_batch, object_p
 
 void renderCraftPaths(sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* craft_paths) {
     if (sim->wp.draw_craft_path && craft_paths->num_objects > 0) {
-        // draw orbital paths for all planets
+        // draw orbital paths for all crafts
         for (int p = 0; p < craft_paths->num_objects; p++) {
             int base = p * craft_paths->capacity;
             for (int i = 1; i < craft_paths->counts[p]; i++) {
                 vec3 p1 = craft_paths->positions[base + i - 1];
                 vec3 p2 = craft_paths->positions[base + i];
-                // convert from double to float only at render time
                 addLine(line_batch, (float)p1.x, (float)p1.y, (float)p1.z,
                                     (float)p2.x, (float)p2.y, (float)p2.z, 1.0f, 1.0f, 0.5f);
             }
         }
     }
 
-    // initialize or resize planet paths if needed
+    // initialize or resize craft paths if needed
     if (sim->gs.count > 0 && craft_paths->num_objects != sim->gs.count) {
         free(craft_paths->positions);
         free(craft_paths->counts);
@@ -696,24 +701,24 @@ void renderCraftPaths(sim_properties_t* sim, line_batch_t* line_batch, object_pa
         craft_paths->counts = calloc(craft_paths->num_objects, sizeof(int));
     }
 
-    // record planet paths
+    // record craft paths
     if (sim->gs.count > 0) {
         for (int p = 0; p < sim->gs.count; p++) {
+            spacecraft_t* craft = &sim->gs.spacecraft[p];
             int idx = p * craft_paths->capacity + craft_paths->counts[p];
             if (craft_paths->counts[p] < craft_paths->capacity) {
-                // add new point
-                craft_paths->positions[idx].x = sim->gs.pos_x[p] / SCALE;
-                craft_paths->positions[idx].y = sim->gs.pos_y[p] / SCALE;
-                craft_paths->positions[idx].z = sim->gs.pos_z[p] / SCALE;
+                craft_paths->positions[idx].x = craft->pos.x / SCALE;
+                craft_paths->positions[idx].y = craft->pos.y / SCALE;
+                craft_paths->positions[idx].z = craft->pos.z / SCALE;
                 craft_paths->counts[p]++;
             } else {
                 int base = p * craft_paths->capacity;
                 for (int i = 1; i < craft_paths->capacity; i++) {
                     craft_paths->positions[base + i - 1] = craft_paths->positions[base + i];
                 }
-                craft_paths->positions[base + craft_paths->capacity - 1].x = sim->gs.pos_x[p] / SCALE;
-                craft_paths->positions[base + craft_paths->capacity - 1].y = sim->gs.pos_y[p] / SCALE;
-                craft_paths->positions[base + craft_paths->capacity - 1].z = sim->gs.pos_z[p] / SCALE;
+                craft_paths->positions[base + craft_paths->capacity - 1].x = craft->pos.x / SCALE;
+                craft_paths->positions[base + craft_paths->capacity - 1].y = craft->pos.y / SCALE;
+                craft_paths->positions[base + craft_paths->capacity - 1].z = craft->pos.z / SCALE;
             }
         }
     }
@@ -724,19 +729,19 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch, object_path_
     if (sim->wp.draw_lines_between_bodies) {
         // draw lines between planets to show distance
         for (int i = 0; i < sim->gb.count; i++) {
-            // planet pos 1
-            vec3_f pp1 = { (float)sim->gb.pos_x[i] / SCALE, (float)sim->gb.pos_y[i] / SCALE, (float)sim->gb.pos_z[i] / SCALE };
+            body_t* body1 = &sim->gb.bodies[i];
+            vec3_f pp1 = { (float)body1->pos.x / SCALE, (float)body1->pos.y / SCALE, (float)body1->pos.z / SCALE };
             int pp2idx = i + 1;
             if (i + 1 > sim->gb.count - 1) pp2idx = 0;
-            // planet pos 2
-            vec3_f pp2 = { (float)sim->gb.pos_x[pp2idx] / SCALE, (float)sim->gb.pos_y[pp2idx] / SCALE, (float)sim->gb.pos_z[pp2idx] / SCALE };
+            body_t* body2 = &sim->gb.bodies[pp2idx];
+            vec3_f pp2 = { (float)body2->pos.x / SCALE, (float)body2->pos.y / SCALE, (float)body2->pos.z / SCALE };
             addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
         }
     }
     if (sim->wp.draw_inclination_height) {
         for (int i = 0; i < sim->gb.count; i++) {
-            // planet world pos and its 2d world coordinate (bottom_pos)
-            vec3_f pp = { (float)sim->gb.pos_x[i] / SCALE, (float)sim->gb.pos_y[i] / SCALE, (float)sim->gb.pos_z[i] / SCALE };
+            body_t* body = &sim->gb.bodies[i];
+            vec3_f pp = { (float)body->pos.x / SCALE, (float)body->pos.y / SCALE, (float)body->pos.z / SCALE };
             float r, g, b;
             if (pp.z > 0) { r = 0.5f, g = 0.5f; b = 1.0f; }
             else { r = 1.0f, g = 0.5f; b = 0.5f; }
@@ -745,21 +750,22 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch, object_path_
     }
 
     // draw rotation axes for all bodies
-    for (int i = 0; i < sim->gb.count; i++) {//
-        if (sim->gb.rotational_v[i] != 0.0) {
+    for (int i = 0; i < sim->gb.count; i++) {
+        body_t* body = &sim->gb.bodies[i];
+        if (body->rotational_v != 0.0) {
             // get planet position
             vec3_f planet_pos = {
-                (float)sim->gb.pos_x[i] / SCALE,
-                (float)sim->gb.pos_y[i] / SCALE,
-                (float)sim->gb.pos_z[i] / SCALE
+                (float)body->pos.x / SCALE,
+                (float)body->pos.y / SCALE,
+                (float)body->pos.z / SCALE
             };
 
-            // extract rotation axis from attitude quaternion by rotating the z axis
+            // extract rotation axis from attitude quaternion
             vec3 z_axis = {0.0, 0.0, 1.0};
-            vec3 rotation_axis = quaternionRotate(sim->gb.attitude[i], z_axis);
+            vec3 rotation_axis = quaternionRotate(body->attitude, z_axis);
 
             // scale the axis to extend beyond the planet
-            float axis_length = (float)sim->gb.radius[i] / SCALE * 1.5f;
+            float axis_length = (float)body->radius / SCALE * 1.5f;
             vec3_f axis_end1 = {
                 planet_pos.x + (float)rotation_axis.x * axis_length,
                 planet_pos.y + (float)rotation_axis.y * axis_length,
@@ -771,7 +777,7 @@ void renderVisuals(sim_properties_t* sim, line_batch_t* line_batch, object_path_
                 planet_pos.z - (float)rotation_axis.z * axis_length
             };
 
-            // draw the rotation axis lin
+            // draw the rotation axis line
             addLine(line_batch, axis_end1.x, axis_end1.y, axis_end1.z,
                                axis_end2.x, axis_end2.y, axis_end2.z,
                                0.0f, 1.0f, 1.0f);
