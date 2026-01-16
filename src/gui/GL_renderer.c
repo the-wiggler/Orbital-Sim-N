@@ -616,17 +616,35 @@ void renderStats(sim_properties_t sim, font_t* font) {
     // spacer
     cursor_pos[1] += line_height;
 
-    // craft alt
+    // indication for closest planet
     for (int i = 0; i < sim.gs.count; i++) {
-        spacecraft_t* craft = &sim.gs.spacecraft[i];
-        for (int j = 0; j < sim.gb.count; j++) {
-            body_t* body = &sim.gb.bodies[j];
-            vec3 delta = vec3_sub(body->pos, craft->pos);
-            double craft_dist = vec3_mag(delta) - body->radius;
-            sprintf(text_buffer, "%s %.2f km from %s", craft->name, craft_dist / 1000, body->name);
-            addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
-            cursor_pos[1] += line_height;
+        sprintf(text_buffer, sim.gs.spacecraft[i].name);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
+        cursor_pos[1] += line_height;
+
+        sprintf(text_buffer, "Closest Planet: %s", sim.gb.bodies[sim.gs.spacecraft[i].closest_planet_id].name);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        cursor_pos[1] += line_height;
+
+        sprintf(text_buffer, "Distance: %f km", sqrt(sim.gs.spacecraft[i].closest_r_squared) / 1000 - sim.gb.bodies[sim.gs.spacecraft[i].closest_planet_id].radius / 1000);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        cursor_pos[1] += line_height;
+
+        sprintf(text_buffer, "In SOI of: %s", sim.gb.bodies[sim.gs.spacecraft[i].SOI_planet_id].name);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        cursor_pos[1] += line_height;
+
+        if (isinf(sim.gs.spacecraft[i].apoapsis)) {
+            sprintf(text_buffer, "Apoapsis: Escape");
+        } else {
+            sprintf(text_buffer, "Apoapsis: %.1f km", sim.gs.spacecraft[i].apoapsis / 1000.0);
         }
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        cursor_pos[1] += line_height;
+
+        sprintf(text_buffer, "Periapsis: %.1f km", sim.gs.spacecraft[i].periapsis / 1000.0);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        cursor_pos[1] += line_height;
     }
 }
 

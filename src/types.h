@@ -147,7 +147,11 @@ typedef struct {
     bool engine_on;
 
     int SOI_planet_id;
-    int SOI_planet_dist;
+    int closest_planet_id;
+    double closest_r_squared;
+    double apoapsis, periapsis;
+    double semi_major_axis;
+    double eccentricity;
 
     int num_burns;
     burn_properties_t* burn_properties;

@@ -253,6 +253,10 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
             }
         }
     }
+    // set the initial closest planet on initialization
+    for (int i = 0; i < sc->count; i++) {
+        craft_findClosestPlanet(sc[i].spacecraft, gb);
+    }
 
     cJSON_Delete(json);
 }

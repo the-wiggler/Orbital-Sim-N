@@ -127,6 +127,7 @@ void runCalculations(sim_properties_t* sim) {
             for (int i = 0; i < sc->count; i++) {
                 spacecraft_t* craft = &sc->spacecraft[i];
                 craft->grav_force = vec3_zero();
+                craft->closest_r_squared = INFINITY;
 
                 // check if burn should be active
                 craft_checkBurnSchedule(craft, gb, wp->sim_time);
@@ -141,9 +142,16 @@ void runCalculations(sim_properties_t* sim) {
                 craft_consumeFuel(craft, wp->time_step);
             }
 
-            // update motion for each craft
+            // update motion and orbital elements for each craft
             for (int i = 0; i < sc->count; i++) {
-                craft_updateMotion(&sc->spacecraft[i], wp->time_step);
+                spacecraft_t* craft = &sc->spacecraft[i];
+                craft_updateMotion(craft, wp->time_step);
+
+                // calculate orbital elements relative to the SOI body (or closest body)
+                int ref_body_id = craft->SOI_planet_id;
+                if (ref_body_id >= 0 && ref_body_id < gb->count) {
+                    craft_calculateOrbitalElements(craft, &gb->bodies[ref_body_id]);
+                }
             }
         }
 

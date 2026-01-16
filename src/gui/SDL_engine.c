@@ -208,6 +208,7 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
     }
     else if (strcmp(cmd, "load") == 0) {
         if (sim->gb.count == 0) {
+            sim->wp.sim_running = false; // pauses before loading
             readSimulationJSON("simulation_data.json", &sim->gb, &sim->gs);
             sprintf(console->log, "%d planets and %d craft loaded from json file", sim->gb.count, sim->gs.count);
         }

@@ -9,6 +9,70 @@
 
 void displayError(const char* title, const char* message);
 
+// calculates orbital elements (apoapsis, periapsis, semi-major axis, eccentricity)
+// from position and velocity relative to a celestial body
+void craft_calculateOrbitalElements(spacecraft_t* craft, const body_t* body) {
+    // calculate relative position and velocity
+    vec3 rel_pos = vec3_sub(craft->pos, body->pos);
+    vec3 rel_vel = vec3_sub(craft->vel, body->vel);
+
+    double r = vec3_mag(rel_pos);
+    double v = vec3_mag(rel_vel);
+
+    // gravitational parameter μ = G * M
+    double mu = G * body->mass;
+
+    // specific orbital energy: ε = v²/2 - μ/r
+    double specific_energy = (v * v) / 2.0 - mu / r;
+
+    // specific angular momentum vector: h = r × v
+    vec3 h_vec = cross_product_vec3(rel_pos, rel_vel);
+    double h = vec3_mag(h_vec);
+
+    // semi-major axis: a = -μ / (2ε)
+    // for elliptical orbits, ε < 0, so a > 0
+    // for hyperbolic orbits, ε > 0, so a < 0
+    // for parabolic orbits, ε = 0, a is infinite
+    double semi_major_axis;
+    if (fabs(specific_energy) < 1e-10) {
+        // parabolic orbit (very rare edge case)
+        semi_major_axis = INFINITY;
+    } else {
+        semi_major_axis = -mu / (2.0 * specific_energy);
+    }
+
+    // eccentricity: e = sqrt(1 + 2εh²/μ²)
+    double eccentricity_squared = 1.0 + (2.0 * specific_energy * h * h) / (mu * mu);
+    double eccentricity;
+    if (eccentricity_squared < 0.0) {
+        // numerical protection - shouldn't happen with proper physics
+        eccentricity = 0.0;
+    } else {
+        eccentricity = sqrt(eccentricity_squared);
+    }
+
+    // store orbital elements
+    craft->semi_major_axis = semi_major_axis;
+    craft->eccentricity = eccentricity;
+
+    // calculate apoapsis and periapsis
+    if (eccentricity >= 1.0) {
+        // hyperbolic or parabolic orbit - no bound apoapsis
+        // periapsis still exists: rp = a(1 - e) but for hyperbolic a < 0
+        // so we use: rp = h²/μ * 1/(1 + e)
+        craft->periapsis = (h * h / mu) / (1.0 + eccentricity);
+        craft->apoapsis = INFINITY;  // escaping orbit
+    } else if (semi_major_axis > 0.0) {
+        // elliptical orbit
+        craft->periapsis = semi_major_axis * (1.0 - eccentricity);
+        craft->apoapsis = semi_major_axis * (1.0 + eccentricity);
+    } else {
+        // fallback - shouldn't happen
+        craft->periapsis = r;
+        craft->apoapsis = r;
+    }
+}
+
 // check and activate burns
 void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* gb, const double sim_time) {
     bool burn_active = false;
@@ -57,7 +121,7 @@ void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* gb, c
                     final_attitude = base_rotation;
                 }
             } else {
-                displayError("ERROR", "Failed at determining burn type. If you see this you suck at coding lol");
+                displayError("ERROR", "Failed at determining burn type. If you see this the dev sucks at coding lol");
             }
 
             craft->attitude = final_attitude;
@@ -103,6 +167,34 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     // apply the force to the craft
     vec3 force = vec3_scale(delta_pos, force_factor);
     craft->grav_force = vec3_add(craft->grav_force, force);
+
+    // checks for new closest planet and checks if its in the SOI
+    if (r_squared < craft->closest_r_squared) {
+        craft->closest_r_squared = r_squared;
+        craft->closest_planet_id = body_idx;
+        if (r <= body->SOI_radius) {
+            craft->SOI_planet_id = body_idx;
+        }
+    }
+}
+
+// updates the ID and distance of the closest planet
+// (this should be used when initially spawning a craft because the grav calculations do this exact calculation by default)
+// this is probably executed when the JSON is loaded
+void craft_findClosestPlanet(spacecraft_t* craft, body_properties_t* gb) {
+    double closest_r_squared = INFINITY;
+    double closest_planet_id = 0;
+    for (int i = 0; i < gb->count; i++) {
+        // calculate the distance between the spacecraft and the body
+        vec3 delta_pos = vec3_sub(gb->bodies[i].pos, craft->pos);
+        double r_squared = vec3_mag_sq(delta_pos);
+        if (r_squared < closest_r_squared) {
+            closest_r_squared = r_squared;
+            closest_planet_id = i;
+        }
+    }
+    craft->closest_r_squared = closest_r_squared;
+    craft->closest_planet_id = closest_planet_id;
 }
 
 // applies thrust force based on current attitude
@@ -155,7 +247,7 @@ void craft_updateMotion(spacecraft_t* craft, const double dt) {
 }
 
 // adds a spacecraft to the spacecraft array
-void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
+void craft_addSpacecraft(spacecraft_properties_t* gs, const char* name,
                         vec3 pos, vec3 vel,
                         const double dry_mass, const double fuel_mass, const double thrust,
                         const double specific_impulse, const double mass_flow_rate,
@@ -164,19 +256,19 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
                         const burn_properties_t* burns, const int num_burns) {
 
     // grow capacity if needed
-    if (sc->count >= sc->capacity) {
-        int new_capacity = sc->capacity == 0 ? 4 : sc->capacity * 2;
-        spacecraft_t* temp = (spacecraft_t*)realloc(sc->spacecraft, new_capacity * sizeof(spacecraft_t));
+    if (gs->count >= gs->capacity) {
+        int new_capacity = gs->capacity == 0 ? 4 : gs->capacity * 2;
+        spacecraft_t* temp = (spacecraft_t*)realloc(gs->spacecraft, new_capacity * sizeof(spacecraft_t));
         if (temp == NULL) {
             displayError("ERROR", "Failed to allocate memory for spacecraft");
             return;
         }
-        sc->spacecraft = temp;
-        sc->capacity = new_capacity;
+        gs->spacecraft = temp;
+        gs->capacity = new_capacity;
     }
 
-    int idx = sc->count;
-    spacecraft_t* craft = &sc->spacecraft[idx];
+    int idx = gs->count;
+    spacecraft_t* craft = &gs->spacecraft[idx];
 
     // allocate and copy name
     craft->name = (char*)malloc(strlen(name) + 1);
@@ -225,7 +317,13 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
 
     // initialize SOI tracking
     craft->SOI_planet_id = 0;
-    craft->SOI_planet_dist = 0;
+    craft->closest_r_squared = INFINITY;
+    craft->closest_planet_id = 0;
+
+    craft->apoapsis = 0.0;
+    craft->periapsis = 0.0;
+    craft->semi_major_axis = 0.0;
+    craft->eccentricity = 0.0;
 
     // initialize burn schedule
     craft->num_burns = num_burns;
@@ -238,5 +336,5 @@ void craft_addSpacecraft(spacecraft_properties_t* sc, const char* name,
         craft->burn_properties = NULL;
     }
 
-    sc->count++;
+    gs->count++;
 }

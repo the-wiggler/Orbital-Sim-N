@@ -8,7 +8,7 @@
 #include "../types.h"
 #include <math.h>
 
-// normalize a 3D vector
+// normalize a 3d vector
 static inline void normalize_3d(float v[3]) {
     float length = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     if (length > 0.0f) {
@@ -18,7 +18,7 @@ static inline void normalize_3d(float v[3]) {
     }
 }
 
-// cross product of two 3D vectors (float)
+// cross product of two 3d vectors (float)
 static inline void cross_product_3d(const float a[3], const float b[3], float result[3]) {
     result[0] = a[1] * b[2] - a[2] * b[1];
     result[1] = a[2] * b[0] - a[0] * b[2];
@@ -286,25 +286,25 @@ static inline mat4 quaternionToMatrix(const quaternion_t q) {
     float wz = (float)(q.w * q.z);
 
     mat4 mat;
-    // Column 0 (1st column of rotation matrix)
+    // column 0
     mat.m[0] = 1.0f - 2.0f * (yy + zz);
     mat.m[1] = 2.0f * (xy + wz);
     mat.m[2] = 2.0f * (xz - wy);
     mat.m[3] = 0.0f;
 
-    // Column 1 (2nd column of rotation matrix)
+    // column 1
     mat.m[4] = 2.0f * (xy - wz);
     mat.m[5] = 1.0f - 2.0f * (xx + zz);
     mat.m[6] = 2.0f * (yz + wx);
     mat.m[7] = 0.0f;
 
-    // Column 2 (3rd column of rotation matrix)
+    // column 2
     mat.m[8] = 2.0f * (xz + wy);
     mat.m[9] = 2.0f * (yz - wx);
     mat.m[10] = 1.0f - 2.0f * (xx + yy);
     mat.m[11] = 0.0f;
 
-    // Column 3 (translation - zero for pure rotation)
+    // column 3
     mat.m[12] = 0.0f;
     mat.m[13] = 0.0f;
     mat.m[14] = 0.0f;
