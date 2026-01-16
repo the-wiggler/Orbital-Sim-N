@@ -83,6 +83,31 @@ void body_updateRotation(body_t* body, const double dt) {
     }
 }
 
+// calculates the SOI radius for all bodies
+// assumes the first body (index 0) is the central body
+// SOI = a * (m/M)^(2/5) where a is semi-major axis, m is body mass, M is parent mass
+void body_calculateSOI(body_properties_t* gb) {
+    if (gb->count < 2) return;  // need at least 2 bodies
+
+    body_t* central = &gb->bodies[0];
+    double M = central->mass;
+
+    // first body has no SOI
+    central->SOI_radius = 0.0;
+
+    for (int i = 1; i < gb->count; i++) {
+        body_t* body = &gb->bodies[i];
+
+        // calculate distance from central body
+        vec3 delta = vec3_sub(body->pos, central->pos);
+        double a = vec3_mag(delta);
+
+        // SOI = a * (m/M)^(2/5)
+        double mass_ratio = body->mass / M;
+        body->SOI_radius = a * pow(mass_ratio, 0.4);
+    }
+}
+
 // function to add a new body to the system
 void body_addOrbitalBody(body_properties_t* gb, const char* name, const double mass,
                          const double radius, vec3 pos, vec3 vel) {

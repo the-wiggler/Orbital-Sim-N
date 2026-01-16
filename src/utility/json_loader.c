@@ -147,6 +147,9 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
         }
     }
 
+    // calculate SOI for all bodies after they're loaded
+    body_calculateSOI(gb);
+
     // get spacecraft array
     const cJSON* spacecraft = cJSON_GetObjectItemCaseSensitive(json, "spacecraft");
     if (spacecraft != NULL && cJSON_IsArray(spacecraft)) {
