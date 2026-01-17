@@ -16,12 +16,23 @@ void craft_calculateOrbitalElements(spacecraft_t* craft, const body_t* body) {
     vec3 c_vel      = vec3_sub(craft->vel, body->vel); // velocity vector
     double c_r      = vec3_mag(c_pos); // distance
     double c_speed  = vec3_mag(c_vel);
-    double g_p      = G * body->mass; // gravitational parameter
+    double mu      = G * body->mass; // gravitational parameter
     vec3 c_h        = vec3_cross(c_pos, c_vel); // specific angular momentum
     vec3 k          = { 0, 0, 1 };
     vec3 c_n        = vec3_cross(k, c_h); // ascending node vector
-    vec3 c_e = {0,0,0}; // TODO: work on this formula
+    //
+    vec3 term1 = vec3_scalar_div(vec3_cross(c_vel, c_h), mu);
+    vec3 term2 = vec3_scalar_div(c_pos, c_r);
+    vec3 e_vec = vec3_sub(term1, term2); // eccentricity vector
+    double sE = ((c_speed * c_speed) / 2) - (mu / c_r); // specific orbital energy
 
+    // orbital elements
+    craft->semi_major_axis = -1.0 * (mu / (2 * sE));
+    craft->eccentricity = vec3_mag(e_vec);
+    craft->inclination = acos( c_h.z / vec3_mag(c_h) );
+    craft->ascending_node = acos( c_n.z / vec3_mag(c_n) ); // longitude of ascending node
+    craft->arg_periapsis = acos( vec3_dot(c_n, e_vec) / (vec3_mag(c_n) * vec3_mag(e_vec)) );
+    craft->true_anomaly = acos( vec3_dot(e_vec, c_pos) / (vec3_mag(e_vec) * vec3_mag(c_pos)) );
 }
 
 // check and activate burns
@@ -99,7 +110,7 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     double r = sqrt(r_squared);
 
     // planet collision logic
-    if (r_squared < body->radius * body->radius) {
+    if (r < body->radius) {
         sim->wp.sim_running = false;
         sim->wp.reset_sim = true;
         char err_txt[128];

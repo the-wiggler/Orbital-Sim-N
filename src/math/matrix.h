@@ -63,6 +63,11 @@ static inline vec3 vec3_cross(vec3 a, vec3 b) {
     return (vec3){a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
+// vector division by scalar
+static inline vec3 vec3_scalar_div(vec3 a, double s) {
+    return (vec3){a.x / s, a.y / s, a.z / s};
+}
+
 // squared magnitude
 static inline double vec3_mag_sq(vec3 v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;

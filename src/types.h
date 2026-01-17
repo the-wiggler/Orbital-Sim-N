@@ -149,9 +149,15 @@ typedef struct {
     int SOI_planet_id;
     int closest_planet_id;
     double closest_r_squared;
+
     double apoapsis, periapsis;
+
     double semi_major_axis;
     double eccentricity;
+    double inclination;
+    double ascending_node;
+    double arg_periapsis;
+    double true_anomaly;
 
     int num_burns;
     burn_properties_t* burn_properties;
