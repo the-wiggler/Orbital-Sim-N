@@ -203,14 +203,58 @@
         if(typeof LGraph === 'undefined') return;
         var cvs=document.getElementById("graph-canvas");
 
-        // FIX: Use actual parent dimensions instead of hardcoded calculation
-        // This ensures 1:1 mapping between mouse coordinates and canvas pixels
         var parent = cvs.parentElement;
         cvs.width = parent.clientWidth;
         cvs.height = parent.clientHeight;
 
         graphInstance = new LGraph();
         graphCanvas = new LGraphCanvas("#graph-canvas", graphInstance);
+
+        graphCanvas.getNodeMenuOptions = function(node) {
+            return [
+                {content: "Rename", callback: function(v, options, e, parentMenu, node) {
+                        var newName = prompt("Node name:", node.title);
+                        if(newName !== null && newName !== "") {
+                            node.title = newName;
+                            graphCanvas.dirty_canvas = true;
+                            graphCanvas.graph.change(); // Trigger graph change
+                        }
+                    }},
+
+                null, // separator
+
+                {content: "Duplicate", callback: function(v, options, e, parentMenu, node) {
+                        var selected = {}; // Single node as selection
+                        selected[node.id] = node;
+                        var newNodes = [];
+
+                        Object.values(selected).forEach(n => {
+                            var data = {};
+                            if(n.properties) Object.assign(data, n.properties);
+                            if(n.widgets) n.widgets.forEach(w => data[w.name] = w.value);
+
+                            if(n.title && !n.title.startsWith("Burn #")) data.name = n.title + " (Copy)";
+                            else if (n.title.startsWith("Burn #")) data.name = null;
+
+                            var sourceKey = n.properties ? n.properties.sourceKey : "other";
+
+                            var newNode = createVisualNode(data, n.title + (sourceKey==="burns"?"":" (Copy)"), null, null, sourceKey);
+                            newNode.pos = [n.pos[0] + 50, n.pos[1] + 50];
+                            newNodes.push(newNode);
+                        });
+
+                        graphCanvas.selectNodes(newNodes);
+                        graphCanvas.dirty_canvas = true;
+                    }},
+
+                {content: "Delete", callback: function(v, options, e, parentMenu, node) {
+                        if(node.graph) {
+                            node.graph.remove(node);
+                            graphCanvas.dirty_canvas = true;
+                        }
+                    }}
+            ];
+        };
 
         graphCanvas.allow_searchbox = false;
 
@@ -221,7 +265,7 @@
             options.push({content:"Add Spacecraft", callback: function(){ addNode("spacecraft"); }});
             options.push({content:"Add Burn", callback: function(){ addNode("burn"); }});
 
-            options.push(null); // separator
+            options.push(null);
 
             options.push({content:"Duplicate Selection", callback: function(){
                     var selected = graphCanvas.selected_nodes || {};
@@ -491,7 +535,6 @@
         }
     }
 
-    // --- MAIN ---
     function openEditor(){
         if(!runtimeInit){alert("Wait loading.");return}
         if(!Module.FS){alert("No FS.");return}
