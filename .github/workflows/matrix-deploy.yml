@@ -1,4 +1,4 @@
-name: Matrix Nightly Native Builds
+name: Nightly Native Builds
 
 on:
   workflow_dispatch:
