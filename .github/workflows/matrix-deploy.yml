@@ -14,9 +14,9 @@ jobs:
         config:
           - os: windows-latest
             artifact: windows-x64-msvc
-          - os: macos-14
+          - os: macos-15-intel
             artifact: macos-intel
-          - os: macos-14-arm64
+          - os: macos-15
             artifact: macos-arm64
           - os: ubuntu-latest
             artifact: ubuntu-generic
@@ -57,9 +57,9 @@ jobs:
         mkdir -p build
         cd build
         conan profile detect --force
-        conan install .. --output-folder=. --build=missing -s build_type=Release -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=./Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-        cmake --build . --config Release --parallel
+        conan install .. --build=missing -s build_type=Release -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+        cmake --build . --parallel
 
     - name: Package
       if: matrix.config.package
@@ -75,18 +75,21 @@ jobs:
         $binary = Get-ChildItem -Name "OrbitSimulation*" -Include *.exe | Select-Object -First 1
         cp ../../data/simulation_data.json .
         Compress-Archive -Path $binary, ../../shaders, ../../assets, simulation_data.json, SDL3*.dll -DestinationPath "../OrbitSimulation-${{ matrix.config.artifact }}.zip" -Force
-        cp simulation_data.json ../../simulation_data.json
 
-    - name: Build project (Unix/macOS)
-      if: matrix.config.os != 'windows-latest'
+    - name: Zip artifacts (Unix/macOS)
+      if: matrix.config.os != 'windows-latest' && !matrix.config.package
       shell: bash
       run: |
-        mkdir -p build
         cd build
-        conan profile detect --force
-        conan install .. --output-folder=. --build=missing -s build_type=Release -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-        cmake --build . --parallel
+        BINARY=$(find . -type f -name "OrbitSimulation" ! -name "*.o" ! -name "*.a" | head -1)
+        if [ -z "$BINARY" ]; then
+          ls -la
+          exit 1
+        fi
+        cp ../data/simulation_data.json .
+        cp -r ../shaders .
+        cp -r ../assets .
+        tar -czf OrbitSimulation-${{ matrix.config.artifact }}.tar.gz "$(basename "$BINARY")" simulation_data.json shaders assets
 
     - name: Copy package artifacts
       if: matrix.config.package
@@ -94,8 +97,11 @@ jobs:
         cd build
         cp OrbitSimulation*.deb ../OrbitSimulation-${{ matrix.config.artifact }}.deb 2>/dev/null || true
         cp OrbitSimulation*.rpm ../OrbitSimulation-${{ matrix.config.artifact }}.rpm 2>/dev/null || true
-        cp OrbitSimulation*.tar.gz ../ 2>/dev/null || true
-        cp ../data/simulation_data.json ../simulation_data.json
+
+    - name: Copy simulation_data.json to root
+      shell: bash
+      run: |
+        cp data/simulation_data.json simulation_data.json
 
     - name: Upload temp artifact
       uses: actions/upload-artifact@v4
@@ -112,6 +118,11 @@ jobs:
     steps:
     - uses: actions/download-artifact@v4
 
+    - name: Debug artifacts
+      run: |
+        echo "=== All downloaded files ==="
+        find . -type f
+
     - name: Update Nightly Release
       uses: andelf/nightly-release@main
       env:
@@ -121,10 +132,10 @@ jobs:
         name: Nightly ${{ github.run_number }} (${{ github.sha }})
         prerelease: true
         files: |
-          windows-x64-msvc/OrbitSimulation-windows-*.zip
-          macos-intel/OrbitSimulation-macos-*.tar.gz
-          macos-arm64/OrbitSimulation-macos-*.tar.gz
-          ubuntu-generic/OrbitSimulation-ubuntu-*.tar.gz
-          ubuntu-deb/*.deb
-          ubuntu-rpm/*.rpm
-          */simulation_data.json
+          windows-x64-msvc/OrbitSimulation-*.zip
+          macos-intel/OrbitSimulation-*.tar.gz
+          macos-arm64/OrbitSimulation-*.tar.gz
+          ubuntu-generic/OrbitSimulation-*.tar.gz
+          ubuntu-deb/OrbitSimulation-*.deb
+          ubuntu-rpm/OrbitSimulation-*.rpm
+          windows-x64-msvc/simulation_data.json
