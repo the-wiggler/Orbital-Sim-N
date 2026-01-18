@@ -132,10 +132,11 @@ jobs:
         name: Nightly ${{ github.run_number }} (${{ github.sha }})
         prerelease: true
         files: |
-          windows-x64-msvc/OrbitSimulation-*.zip
-          macos-intel/OrbitSimulation-*.tar.gz
-          macos-arm64/OrbitSimulation-*.tar.gz
-          ubuntu-generic/OrbitSimulation-*.tar.gz
+          windows-x64-msvc/build/OrbitSimulation-*.zip
+          macos-intel/build/OrbitSimulation-*.tar.gz
+          macos-arm64/build/OrbitSimulation-*.tar.gz
+          ubuntu-generic/build/OrbitSimulation-*.tar.gz
           ubuntu-deb/OrbitSimulation-*.deb
           ubuntu-rpm/OrbitSimulation-*.rpm
           windows-x64-msvc/simulation_data.json
+
