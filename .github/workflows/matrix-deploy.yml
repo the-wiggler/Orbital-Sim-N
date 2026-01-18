@@ -1,0 +1,105 @@
+name: Matrix Nightly Native Builds
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+          - os: windows-latest
+            artifact: windows-x64-msvc
+          - os: macos-14
+            artifact: macos-intel
+          - os: macos-14-arm64
+            artifact: macos-arm64
+          - os: ubuntu-latest
+            artifact: ubuntu-generic
+          - os: ubuntu-latest
+            artifact: ubuntu-deb
+            package: DEB
+          - os: ubuntu-latest
+            artifact: ubuntu-rpm
+            package: RPM
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Conan
+      uses: conan-io/setup-conan@v1
+
+    - name: Install packaging deps
+      if: matrix.config.package
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y rpm fakeroot devscripts rpm2cpio
+
+    - name: Build project
+      run: |
+        mkdir build
+        cd build
+        conan profile detect --force
+        conan install .. --build=missing -s build_type=Release -o opengl=system
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+        cmake --build . --parallel
+
+    - name: Package
+      if: matrix.config.package
+      run: |
+        cd build
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR=${{ matrix.config.package }}
+        cmake --build . --target package
+
+    - name: Zip artifacts (Windows)
+      if: matrix.config.os == 'windows-latest'
+      shell: powershell
+      run: |
+        cd build
+        $binary = Get-ChildItem -Name "OrbitSimulation*" -Include *.exe | Select-Object -First 1
+        Compress-Archive -Path $binary, data, shaders, assets, SDL3*.dll -DestinationPath "OrbitSimulation-${{ matrix.config.artifact }}.zip" -Force
+
+    - name: Zip artifacts (Unix/macOS)
+      if: matrix.config.os != 'windows-latest'
+      shell: bash
+      run: |
+        cd build
+        BINARY=$(find . -name "OrbitSimulation*" -type f -executable | head -1)
+        tar -czf OrbitSimulation-${{ matrix.config.artifact }}.tar.gz "$BINARY" data shaders assets
+        if [ -n "${{ matrix.config.package }}" ]; then
+          cp OrbitSimulation-${{ matrix.config.artifact }}.* ..
+        fi
+
+    - name: Upload temp artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.config.artifact }}
+        path: |
+          build/OrbitSimulation-${{ matrix.config.artifact }}.*
+          OrbitSimulation-${{ matrix.config.artifact }}.*
+
+  nightly-release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v4
+
+    - name: Update Nightly Release
+      uses: andelf/nightly-release@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: nightly
+        name: Nightly ${{ github.run_number }} (${{ github.sha }})
+        prerelease: true
+        files: |
+          windows-x64-msvc/OrbitSimulation-windows-*.zip
+          macos-intel/OrbitSimulation-macos-*.tar.gz
+          macos-arm64/OrbitSimulation-macos-*.tar.gz
+          ubuntu-generic/OrbitSimulation-ubuntu-*.tar.gz
+          ubuntu-deb/*.deb
+          ubuntu-rpm/*.rpm
