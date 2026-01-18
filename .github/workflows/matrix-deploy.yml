@@ -37,11 +37,8 @@ jobs:
       id: conan-cache-key
       shell: bash
       run: |
-        # Create a hash of conanfile.py for cache key
         CONAN_HASH=$(sha256sum conanfile.py | cut -d' ' -f1)
         echo "hash=${CONAN_HASH}" >> $GITHUB_OUTPUT
-        
-        # Determine OS-specific cache path
         if [ "${{ runner.os }}" = "Windows" ]; then
           echo "path=$HOME/.conan2" >> $GITHUB_OUTPUT
         elif [ "${{ runner.os }}" = "macOS" ]; then
@@ -149,6 +146,16 @@ jobs:
         echo "=== All downloaded files ==="
         find . -type f
 
+    - name: Rename artifacts
+      shell: bash
+      run: |
+        mv macos-arm64/build/OrbitSimulation-macos-arm64.tar.gz macos-arm64/build/OrbitSimulation-macOS-Apple-Silicon.tar.gz || true
+        mv macos-intel/build/OrbitSimulation-macos-intel.tar.gz macos-intel/build/OrbitSimulation-macOS-Intel.tar.gz || true
+        mv ubuntu-generic/build/OrbitSimulation-ubuntu-generic.tar.gz ubuntu-generic/build/OrbitSimulation-Linux.tar.gz || true
+        mv ubuntu-deb/OrbitSimulation-ubuntu-deb.deb ubuntu-deb/OrbitSimulation-Linux.deb || true
+        mv ubuntu-rpm/OrbitSimulation-ubuntu-rpm.rpm ubuntu-rpm/OrbitSimulation-Linux.rpm || true
+        mv windows-x64-msvc/build/OrbitSimulation-windows-x64-msvc.zip windows-x64-msvc/build/OrbitSimulation-Windows-x64.zip || true
+
     - name: Update Nightly Release
       uses: andelf/nightly-release@main
       env:
@@ -157,11 +164,17 @@ jobs:
         tag_name: nightly
         name: Nightly ${{ github.run_number }} (${{ github.sha }})
         prerelease: true
+        body: |
+          This release is updated regularly to provide ***unstable builds*** for all common platforms.
+          
+          For a hosted **web version** visit [toastyy-1.github.io](https://toastyy-1.github.io/).
+          
+          **For the packaged artifacts** the `simulation_data.json` is provided separately as it needs to be in the working directory where the executable is called.
         files: |
-          windows-x64-msvc/build/OrbitSimulation-*.zip
-          macos-intel/build/OrbitSimulation-*.tar.gz
-          macos-arm64/build/OrbitSimulation-*.tar.gz
-          ubuntu-generic/build/OrbitSimulation-*.tar.gz
-          ubuntu-deb/OrbitSimulation-*.deb
-          ubuntu-rpm/OrbitSimulation-*.rpm
+          windows-x64-msvc/build/OrbitSimulation-Windows-x64.zip
+          macos-intel/build/OrbitSimulation-macOS-Intel.tar.gz
+          macos-arm64/build/OrbitSimulation-macOS-Apple-Silicon.tar.gz
+          ubuntu-generic/build/OrbitSimulation-Linux.tar.gz
+          ubuntu-deb/OrbitSimulation-Linux.deb
+          ubuntu-rpm/OrbitSimulation-Linux.rpm
           windows-x64-msvc/simulation_data.json
