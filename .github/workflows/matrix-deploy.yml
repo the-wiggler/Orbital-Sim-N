@@ -45,34 +45,38 @@ jobs:
         cd build
         conan profile detect --force
         conan install .. --build=missing -s build_type=Release -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-        cmake --build . --parallel
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+        cmake --build . --config Release --parallel
 
     - name: Package
       if: matrix.config.package
       run: |
         cd build
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR=${{ matrix.config.package }}
-        cmake --build . --target package
+        cpack -G ${{ matrix.config.package }} -C Release
 
     - name: Zip artifacts (Windows)
       if: matrix.config.os == 'windows-latest'
       shell: powershell
       run: |
-        cd build
+        cd build/Release
         $binary = Get-ChildItem -Name "OrbitSimulation*" -Include *.exe | Select-Object -First 1
-        Compress-Archive -Path $binary, data, shaders, assets, SDL3*.dll -DestinationPath "OrbitSimulation-${{ matrix.config.artifact }}.zip" -Force
+        Compress-Archive -Path $binary, ../data, ../shaders, ../assets, SDL3*.dll -DestinationPath "../OrbitSimulation-${{ matrix.config.artifact }}.zip" -Force
 
     - name: Zip artifacts (Unix/macOS)
-      if: matrix.config.os != 'windows-latest'
+      if: matrix.config.os != 'windows-latest' && !matrix.config.package
       shell: bash
       run: |
         cd build
         BINARY=$(find . -name "OrbitSimulation*" -type f -executable | head -1)
         tar -czf OrbitSimulation-${{ matrix.config.artifact }}.tar.gz "$BINARY" data shaders assets
-        if [ -n "${{ matrix.config.package }}" ]; then
-          cp OrbitSimulation-${{ matrix.config.artifact }}.* ..
-        fi
+
+    - name: Copy package artifacts
+      if: matrix.config.package
+      run: |
+        cd build
+        cp OrbitSimulation*.deb ../OrbitSimulation-${{ matrix.config.artifact }}.deb 2>/dev/null || true
+        cp OrbitSimulation*.rpm ../OrbitSimulation-${{ matrix.config.artifact }}.rpm 2>/dev/null || true
+        cp OrbitSimulation*.tar.gz ../ 2>/dev/null || true
 
     - name: Upload temp artifact
       uses: actions/upload-artifact@v4
