@@ -202,8 +202,13 @@
     function initLiteGraph(){
         if(typeof LGraph === 'undefined') return;
         var cvs=document.getElementById("graph-canvas");
-        cvs.width = container.offsetWidth - 200;
-        cvs.height = container.offsetHeight - 50;
+
+        // FIX: Use actual parent dimensions instead of hardcoded calculation
+        // This ensures 1:1 mapping between mouse coordinates and canvas pixels
+        var parent = cvs.parentElement;
+        cvs.width = parent.clientWidth;
+        cvs.height = parent.clientHeight;
+
         graphInstance = new LGraph();
         graphCanvas = new LGraphCanvas("#graph-canvas", graphInstance);
 
@@ -218,27 +223,20 @@
 
             options.push(null); // separator
 
-            // "Duplicate Selection" logic
             options.push({content:"Duplicate Selection", callback: function(){
                     var selected = graphCanvas.selected_nodes || {};
                     var newNodes = [];
 
                     Object.values(selected).forEach(node => {
-                        // Clone data structure
                         var data = {};
-
-                        // Recover properties from widgets/internal props
                         if(node.properties) Object.assign(data, node.properties);
                         if(node.widgets) node.widgets.forEach(w => data[w.name] = w.value);
 
-                        // Handle specific fields
                         if(node.title && !node.title.startsWith("Burn #")) data.name = node.title + " (Copy)";
-                        else if (node.title.startsWith("Burn #")) data.name = null; // Burns don't need names
+                        else if (node.title.startsWith("Burn #")) data.name = null;
 
-                        // Determine Type based on properties or title/color
                         var sourceKey = node.properties ? node.properties.sourceKey : "other";
 
-                        // Offset position slightly
                         var newNode = createVisualNode(data, node.title + (sourceKey==="burns"?"":" (Copy)"), null, null, sourceKey);
                         newNode.pos = [node.pos[0] + 50, node.pos[1] + 50];
                         newNodes.push(newNode);
@@ -266,7 +264,7 @@
     function createVisualNode(data, title, parentNode, connectionSlot, sourceKey) {
         var node = new LiteGraph.LGraphNode();
         node.title = title;
-        // Default pos or mouse pos
+
         if(graphCanvas.graph_mouse) { node.pos = [graphCanvas.graph_mouse[0], graphCanvas.graph_mouse[1]]; }
         else { node.pos = [100, 100]; }
 
@@ -283,12 +281,17 @@
 
         node.addInput("Parent", "*");
 
+        // FIX: ALWAYS add Reference output for non-burn/root nodes
+        if (sourceKey !== "burns" && sourceKey !== "root") {
+            node.addOutput("Reference", "reference");
+        }
+
         var primitives = [];
         const REF_FIELDS = ["position_relative_to", "burn_target"];
 
         Object.keys(data).forEach(function(key) {
             var val = data[key];
-            if (key === "name") return; // Always skip name in primitives, we handle it via title or skip for burns
+            if (key === "name") return;
             if (REF_FIELDS.includes(key)) { node.addInput(key, "reference"); return; }
             if (val === null || typeof val !== 'object') { primitives.push({ key: key, val: val }); }
             else if (Array.isArray(val)) { node.addOutput(key, "array"); }
@@ -297,31 +300,17 @@
 
         // Add Widgets
         primitives.forEach(function(p) {
-            // BURN FIX: Skip 'name' widget entirely for burns, even if data had it (though we filter above)
-            // But also, we want to allow editing name for Bodies/Spacecraft via widget if desired?
-            // Actually, LiteGraph nodes use Title for name usually.
-            // Let's add a "Name" widget only for non-burns to allow easy renaming without double-clicking title
-
             var type = typeof p.val === 'number' ? "number" : "string";
             node.addWidget(type, p.key, p.val, function(v) { node.properties[p.key] = v; });
             node.properties[p.key] = p.val;
         });
-
-        // Explicitly add Name widget for Bodies/Crafts if not present in data (it was filtered out above)
-        if (sourceKey !== "burns" && sourceKey !== "root") {
-            // If we want a widget for name:
-            node.addWidget("string", "name", title, function(v){
-                node.title = v;
-                // Also update internal property if we rely on it
-                // node.properties.name = v;
-            });
-        }
 
         const ioCount = Math.max(node.inputs?node.inputs.length:0, node.outputs?node.outputs.length:0);
         node.size = [280, Math.max(30 + (Math.max(primitives.length, ioCount) * 24) + 20, 80)];
         graphInstance.add(node);
         return node;
     }
+
 
     function jsonToGraph(jsonObj) {
         if (!graphInstance || !jsonObj) return;
@@ -352,11 +341,16 @@
             if (COLORS[group]) { node.color = COLORS[group]; node.bgcolor = COLORS[group]; }
             nodesByGroup[group].push(node);
 
+            // FIX: ALWAYS add Reference output for non-burn/root nodes
+            if (sourceKey !== "burns" && sourceKey !== "root" && sourceKey !== "spacecraft") {
+                node.addOutput("Reference", "reference");
+            }
+
             var primitives = [], childrenToConnect = [];
             if(data && typeof data === 'object') {
                 Object.keys(data).forEach(function(key) {
                     var val = data[key];
-                    if (key === "name") return; // Skip name in generic loop
+                    if (key === "name") return;
                     if (REF_FIELDS.includes(key)) {
                         node.addInput(key, "reference");
                         if(val && typeof val === 'string' && val.trim() !== "") pendingReferences.push({ sourceNode: node, slotName: key, targetName: val });
@@ -381,11 +375,6 @@
                 node.addWidget(type, p.key, p.val, function(v) { node.properties[p.key] = v; });
             });
 
-            // Explicit Name Widget (Except Burns/Root)
-            if (sourceKey !== "burns" && sourceKey !== "root") {
-                node.addWidget("string", "name", title, function(v){ node.title = v; });
-            }
-
             const ioCount = Math.max(node.inputs?node.inputs.length:0, node.outputs?node.outputs.length:0);
             node.size = [280, Math.max(30 + (Math.max(primitives.length, ioCount) * 24) + 20, 80)];
             graphInstance.add(node);
@@ -395,16 +384,17 @@
             childrenToConnect.forEach(child => { if (child.data && typeof child.data === 'object') buildNode(child.data, child.title, node, child.slot, child.sourceKey); });
         }
 
+
         buildNode(jsonObj, "Simulation", null, null, "root");
 
         pendingReferences.forEach(ref => {
             var targetNode = nodeRegistry[ref.targetName];
             if (targetNode) {
-                let refSlot = -1;
-                if (targetNode.outputs) refSlot = targetNode.outputs.findIndex(o => o.name === "Reference");
-                if (refSlot === -1) { targetNode.addOutput("Reference", "reference"); refSlot = targetNode.outputs.length - 1; targetNode.size[1] += 24; }
-                var inputSlot = ref.sourceNode.findInputSlot(ref.slotName);
-                if(inputSlot !== -1) targetNode.connect(refSlot, ref.sourceNode, inputSlot);
+                let refSlot = targetNode.outputs.findIndex(o => o.name === "Reference");
+                if (refSlot !== -1) {
+                    var inputSlot = ref.sourceNode.findInputSlot(ref.slotName);
+                    if(inputSlot !== -1) targetNode.connect(refSlot, ref.sourceNode, inputSlot);
+                }
             }
         });
 
@@ -494,6 +484,7 @@
         if(view === 'graph') {
             document.getElementById('monaco-editor').style.visibility = 'hidden';
             document.getElementById('graph-canvas').style.visibility = 'visible';
+            if(graphCanvas) graphCanvas.resize();
         } else {
             document.getElementById('monaco-editor').style.visibility = 'visible';
             document.getElementById('graph-canvas').style.visibility = 'hidden';
@@ -534,7 +525,7 @@
         console.log("Reloading...");
         emscriptenCanvas.focus();
         setTimeout(function(){
-            var cmdString = "preset\nload\nr\n";
+            var cmdString = "p\nreset\nload\nr\n";
             var index = 0;
             function typeChar() {
                 if (index >= cmdString.length) return;
@@ -549,11 +540,11 @@
                     var up = new KeyboardEvent('keyup', { key: charStr==='\n'?'Enter':charStr, code: charStr==='\n'?'Enter':'Key'+charStr.toUpperCase(), keyCode: keyCode, which: keyCode, bubbles: true, cancelable: true });
                     emscriptenCanvas.dispatchEvent(up);
                     index++;
-                    setTimeout(typeChar, 30);
+                    setTimeout(typeChar, 16);
                 }, 10);
             }
             typeChar();
-        }, 500);
+        }, 16);
     }
 
     // --- SIDEBAR (Tree) ---
