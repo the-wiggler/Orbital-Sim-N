@@ -1,4 +1,4 @@
-name: Deploy WASM Build on GitHub Pages
+name: WASM Build
 
 on:
   workflow_dispatch:
