@@ -5,8 +5,11 @@
     <title>Orbital Simulation Software N</title>
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/litegraph.js/0.7.13/css/litegraph.min.css">
     <style>
-        body{font-family:Arial,sans-serif;margin:0;padding:0;background:#000;overflow:hidden;color:#fff}
-        canvas.emscripten{position:absolute;top:0;left:0;width:100%;height:100%;border:0;background:#000;display:block;outline:0}
+        body{font-family:Arial,sans-serif;margin:0;padding:0;background:#000;overflow:hidden;color:#fff; user-select: none;}
+
+        /* Force pointer events on canvas so it can receive clicks */
+        canvas.emscripten{position:absolute;top:0;left:0;width:100%;height:100%;border:0;background:#000;display:block;outline:0; pointer-events: auto !important;}
+
         #overlay-top,#info-text{position:absolute;top:15px;z-index:10;display:flex;align-items:center;background:rgba(0,0,0,.5);padding:5px 15px;border-radius:20px;transition:opacity .5s}
         #overlay-top{left:50%;transform:translateX(-50%);pointer-events:none}
         #info-text{right:15px;pointer-events:auto}
@@ -67,16 +70,21 @@
 
         body.resizing,body.resizing *{cursor:ns-resize!important;user-select:none}
 
-        /* LiteGraph Overrides */
-        .litegraph .graphcanvas { background-color: #1e1e1e !important; }
+        .litecontextmenu,
+        .litecontextmenu * {
+            z-index: 99999 !important;
+        }
+
+        #json-modal {
+            z-index: 100 !important;
+        }
+
+        .editor-container {
+            isolation: isolate;
+        }
     </style>
     <script src="coi-serviceworker.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/litegraph.js@0.7.13/build/litegraph.js"></script>
-    <script>
-        console.log("LiteGraph:", window.LiteGraph);
-        console.log("LGraph:", window.LGraph, typeof window.LGraph);
-        console.log("LGraphCanvas:", window.LGraphCanvas, typeof window.LGraphCanvas);
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 </head>
 <body>
@@ -85,7 +93,8 @@
     <div id="status">Downloading...</div>
 </div>
 <div id="info-text"><a id="info" href="https://github.com/toastyy-1/Orbital-Sim-N">Click here for instructions</a></div>
-<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+
+<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
 <div id="json-trigger" onclick="openEditor()" title="Edit Simulation Data">{ }</div>
 
 <div id="json-modal" onclick="handleBackdrop(event)">
@@ -123,7 +132,38 @@
         resizer=document.getElementById("resize-handle"),
         container=document.getElementById("editor-container"),
         modal=document.getElementById("json-modal"),
+        emscriptenCanvas = document.getElementById("canvas"),
         FILE_PATH="/simulation_data.json";
+
+    // --- FOCUS MANAGEMENT ---
+    // 1. Force focus on click (Global fallback)
+    document.addEventListener('click', function(e){
+        // If clicking inside Editor or Trigger, ignore
+        if(e.target.closest('#json-modal') || e.target.closest('#json-trigger')) return;
+        // Otherwise, assume user wants to play
+        if(!modal.classList.contains("show")){
+            emscriptenCanvas.focus();
+        }
+    });
+
+    // 2. Block inputs from reaching game when Editor is open
+    ['keydown', 'keyup', 'keypress'].forEach(evt => {
+        window.addEventListener(evt, function(e) {
+            if (modal.classList.contains("show")) {
+                var t = e.target;
+                // Allow typing in Inputs
+                var isInput = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.contentEditable === 'true';
+                if (!isInput) {
+                    // Swallow stray keys to protect Emscripten
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                } else {
+                    // Let input receive event, but stop propagation to window
+                    e.stopPropagation();
+                }
+            }
+        }, true);
+    });
 
     resizer.addEventListener("mousedown",function(e){
         isResizing=!0;startY=e.clientY;startHeight=container.offsetHeight;
@@ -131,10 +171,7 @@
     });
     document.addEventListener("mousemove",function(e){
         if(!isResizing)return;
-        var delta=startY-e.clientY,
-            newH=startHeight+delta,
-            minH=window.innerHeight*.2,
-            maxH=window.innerHeight*.9;
+        var delta=startY-e.clientY, newH=startHeight+delta, minH=window.innerHeight*.2, maxH=window.innerHeight*.9;
         if(newH>=minH&&newH<=maxH){
             container.style.height=newH+"px";
             monacoInstance&&monacoInstance.layout();
@@ -154,6 +191,7 @@
                 minimap:{enabled:!1},scrollBeyondLastLine:!1,lineNumbers:"on",
                 folding:!0,bracketPairColorization:{enabled:!0},padding:{top:8,bottom:8}
             });
+            // Stop propagation from Monaco to prevent game input
             var el=document.getElementById("monaco-editor");
             ["keydown","keyup","keypress","mousedown"].forEach(function(ev){
                 el.addEventListener(ev,function(e){e.stopPropagation()})
@@ -168,15 +206,47 @@
         cvs.height = container.offsetHeight - 50;
         graphInstance = new LGraph();
         graphCanvas = new LGraphCanvas("#graph-canvas", graphInstance);
+
         graphCanvas.allow_searchbox = false;
 
-        var originalGetMenu = LGraphCanvas.prototype.getCanvasMenuOptions;
         graphCanvas.getCanvasMenuOptions = function(){
-            var options = originalGetMenu.apply(this, arguments);
-            options.push(null);
-            options.push({content:"Add Body", callback: () => addNode("body")});
-            options.push({content:"Add Spacecraft", callback: () => addNode("spacecraft")});
-            options.push({content:"Add Burn", callback: () => addNode("burn")});
+            var options = [];
+
+            options.push({content:"Add Body", callback: function(){ addNode("body"); }});
+            options.push({content:"Add Spacecraft", callback: function(){ addNode("spacecraft"); }});
+            options.push({content:"Add Burn", callback: function(){ addNode("burn"); }});
+
+            options.push(null); // separator
+
+            // "Duplicate Selection" logic
+            options.push({content:"Duplicate Selection", callback: function(){
+                    var selected = graphCanvas.selected_nodes || {};
+                    var newNodes = [];
+
+                    Object.values(selected).forEach(node => {
+                        // Clone data structure
+                        var data = {};
+
+                        // Recover properties from widgets/internal props
+                        if(node.properties) Object.assign(data, node.properties);
+                        if(node.widgets) node.widgets.forEach(w => data[w.name] = w.value);
+
+                        // Handle specific fields
+                        if(node.title && !node.title.startsWith("Burn #")) data.name = node.title + " (Copy)";
+                        else if (node.title.startsWith("Burn #")) data.name = null; // Burns don't need names
+
+                        // Determine Type based on properties or title/color
+                        var sourceKey = node.properties ? node.properties.sourceKey : "other";
+
+                        // Offset position slightly
+                        var newNode = createVisualNode(data, node.title + (sourceKey==="burns"?"":" (Copy)"), null, null, sourceKey);
+                        newNode.pos = [node.pos[0] + 50, node.pos[1] + 50];
+                        newNodes.push(newNode);
+                    });
+
+                    graphCanvas.selectNodes(newNodes);
+                }});
+
             return options;
         };
     }
@@ -190,14 +260,18 @@
         } else if (type === "burn") {
             data = { burn_target: "", burn_type: "tangent", start_time:0, duration:10, heading:0, throttle:1 };
         }
-
         createVisualNode(data, type === "burn" ? "New Burn" : data.name, null, null, type === "body" ? "bodies" : (type === "spacecraft" ? "spacecraft" : "burns"));
     }
 
     function createVisualNode(data, title, parentNode, connectionSlot, sourceKey) {
         var node = new LiteGraph.LGraphNode();
         node.title = title;
-        node.pos = [graphCanvas.graph_mouse[0], graphCanvas.graph_mouse[1]];
+        // Default pos or mouse pos
+        if(graphCanvas.graph_mouse) { node.pos = [graphCanvas.graph_mouse[0], graphCanvas.graph_mouse[1]]; }
+        else { node.pos = [100, 100]; }
+
+        node.properties = node.properties || {};
+        node.properties.sourceKey = sourceKey;
 
         const COLORS = { "root": "#333", "bodies": "#2a4d69", "spacecraft": "#6b4c35", "burns": "#8c3b3b", "other": "#444" };
         let group = "other";
@@ -214,29 +288,37 @@
 
         Object.keys(data).forEach(function(key) {
             var val = data[key];
-            if (key === "name") return;
-            if (REF_FIELDS.includes(key)) {
-                node.addInput(key, "reference");
-                return;
-            }
-            if (val === null || typeof val !== 'object') {
-                primitives.push({ key: key, val: val });
-            } else if (Array.isArray(val)) {
-                node.addOutput(key, "array");
-            } else {
-                node.addOutput(key, "object");
-            }
+            if (key === "name") return; // Always skip name in primitives, we handle it via title or skip for burns
+            if (REF_FIELDS.includes(key)) { node.addInput(key, "reference"); return; }
+            if (val === null || typeof val !== 'object') { primitives.push({ key: key, val: val }); }
+            else if (Array.isArray(val)) { node.addOutput(key, "array"); }
+            else { node.addOutput(key, "object"); }
         });
 
+        // Add Widgets
         primitives.forEach(function(p) {
-            var type = typeof p.val === 'number' ? "number" : "string";
-            node.addWidget(type, p.key, p.val, function(v) {
-            });
-        });
-        const ioCount = Math.max(node.inputs?node.inputs.length:0, node.outputs?node.outputs.length:0);
-        const contentHeight = 30 + (Math.max(primitives.length, ioCount) * 24) + 20;
-        node.size = [280, Math.max(contentHeight, 80)];
+            // BURN FIX: Skip 'name' widget entirely for burns, even if data had it (though we filter above)
+            // But also, we want to allow editing name for Bodies/Spacecraft via widget if desired?
+            // Actually, LiteGraph nodes use Title for name usually.
+            // Let's add a "Name" widget only for non-burns to allow easy renaming without double-clicking title
 
+            var type = typeof p.val === 'number' ? "number" : "string";
+            node.addWidget(type, p.key, p.val, function(v) { node.properties[p.key] = v; });
+            node.properties[p.key] = p.val;
+        });
+
+        // Explicitly add Name widget for Bodies/Crafts if not present in data (it was filtered out above)
+        if (sourceKey !== "burns" && sourceKey !== "root") {
+            // If we want a widget for name:
+            node.addWidget("string", "name", title, function(v){
+                node.title = v;
+                // Also update internal property if we rely on it
+                // node.properties.name = v;
+            });
+        }
+
+        const ioCount = Math.max(node.inputs?node.inputs.length:0, node.outputs?node.outputs.length:0);
+        node.size = [280, Math.max(30 + (Math.max(primitives.length, ioCount) * 24) + 20, 80)];
         graphInstance.add(node);
         return node;
     }
@@ -244,12 +326,8 @@
     function jsonToGraph(jsonObj) {
         if (!graphInstance || !jsonObj) return;
         graphInstance.clear();
-
-        let burnCounter = 0;
-        let nodeRegistry = {};
-        let pendingReferences = [];
+        let burnCounter = 0, nodeRegistry = {}, pendingReferences = [];
         const REF_FIELDS = ["position_relative_to", "burn_target"];
-
         const COLORS = { "root": "#333", "bodies": "#2a4d69", "spacecraft": "#6b4c35", "burns": "#8c3b3b", "other": "#444" };
         let nodesByGroup = { "root":[], "bodies":[], "spacecraft":[], "burns":[], "other":[] };
 
@@ -274,51 +352,47 @@
             if (COLORS[group]) { node.color = COLORS[group]; node.bgcolor = COLORS[group]; }
             nodesByGroup[group].push(node);
 
-            var primitives = [];
-            var childrenToConnect = [];
+            var primitives = [], childrenToConnect = [];
+            if(data && typeof data === 'object') {
+                Object.keys(data).forEach(function(key) {
+                    var val = data[key];
+                    if (key === "name") return; // Skip name in generic loop
+                    if (REF_FIELDS.includes(key)) {
+                        node.addInput(key, "reference");
+                        if(val && typeof val === 'string' && val.trim() !== "") pendingReferences.push({ sourceNode: node, slotName: key, targetName: val });
+                        return;
+                    }
+                    if (val === null || typeof val !== 'object') { primitives.push({ key: key, val: val }); }
+                    else if (Array.isArray(val)) {
+                        node.addOutput(key, "array");
+                        let slotIdx = node.outputs.length - 1;
+                        val.forEach((item) => { childrenToConnect.push({ data: item, slot: slotIdx, title: key.replace(/s$/, "") || "item", sourceKey: key }); });
+                    } else {
+                        node.addOutput(key, "object");
+                        childrenToConnect.push({ data: val, slot: node.outputs.length - 1, title: key, sourceKey: key });
+                    }
+                });
+            }
 
-            Object.keys(data).forEach(function(key) {
-                var val = data[key];
-                if (key === "name") return;
-
-                if (REF_FIELDS.includes(key)) {
-                    node.addInput(key, "reference");
-                    pendingReferences.push({ sourceNode: node, slotName: key, targetName: val });
-                    return;
-                }
-                if (val === null || typeof val !== 'object') {
-                    primitives.push({ key: key, val: val });
-                } else if (Array.isArray(val)) {
-                    node.addOutput(key, "array");
-                    let slotIdx = node.outputs.length - 1;
-                    val.forEach((item) => {
-                        let childTitle = key.replace(/s$/, "") || "item";
-                        childrenToConnect.push({ data: item, slot: slotIdx, title: childTitle, sourceKey: key });
-                    });
-                } else {
-                    node.addOutput(key, "object");
-                    childrenToConnect.push({ data: val, slot: node.outputs.length - 1, title: key, sourceKey: key });
-                }
-            });
-
+            // Widgets
             primitives.forEach(p => {
                 var type = typeof p.val === 'number' ? "number" : "string";
-                node.addWidget(type, p.key, p.val);
+                node.properties[p.key] = p.val;
+                node.addWidget(type, p.key, p.val, function(v) { node.properties[p.key] = v; });
             });
+
+            // Explicit Name Widget (Except Burns/Root)
+            if (sourceKey !== "burns" && sourceKey !== "root") {
+                node.addWidget("string", "name", title, function(v){ node.title = v; });
+            }
 
             const ioCount = Math.max(node.inputs?node.inputs.length:0, node.outputs?node.outputs.length:0);
             node.size = [280, Math.max(30 + (Math.max(primitives.length, ioCount) * 24) + 20, 80)];
-
             graphInstance.add(node);
             nodeRegistry[title] = node;
 
             if (parentNode && connectionSlot !== null) parentNode.connect(connectionSlot, node, 0);
-
-            childrenToConnect.forEach(child => {
-                if (child.data && typeof child.data === 'object') {
-                    buildNode(child.data, child.title, node, child.slot, child.sourceKey);
-                }
-            });
+            childrenToConnect.forEach(child => { if (child.data && typeof child.data === 'object') buildNode(child.data, child.title, node, child.slot, child.sourceKey); });
         }
 
         buildNode(jsonObj, "Simulation", null, null, "root");
@@ -328,13 +402,9 @@
             if (targetNode) {
                 let refSlot = -1;
                 if (targetNode.outputs) refSlot = targetNode.outputs.findIndex(o => o.name === "Reference");
-                if (refSlot === -1) {
-                    targetNode.addOutput("Reference", "reference");
-                    refSlot = targetNode.outputs.length - 1;
-                    targetNode.size[1] += 24;
-                }
+                if (refSlot === -1) { targetNode.addOutput("Reference", "reference"); refSlot = targetNode.outputs.length - 1; targetNode.size[1] += 24; }
                 var inputSlot = ref.sourceNode.findInputSlot(ref.slotName);
-                targetNode.connect(refSlot, ref.sourceNode, inputSlot);
+                if(inputSlot !== -1) targetNode.connect(refSlot, ref.sourceNode, inputSlot);
             }
         });
 
@@ -348,50 +418,42 @@
         stackNodes(nodesByGroup["spacecraft"], 2);
         stackNodes(nodesByGroup["burns"], 3);
         stackNodes(nodesByGroup["other"], 4);
-
         graphCanvas.setZoomAndPan(0.8, [50, 50]);
-        lastRenderedJsonString = JSON.stringify(jsonObj);
     }
 
     function graphToJson() {
         if (!graphInstance) return null;
-
         var rootNode = graphInstance._nodes.find(n => n.properties && n.properties.sourceKey === "root");
         if (!rootNode) return null;
 
         function buildObjectFromNode(node) {
             var obj = {};
-
-            if (!node.title.startsWith("Burn #") && !node.title.startsWith("Simulation")) {
-                obj.name = node.title;
-            }
+            if (!node.title.startsWith("Burn #") && !node.title.startsWith("Simulation")) obj.name = node.title;
 
             if (node.widgets) {
                 node.widgets.forEach(w => {
-                    obj[w.name] = (w.type === "number" || typeof w.value === 'number') ? Number(w.value) : w.value;
+                    let val = (node.properties && node.properties[w.name] !== undefined) ? node.properties[w.name] : w.value;
+                    obj[w.name] = (w.type === "number" || typeof val === 'number') ? Number(val) : val;
                 });
             }
 
             if (node.inputs) {
                 node.inputs.forEach(input => {
-                    if (input.type === "reference" && input.link !== null) {
-                        var link = graphInstance.links[input.link];
-                        if (link) {
-                            var targetNode = graphInstance.getNodeById(link.origin_id);
-                            if (targetNode) {
-                                obj[input.name] = targetNode.title;
+                    if (input.type === "reference") {
+                        if (input.link !== null) {
+                            var link = graphInstance.links[input.link];
+                            if (link) {
+                                var targetNode = graphInstance.getNodeById(link.origin_id);
+                                if (targetNode) obj[input.name] = targetNode.title;
                             }
-                        }
-                    } else if (input.type === "reference") {
-                        obj[input.name] = "";
+                        } else { obj[input.name] = ""; }
                     }
                 });
             }
 
             if (node.outputs) {
-                node.outputs.forEach((output, slotIdx) => {
+                node.outputs.forEach((output) => {
                     if (output.name === "Reference") return;
-
                     var connectedNodes = [];
                     if (output.links) {
                         output.links.forEach(linkId => {
@@ -402,52 +464,33 @@
                             }
                         });
                     }
-
                     connectedNodes.sort((a,b) => a.pos[1] - b.pos[1]);
-
                     var childObjects = connectedNodes.map(n => buildObjectFromNode(n));
-
-                    if (output.type === "array") {
-                        obj[output.name] = childObjects;
-                    } else if (output.type === "object") {
-                        obj[output.name] = childObjects.length ? childObjects[0] : null;
-                    }
+                    if (output.type === "array") { obj[output.name] = childObjects; }
+                    else if (output.type === "object") { obj[output.name] = childObjects.length ? childObjects[0] : null; }
                 });
             }
             return obj;
         }
-
         return buildObjectFromNode(rootNode);
     }
 
     function switchView(view) {
         if(currentView === view) return;
-
         if(currentView === 'json') {
+            try { var val = monacoInstance.getValue(); var parsed = JSON.parse(val); jsonData = parsed; } catch(e) { alert("JSON Syntax Error: "+e.message); return; }
             try {
-                var val = monacoInstance.getValue();
-                jsonData = JSON.parse(val);
+                if(!graphInstance) initLiteGraph();
                 var currentJsonStr = JSON.stringify(jsonData);
-                if (currentJsonStr !== lastRenderedJsonString) {
-                    if(!graphInstance) initLiteGraph();
-                    jsonToGraph(jsonData);
-                }
-            } catch(e) {
-                alert("Fix JSON errors before switching."); return;
-            }
+                if (currentJsonStr !== lastRenderedJsonString) { jsonToGraph(jsonData); lastRenderedJsonString = currentJsonStr; }
+            } catch(e) { console.error("Graph Error", e); }
         } else {
             var obj = graphToJson();
-            if (obj) {
-                jsonData = obj;
-                monacoInstance.setValue(JSON.stringify(jsonData, null, 2));
-                lastRenderedJsonString = JSON.stringify(jsonData);
-            }
+            if (obj) { jsonData = obj; var str = JSON.stringify(jsonData, null, 2); monacoInstance.setValue(str); lastRenderedJsonString = str; }
         }
-
         currentView = view;
         document.getElementById('btn-view-json').classList.toggle('active', view==='json');
         document.getElementById('btn-view-graph').classList.toggle('active', view==='graph');
-
         if(view === 'graph') {
             document.getElementById('monaco-editor').style.visibility = 'hidden';
             document.getElementById('graph-canvas').style.visibility = 'visible';
@@ -457,27 +500,39 @@
         }
     }
 
-    function saveData(){
-        // Ensure latest state is captured
-        if(currentView === 'json') {
-            try { jsonData = JSON.parse(monacoInstance.getValue()); } catch(e) { alert("Invalid JSON"); return; }
-        } else {
-            var obj = graphToJson();
-            if(obj) jsonData = obj;
-        }
-
-        try{
-            Module.FS.writeFile(FILE_PATH, JSON.stringify(jsonData, null, 2));
-            console.log("Saved to FS");
-            closeEditor();
-        }catch(e){ alert("Save error: "+e.message) }
+    // --- MAIN ---
+    function openEditor(){
+        if(!runtimeInit){alert("Wait loading.");return}
+        if(!Module.FS){alert("No FS.");return}
+        emscriptenCanvas.style.pointerEvents = "none";
+        emscriptenCanvas.blur();
+        loadFile();
+        modal.style.display="flex";
+        requestAnimationFrame(function(){modal.classList.add("show")});
+        setTimeout(function(){
+            if(currentView==='json') monacoInstance.focus();
+            refreshSidebar();
+        },400)
     }
+    function closeEditor(){
+        modal.classList.remove("show");
+        setTimeout(function(){
+            modal.style.display="none";
+            emscriptenCanvas.style.pointerEvents = "auto";
+            emscriptenCanvas.focus();
+        },400)
+    }
+    function handleBackdrop(e){if(e.target===modal)closeEditor()}
 
+    function saveData(){
+        if(currentView === 'json') { try { jsonData = JSON.parse(monacoInstance.getValue()); } catch(e) { alert("Invalid JSON"); return; } }
+        else { var obj = graphToJson(); if(obj) jsonData = obj; }
+        try{ Module.FS.writeFile(FILE_PATH, JSON.stringify(jsonData, null, 2)); console.log("Saved to FS"); closeEditor(); }catch(e){ alert("Save error: "+e.message) }
+    }
     function saveAndReload(){
         saveData();
-        console.log("Reloading simulation...");
-        var cvs = document.getElementById("canvas");
-        cvs.focus();
+        console.log("Reloading...");
+        emscriptenCanvas.focus();
         setTimeout(function(){
             var cmdString = "preset\nload\nr\n";
             var index = 0;
@@ -486,16 +541,13 @@
                 var charStr = cmdString[index];
                 var keyCode = charStr.charCodeAt(0);
                 if (charStr === '\n') keyCode = 13;
-
                 var down = new KeyboardEvent('keydown', { key: charStr==='\n'?'Enter':charStr, code: charStr==='\n'?'Enter':'Key'+charStr.toUpperCase(), keyCode: keyCode, which: keyCode, bubbles: true, cancelable: true });
-                cvs.dispatchEvent(down);
-
+                emscriptenCanvas.dispatchEvent(down);
                 var press = new KeyboardEvent('keypress', { key: charStr==='\n'?'Enter':charStr, keyCode: keyCode, charCode: keyCode, which: keyCode, bubbles: true, cancelable: true });
-                cvs.dispatchEvent(press);
-
+                emscriptenCanvas.dispatchEvent(press);
                 setTimeout(function(){
                     var up = new KeyboardEvent('keyup', { key: charStr==='\n'?'Enter':charStr, code: charStr==='\n'?'Enter':'Key'+charStr.toUpperCase(), keyCode: keyCode, which: keyCode, bubbles: true, cancelable: true });
-                    cvs.dispatchEvent(up);
+                    emscriptenCanvas.dispatchEvent(up);
                     index++;
                     setTimeout(typeChar, 30);
                 }, 10);
@@ -504,24 +556,22 @@
         }, 500);
     }
 
+    // --- SIDEBAR (Tree) ---
     function buildTree(obj,path){
         var tree=[];
         if(Array.isArray(obj)){
             obj.forEach(function(item,idx){
                 var currPath=path.concat(idx);
-                tree.push({label:"["+idx+"]",path:currPath,line:findLine(currPath),
-                    children:typeof item==="object"&&item!==null?buildTree(item,currPath):[]})
+                tree.push({label:"["+idx+"]",path:currPath,line:findLine(currPath), children:typeof item==="object"&&item!==null?buildTree(item,currPath):[]})
             })
         }else if(typeof obj==="object"&&obj!==null){
             Object.keys(obj).forEach(function(key){
                 var currPath=path.concat(key),val=obj[key],leaf=typeof val!=="object"||val===null;
-                tree.push({label:key,path:currPath,line:findLine(currPath),isLeaf:leaf,
-                    children:!leaf?buildTree(val,currPath):[]})
+                tree.push({label:key,path:currPath,line:findLine(currPath),isLeaf:leaf, children:!leaf?buildTree(val,currPath):[]})
             })
         }
         return tree
     }
-
     function findLine(path){
         if(!monacoInstance)return 1;
         var content=monacoInstance.getValue(),lines=content.split("\n");
@@ -530,7 +580,6 @@
         var parentArrayIdx = typeof path[path.length-2]==="number" ? path[path.length-2] : 0;
         return matches[parentArrayIdx] || matches[0] || 1;
     }
-
     function renderTree(nodes,parent,depth){
         depth=depth||0;
         nodes.forEach(function(node){
@@ -544,74 +593,53 @@
                 childContainer.className="tree-children hidden";
                 el.onclick=function(e){
                     e.stopPropagation();
-                    if(el.classList.contains("expanded")){
-                        el.classList.remove("expanded");el.classList.add("collapsed");
-                        childContainer.classList.add("hidden")
-                    }else{
-                        el.classList.remove("collapsed");el.classList.add("expanded");
-                        childContainer.classList.remove("hidden")
-                    }
+                    if(el.classList.contains("expanded")){ el.classList.remove("expanded");el.classList.add("collapsed"); childContainer.classList.add("hidden") }
+                    else{ el.classList.remove("collapsed");el.classList.add("expanded"); childContainer.classList.remove("hidden") }
                 };
                 parent.appendChild(el);renderTree(node.children,childContainer,depth+1);parent.appendChild(childContainer)
             }else{
                 el.classList.add("leaf");el.textContent=node.label;el.title=node.label;
-                el.onclick=function(e){
-                    e.stopPropagation();
-                    jumpToTarget(node);
-                    document.querySelectorAll(".tree-node").forEach(function(n){n.classList.remove("active")});
-                    el.classList.add("active")
-                };
+                el.onclick=function(e){ e.stopPropagation(); jumpToTarget(node); document.querySelectorAll(".tree-node").forEach(function(n){n.classList.remove("active")}); el.classList.add("active") };
                 parent.appendChild(el)
             }
         })
     }
     function jumpToTarget(node){
-        if(currentView === 'json') {
-            monacoInstance.revealLineInCenter(node.line);
-            monacoInstance.setPosition({lineNumber:node.line,column:1});
-            monacoInstance.focus();
-        } else {
-            if(!graphInstance) return;
-            var label = node.path[node.path.length-1];
-            var found = graphInstance._nodes.find(n => n.title.includes(label));
-            if(found) {
-                graphCanvas.centerOnNode(found);
-                graphCanvas.selectNode(found);
-            }
-        }
+        if(currentView === 'json') { monacoInstance.revealLineInCenter(node.line); monacoInstance.setPosition({lineNumber:node.line,column:1}); monacoInstance.focus(); }
+        else { if(!graphInstance) return; var label = node.path[node.path.length-1]; var found = graphInstance._nodes.find(n => n.title.includes(label)); if(found) { graphCanvas.centerOnNode(found); graphCanvas.selectNode(found); } }
     }
     function refreshSidebar(){
         var sb=document.getElementById("tree-sidebar");sb.innerHTML="";
         var source = (currentView==='json' && monacoInstance) ? JSON.parse(monacoInstance.getValue()) : jsonData;
-        try{
-            renderTree(buildTree(source,[]),sb);
-        }catch(e){ sb.innerHTML='<div class="tree-node" style="color:#f84;">Invalid Data</div>'; }
+        try{ renderTree(buildTree(source,[]),sb); }catch(e){ sb.innerHTML='<div class="tree-node" style="color:#f84;">Invalid Data</div>'; }
     }
     function loadFile(){
         if(!Module.FS){console.warn("FS missing");return}
         try{
             var content=Module.FS.readFile(FILE_PATH,{encoding:"utf8"});
-            try{
-                jsonData=JSON.parse(content);
-                var fmt=JSON.stringify(jsonData,null,2);
-                monacoInstance&&(monacoInstance.setValue(fmt),refreshSidebar())
-            }catch(e){
-                monacoInstance&&monacoInstance.setValue(content)
-            }
-        }catch(e){
-            monacoInstance&&monacoInstance.setValue('{\n  "error": "File not found"\n}')
-        }
+            try{ jsonData=JSON.parse(content); var fmt=JSON.stringify(jsonData,null,2); monacoInstance&&(monacoInstance.setValue(fmt),refreshSidebar()) }
+            catch(e){ monacoInstance&&monacoInstance.setValue(content) }
+        }catch(e){ monacoInstance&&monacoInstance.setValue('{\n  "error": "File not found"\n}') }
     }
+
+    // --- EMSCRIPTEN ---
     var Module={
         print:function(t){console.log(t)},
         printErr:function(t){console.error(t)},
         canvas:(function(){
             var c=document.getElementById("canvas");
             c.addEventListener("webglcontextlost",function(e){alert("Context lost");e.preventDefault()},!1);
+            c.addEventListener("click", function(){ c.focus(); }); // Click focuses
             return c
         })(),
         onRuntimeInitialized:function(){
-            runtimeInit=!0;setTimeout(loadFile,100)
+            runtimeInit=!0;
+            // Best effort auto-focus
+            setTimeout(function(){
+                emscriptenCanvas.focus();
+                if(document.activeElement !== emscriptenCanvas) console.warn("Auto-focus blocked.");
+            }, 500);
+            setTimeout(loadFile,100)
         },
         setStatus:function(t){
             if(!Module.setStatus.last)Module.setStatus.last={time:Date.now(),text:""};
@@ -630,21 +658,6 @@
     Module.setStatus("Downloading...");
     window.onerror=function(e){Module.setStatus("JS Exception");spinnerElem.style.display="none"};
     initMonaco();
-    function openEditor(){
-        if(!runtimeInit){alert("Wait loading.");return}
-        if(!Module.FS){alert("No FS.");return}
-        loadFile();modal.style.display="flex";
-        requestAnimationFrame(function(){modal.classList.add("show")});
-        setTimeout(function(){
-            if(currentView==='json') monacoInstance.focus();
-            refreshSidebar();
-        },400)
-    }
-    function closeEditor(){
-        modal.classList.remove("show");
-        setTimeout(function(){modal.style.display="none";document.getElementById("canvas").focus()},400)
-    }
-    function handleBackdrop(e){if(e.target===modal)closeEditor()}
 </script>
 <script async src="OrbitSimulation.js"></script>
 </body>
