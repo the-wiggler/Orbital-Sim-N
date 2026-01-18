@@ -1,4 +1,4 @@
-[![WASM Build](https://github.com/toastyy-1/Orbital-Sim-N/actions/workflows/web-deploy.yml/badge.svg?branch=main)](https://github.com/toastyy-1/Orbital-Sim-N/actions/workflows/web-deploy.yml) [![Nightly Native Builds](https://github.com/toastyy-1/Orbital-Sim-N/actions/workflows/matrix-deploy.yml/badge.svg?branch=main)](https://github.com/toastyy-1/Orbital-Sim-N/actions/workflows/matrix-deploy.yml)
+[![Nightly Native Builds](https://github.com/toastyy-1/Orbital-Sim-N/actions/workflows/matrix-deploy.yml/badge.svg?branch=main)](https://github.com/toastyy-1/Orbital-Sim-N/actions/workflows/matrix-deploy.yml) [![WASM Build](https://github.com/toastyy-1/Orbital-Sim-N/actions/workflows/web-deploy.yml/badge.svg?branch=main)](https://github.com/toastyy-1/Orbital-Sim-N/actions/workflows/web-deploy.yml)
 
 # Orbital Simulation Software N
 
