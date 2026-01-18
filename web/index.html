@@ -118,7 +118,7 @@
         spinnerElem=document.getElementById("spinner"),
         topOverlay=document.getElementById("overlay-top"),
         runtimeInit=!1,monacoInstance=null,graphInstance=null,graphCanvas=null,
-        currentView='json', jsonData=null,
+        currentView='json', jsonData=null, lastRenderedJsonString = "",
         isResizing=!1,startY=0,startHeight=0,
         resizer=document.getElementById("resize-handle"),
         container=document.getElementById("editor-container"),
@@ -162,19 +162,83 @@
     }
 
     function initLiteGraph(){
-        if(typeof LGraph !== 'function' || typeof LGraphCanvas !== 'function') {
-            console.error("LiteGraph constructors missing!", {LGraph: typeof LGraph, LGraphCanvas: typeof LGraphCanvas});
-            return;
-        }
+        if(typeof LGraph === 'undefined') return;
         var cvs=document.getElementById("graph-canvas");
         cvs.width = container.offsetWidth - 200;
         cvs.height = container.offsetHeight - 50;
         graphInstance = new LGraph();
         graphCanvas = new LGraphCanvas("#graph-canvas", graphInstance);
         graphCanvas.allow_searchbox = false;
-        graphCanvas.background_image = null;
-        cvs.addEventListener("keydown", function(e) { e.stopPropagation(); });
-        cvs.addEventListener("keyup", function(e) { e.stopPropagation(); });
+
+        var originalGetMenu = LGraphCanvas.prototype.getCanvasMenuOptions;
+        graphCanvas.getCanvasMenuOptions = function(){
+            var options = originalGetMenu.apply(this, arguments);
+            options.push(null);
+            options.push({content:"Add Body", callback: () => addNode("body")});
+            options.push({content:"Add Spacecraft", callback: () => addNode("spacecraft")});
+            options.push({content:"Add Burn", callback: () => addNode("burn")});
+            return options;
+        };
+    }
+
+    function addNode(type) {
+        var data = {};
+        if (type === "body") {
+            data = { name: "New Body", mass: 1e24, radius: 1000, pos_x:0, pos_y:0, pos_z:0, vel_x:0, vel_y:0, vel_z:0, rotational_v:0, attitude_axis_x:0, attitude_axis_y:1, attitude_axis_z:0, attitude_angle:0 };
+        } else if (type === "spacecraft") {
+            data = { name: "New Craft", position_relative_to: "", pos_x:0, pos_y:0, pos_z:0, vel_x:0, vel_y:0, vel_z:0, dry_mass:1000, fuel_mass:1000, thrust:1000, specific_impulse:300, mass_flow_rate:1, attitude:0, moment_of_inertia:1000, nozzle_gimbal_range:0.1, burns:[] };
+        } else if (type === "burn") {
+            data = { burn_target: "", burn_type: "tangent", start_time:0, duration:10, heading:0, throttle:1 };
+        }
+
+        createVisualNode(data, type === "burn" ? "New Burn" : data.name, null, null, type === "body" ? "bodies" : (type === "spacecraft" ? "spacecraft" : "burns"));
+    }
+
+    function createVisualNode(data, title, parentNode, connectionSlot, sourceKey) {
+        var node = new LiteGraph.LGraphNode();
+        node.title = title;
+        node.pos = [graphCanvas.graph_mouse[0], graphCanvas.graph_mouse[1]];
+
+        const COLORS = { "root": "#333", "bodies": "#2a4d69", "spacecraft": "#6b4c35", "burns": "#8c3b3b", "other": "#444" };
+        let group = "other";
+        if (sourceKey === "root") group = "root";
+        else if (sourceKey === "bodies") group = "bodies";
+        else if (sourceKey === "spacecraft") group = "spacecraft";
+        else if (sourceKey === "burns") group = "burns";
+        if (COLORS[group]) { node.color = COLORS[group]; node.bgcolor = COLORS[group]; }
+
+        node.addInput("Parent", "*");
+
+        var primitives = [];
+        const REF_FIELDS = ["position_relative_to", "burn_target"];
+
+        Object.keys(data).forEach(function(key) {
+            var val = data[key];
+            if (key === "name") return;
+            if (REF_FIELDS.includes(key)) {
+                node.addInput(key, "reference");
+                return;
+            }
+            if (val === null || typeof val !== 'object') {
+                primitives.push({ key: key, val: val });
+            } else if (Array.isArray(val)) {
+                node.addOutput(key, "array");
+            } else {
+                node.addOutput(key, "object");
+            }
+        });
+
+        primitives.forEach(function(p) {
+            var type = typeof p.val === 'number' ? "number" : "string";
+            node.addWidget(type, p.key, p.val, function(v) {
+            });
+        });
+        const ioCount = Math.max(node.inputs?node.inputs.length:0, node.outputs?node.outputs.length:0);
+        const contentHeight = 30 + (Math.max(primitives.length, ioCount) * 24) + 20;
+        node.size = [280, Math.max(contentHeight, 80)];
+
+        graphInstance.add(node);
+        return node;
     }
 
     function jsonToGraph(jsonObj) {
@@ -186,59 +250,32 @@
         let pendingReferences = [];
         const REF_FIELDS = ["position_relative_to", "burn_target"];
 
-        // Semantic Grouping for Layout & Coloring
-        let nodesByGroup = {
-            "root": [],
-            "bodies": [],
-            "spacecraft": [],
-            "burns": [],
-            "other": []
-        };
+        const COLORS = { "root": "#333", "bodies": "#2a4d69", "spacecraft": "#6b4c35", "burns": "#8c3b3b", "other": "#444" };
+        let nodesByGroup = { "root":[], "bodies":[], "spacecraft":[], "burns":[], "other":[] };
 
-        // Color Palette (Dark Theme friendly)
-        const COLORS = {
-            "root": { bgcolor: "#333333", title_color: "#111" },     // Dark Grey
-            "bodies": { bgcolor: "#2a4d69", title_color: "#eee" },   // Deep Blue
-            "spacecraft": { bgcolor: "#6b4c35", title_color: "#eee" }, // Earthy Brown/Orange
-            "burns": { bgcolor: "#8c3b3b", title_color: "#eee" },    // Red/Maroon
-            "other": { bgcolor: "#444444", title_color: "#eee" }     // Standard Grey
-        };
-
-        // --- Pass 1: Build Nodes ---
         function buildNode(data, preferredTitle, parentNode, connectionSlot, sourceKey) {
             let title = preferredTitle;
             let isBurn = preferredTitle.toLowerCase().includes("burn");
-            if (data.name && typeof data.name === 'string') {
-                title = data.name;
-            } else if (isBurn) {
-                burnCounter++;
-                title = `Burn #${burnCounter}`;
-            }
+            if (data.name && typeof data.name === 'string') title = data.name;
+            else if (isBurn) { burnCounter++; title = `Burn #${burnCounter}`; }
 
             var node = new LiteGraph.LGraphNode();
             node.title = title;
+            node.properties = { sourceKey: sourceKey };
 
-            // Add Input 0: PARENT (Hierarchy)
             if (parentNode) node.addInput("Parent", "*");
 
-            var primitives = [];
-            var childrenToConnect = [];
-
-            // Determine Group & Color
             let group = "other";
             if (!parentNode) group = "root";
             else if (sourceKey === "bodies") group = "bodies";
             else if (sourceKey === "spacecraft") group = "spacecraft";
             else if (sourceKey === "burns") group = "burns";
 
-            if (COLORS[group]) {
-                node.color = COLORS[group].bgcolor;
-                node.bgcolor = COLORS[group].bgcolor;
-                // node.boxcolor = "#555"; // Optional border
-            }
-
+            if (COLORS[group]) { node.color = COLORS[group]; node.bgcolor = COLORS[group]; }
             nodesByGroup[group].push(node);
 
+            var primitives = [];
+            var childrenToConnect = [];
 
             Object.keys(data).forEach(function(key) {
                 var val = data[key];
@@ -249,58 +286,44 @@
                     pendingReferences.push({ sourceNode: node, slotName: key, targetName: val });
                     return;
                 }
-
                 if (val === null || typeof val !== 'object') {
                     primitives.push({ key: key, val: val });
-                }
-                else if (Array.isArray(val)) {
+                } else if (Array.isArray(val)) {
                     node.addOutput(key, "array");
                     let slotIdx = node.outputs.length - 1;
-                    val.forEach((item, idx) => {
+                    val.forEach((item) => {
                         let childTitle = key.replace(/s$/, "") || "item";
                         childrenToConnect.push({ data: item, slot: slotIdx, title: childTitle, sourceKey: key });
                     });
-                }
-                else {
+                } else {
                     node.addOutput(key, "object");
                     childrenToConnect.push({ data: val, slot: node.outputs.length - 1, title: key, sourceKey: key });
                 }
             });
 
-            // Add Widgets
-            primitives.forEach(function(p) {
+            primitives.forEach(p => {
                 var type = typeof p.val === 'number' ? "number" : "string";
-                node.addWidget(type, p.key, p.val, function(v) { data[p.key] = v; });
+                node.addWidget(type, p.key, p.val);
             });
 
-            // Sizing
-            const ioCount = Math.max(
-                node.inputs ? node.inputs.length : 0,
-                node.outputs ? node.outputs.length : 0
-            );
-            // Height: Header(30) + (Widgets+IO)*24 + Padding(20)
-            const contentHeight = 30 + (Math.max(primitives.length, ioCount) * 24) + 20;
-            node.size = [280, Math.max(contentHeight, 80)];
+            const ioCount = Math.max(node.inputs?node.inputs.length:0, node.outputs?node.outputs.length:0);
+            node.size = [280, Math.max(30 + (Math.max(primitives.length, ioCount) * 24) + 20, 80)];
 
             graphInstance.add(node);
             nodeRegistry[title] = node;
 
-            if (parentNode && connectionSlot !== null) {
-                parentNode.connect(connectionSlot, node, 0);
-            }
+            if (parentNode && connectionSlot !== null) parentNode.connect(connectionSlot, node, 0);
 
-            childrenToConnect.forEach(function(child) {
+            childrenToConnect.forEach(child => {
                 if (child.data && typeof child.data === 'object') {
                     buildNode(child.data, child.title, node, child.slot, child.sourceKey);
                 }
             });
         }
 
-        // Init
         buildNode(jsonObj, "Simulation", null, null, "root");
 
-        // --- Pass 2: References ---
-        pendingReferences.forEach(function(ref) {
+        pendingReferences.forEach(ref => {
             var targetNode = nodeRegistry[ref.targetName];
             if (targetNode) {
                 let refSlot = -1;
@@ -315,21 +338,11 @@
             }
         });
 
-        // --- Pass 3: Column Layout ---
-        const COL_WIDTH = 450;
-        const ROW_PAD = 40;
-
+        const COL_WIDTH = 450; const ROW_PAD = 40;
         function stackNodes(nodes, colIndex) {
-            if (!nodes.length) return;
-            let currentY = 100;
-            let xPos = 100 + (colIndex * COL_WIDTH);
-
-            nodes.forEach(node => {
-                node.pos = [xPos, currentY];
-                currentY += node.size[1] + ROW_PAD;
-            });
+            let currentY = 100, xPos = 100 + (colIndex * COL_WIDTH);
+            nodes.forEach(node => { node.pos = [xPos, currentY]; currentY += node.size[1] + ROW_PAD; });
         }
-
         stackNodes(nodesByGroup["root"], 0);
         stackNodes(nodesByGroup["bodies"], 1);
         stackNodes(nodesByGroup["spacecraft"], 2);
@@ -337,6 +350,74 @@
         stackNodes(nodesByGroup["other"], 4);
 
         graphCanvas.setZoomAndPan(0.8, [50, 50]);
+        lastRenderedJsonString = JSON.stringify(jsonObj);
+    }
+
+    function graphToJson() {
+        if (!graphInstance) return null;
+
+        var rootNode = graphInstance._nodes.find(n => n.properties && n.properties.sourceKey === "root");
+        if (!rootNode) return null;
+
+        function buildObjectFromNode(node) {
+            var obj = {};
+
+            if (!node.title.startsWith("Burn #") && !node.title.startsWith("Simulation")) {
+                obj.name = node.title;
+            }
+
+            if (node.widgets) {
+                node.widgets.forEach(w => {
+                    obj[w.name] = (w.type === "number" || typeof w.value === 'number') ? Number(w.value) : w.value;
+                });
+            }
+
+            if (node.inputs) {
+                node.inputs.forEach(input => {
+                    if (input.type === "reference" && input.link !== null) {
+                        var link = graphInstance.links[input.link];
+                        if (link) {
+                            var targetNode = graphInstance.getNodeById(link.origin_id);
+                            if (targetNode) {
+                                obj[input.name] = targetNode.title;
+                            }
+                        }
+                    } else if (input.type === "reference") {
+                        obj[input.name] = "";
+                    }
+                });
+            }
+
+            if (node.outputs) {
+                node.outputs.forEach((output, slotIdx) => {
+                    if (output.name === "Reference") return;
+
+                    var connectedNodes = [];
+                    if (output.links) {
+                        output.links.forEach(linkId => {
+                            var link = graphInstance.links[linkId];
+                            if (link && link.target_slot === 0) {
+                                var childNode = graphInstance.getNodeById(link.target_id);
+                                if (childNode) connectedNodes.push(childNode);
+                            }
+                        });
+                    }
+
+                    connectedNodes.sort((a,b) => a.pos[1] - b.pos[1]);
+
+                    var childObjects = connectedNodes.map(n => buildObjectFromNode(n));
+
+                    if (output.type === "array") {
+                        obj[output.name] = childObjects;
+                    } else if (output.type === "object") {
+                        obj[output.name] = childObjects.length ? childObjects[0] : null;
+                    }
+                });
+            }
+            return obj;
+        }
+
+        return buildObjectFromNode(rootNode);
     }
 
     function switchView(view) {
@@ -346,8 +427,20 @@
             try {
                 var val = monacoInstance.getValue();
                 jsonData = JSON.parse(val);
+                var currentJsonStr = JSON.stringify(jsonData);
+                if (currentJsonStr !== lastRenderedJsonString) {
+                    if(!graphInstance) initLiteGraph();
+                    jsonToGraph(jsonData);
+                }
             } catch(e) {
                 alert("Fix JSON errors before switching."); return;
+            }
+        } else {
+            var obj = graphToJson();
+            if (obj) {
+                jsonData = obj;
+                monacoInstance.setValue(JSON.stringify(jsonData, null, 2));
+                lastRenderedJsonString = JSON.stringify(jsonData);
             }
         }
 
@@ -358,14 +451,57 @@
         if(view === 'graph') {
             document.getElementById('monaco-editor').style.visibility = 'hidden';
             document.getElementById('graph-canvas').style.visibility = 'visible';
-
-            if(!graphInstance) initLiteGraph();
-            jsonToGraph(jsonData);
         } else {
             document.getElementById('monaco-editor').style.visibility = 'visible';
             document.getElementById('graph-canvas').style.visibility = 'hidden';
-            monacoInstance.setValue(JSON.stringify(jsonData, null, 2));
         }
+    }
+
+    function saveData(){
+        // Ensure latest state is captured
+        if(currentView === 'json') {
+            try { jsonData = JSON.parse(monacoInstance.getValue()); } catch(e) { alert("Invalid JSON"); return; }
+        } else {
+            var obj = graphToJson();
+            if(obj) jsonData = obj;
+        }
+
+        try{
+            Module.FS.writeFile(FILE_PATH, JSON.stringify(jsonData, null, 2));
+            console.log("Saved to FS");
+            closeEditor();
+        }catch(e){ alert("Save error: "+e.message) }
+    }
+
+    function saveAndReload(){
+        saveData();
+        console.log("Reloading simulation...");
+        var cvs = document.getElementById("canvas");
+        cvs.focus();
+        setTimeout(function(){
+            var cmdString = "preset\nload\nr\n";
+            var index = 0;
+            function typeChar() {
+                if (index >= cmdString.length) return;
+                var charStr = cmdString[index];
+                var keyCode = charStr.charCodeAt(0);
+                if (charStr === '\n') keyCode = 13;
+
+                var down = new KeyboardEvent('keydown', { key: charStr==='\n'?'Enter':charStr, code: charStr==='\n'?'Enter':'Key'+charStr.toUpperCase(), keyCode: keyCode, which: keyCode, bubbles: true, cancelable: true });
+                cvs.dispatchEvent(down);
+
+                var press = new KeyboardEvent('keypress', { key: charStr==='\n'?'Enter':charStr, keyCode: keyCode, charCode: keyCode, which: keyCode, bubbles: true, cancelable: true });
+                cvs.dispatchEvent(press);
+
+                setTimeout(function(){
+                    var up = new KeyboardEvent('keyup', { key: charStr==='\n'?'Enter':charStr, code: charStr==='\n'?'Enter':'Key'+charStr.toUpperCase(), keyCode: keyCode, which: keyCode, bubbles: true, cancelable: true });
+                    cvs.dispatchEvent(up);
+                    index++;
+                    setTimeout(typeChar, 30);
+                }, 10);
+            }
+            typeChar();
+        }, 500);
     }
 
     function buildTree(obj,path){
@@ -385,6 +521,7 @@
         }
         return tree
     }
+
     function findLine(path){
         if(!monacoInstance)return 1;
         var content=monacoInstance.getValue(),lines=content.split("\n");
@@ -393,6 +530,7 @@
         var parentArrayIdx = typeof path[path.length-2]==="number" ? path[path.length-2] : 0;
         return matches[parentArrayIdx] || matches[0] || 1;
     }
+
     function renderTree(nodes,parent,depth){
         depth=depth||0;
         nodes.forEach(function(node){
@@ -435,7 +573,6 @@
         } else {
             if(!graphInstance) return;
             var label = node.path[node.path.length-1];
-            // Find by Title
             var found = graphInstance._nodes.find(n => n.title.includes(label));
             if(found) {
                 graphCanvas.centerOnNode(found);
@@ -464,15 +601,6 @@
         }catch(e){
             monacoInstance&&monacoInstance.setValue('{\n  "error": "File not found"\n}')
         }
-    }
-    function saveData(){
-        if(currentView === 'json') {
-            try { jsonData = JSON.parse(monacoInstance.getValue()); } catch(e) { alert("Invalid JSON"); return; }
-        }
-        try{
-            Module.FS.writeFile(FILE_PATH, JSON.stringify(jsonData, null, 2));
-            console.log("Saved"); closeEditor();
-        }catch(e){ alert("Save error: "+e.message) }
     }
     var Module={
         print:function(t){console.log(t)},
@@ -517,55 +645,6 @@
         setTimeout(function(){modal.style.display="none";document.getElementById("canvas").focus()},400)
     }
     function handleBackdrop(e){if(e.target===modal)closeEditor()}
-    function saveAndReload(){
-        saveData();
-        console.log("Reloading simulation...");
-        var cvs = document.getElementById("canvas");
-        cvs.focus();
-        setTimeout(function(){
-            var cmdString = "preset\nload\nr\n";
-            var index = 0;
-            function typeChar() {
-                if (index >= cmdString.length) return;
-                var charStr = cmdString[index];
-                var keyCode = charStr.charCodeAt(0);
-                if (charStr === '\n') keyCode = 13;
-                var down = new KeyboardEvent('keydown', {
-                    key: charStr === '\n' ? 'Enter' : charStr,
-                    code: charStr === '\n' ? 'Enter' : 'Key' + charStr.toUpperCase(),
-                    keyCode: keyCode,
-                    which: keyCode,
-                    bubbles: true,
-                    cancelable: true
-                });
-                cvs.dispatchEvent(down);
-                var press = new KeyboardEvent('keypress', {
-                    key: charStr === '\n' ? 'Enter' : charStr,
-                    keyCode: keyCode,
-                    charCode: keyCode,
-                    which: keyCode,
-                    bubbles: true,
-                    cancelable: true
-                });
-                cvs.dispatchEvent(press);
-                setTimeout(function(){
-                    var up = new KeyboardEvent('keyup', {
-                        key: charStr === '\n' ? 'Enter' : charStr,
-                        code: charStr === '\n' ? 'Enter' : 'Key' + charStr.toUpperCase(),
-                        keyCode: keyCode,
-                        which: keyCode,
-                        bubbles: true,
-                        cancelable: true
-                    });
-                    cvs.dispatchEvent(up);
-
-                    index++;
-                    setTimeout(typeChar, 16);
-                }, 10);
-            }
-            typeChar();
-        }, 16);
-    }
 </script>
 <script async src="OrbitSimulation.js"></script>
 </body>
