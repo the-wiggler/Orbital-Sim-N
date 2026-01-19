@@ -173,7 +173,7 @@ void runCalculations(sim_properties_t* sim) {
 }
 
 // cleanup for main
-void cleanup(sim_properties_t* sim) {
+void cleanup(const sim_properties_t* sim) {
     const body_properties_t* gb = &sim->gb;
     const spacecraft_properties_t* sc = &sim->gs;
 

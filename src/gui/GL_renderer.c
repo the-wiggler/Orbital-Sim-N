@@ -684,7 +684,7 @@ void renderStats(const sim_properties_t sim, font_t* font) {
     }
 }
 
-void renderPlanetPaths(sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* planet_paths) {
+void renderPlanetPaths(const sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* planet_paths) {
     // initialize or resize planet paths if needed
     if (sim->gb.count > 0 && planet_paths->num_objects != sim->gb.count) {
         free(planet_paths->positions);
@@ -731,7 +731,7 @@ void renderPlanetPaths(sim_properties_t* sim, line_batch_t* line_batch, object_p
     }
 }
 
-void renderCraftPaths(sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* craft_paths) {
+void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* craft_paths) {
     window_params_t wp = sim->wp;
     spacecraft_properties_t gs = sim->gs;
 
@@ -777,6 +777,54 @@ void renderCraftPaths(sim_properties_t* sim, line_batch_t* line_batch, object_pa
                 craft_paths->positions[base + craft_paths->capacity - 1].y = craft->pos.y / SCALE;
                 craft_paths->positions[base + craft_paths->capacity - 1].z = craft->pos.z / SCALE;
             }
+        }
+    }
+}
+
+void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
+    if (sim.gs.count > 0) {
+        for (int i = 0; i < sim.gs.count; i++) {
+            spacecraft_t craft = sim.gs.spacecraft[i];
+            vec3_f body_pos = {
+                (float)(sim.gb.bodies[craft.SOI_planet_id].pos.x / SCALE),
+                (float)(sim.gb.bodies[craft.SOI_planet_id].pos.y / SCALE),
+                (float)(sim.gb.bodies[craft.SOI_planet_id].pos.z / SCALE)
+            };
+
+            float p = (float)(craft.semi_major_axis * (1 - craft.eccentricity * craft.eccentricity));
+
+            mat4 Rz_0 = mat4_rotationZ(-(float)craft.ascending_node);
+            mat4 Rx_i = mat4_rotationX(-(float)craft.inclination);
+            mat4 Rz_w = mat4_rotationZ(-(float)craft.arg_periapsis);
+            mat4 R = mat4_mul(Rz_0, mat4_mul(Rx_i, Rz_w));
+
+            // increment through true anomaly values to build the orbit with given parameters
+            int path_res = 100;
+            vec3_f prev_r_eci = {0};
+
+            for (int j = 1; j < path_res; j++) {
+                if (craft.eccentricity < 1.0) {
+                    float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
+                    float r = (p) / (1 + craft.eccentricity * cosf(true_anomaly));
+                    vec3_f r_p = {
+                        r * cosf(true_anomaly),
+                        r * sinf(true_anomaly),
+                        0
+                    };
+                    vec3_f r_eci = vec3_transformByMat4(R, r_p);
+
+                    if (j > 0) addLine(line_batch,
+                        body_pos.x + prev_r_eci.x / SCALE, body_pos.y + prev_r_eci.y / SCALE, body_pos.z + prev_r_eci.z / SCALE,
+                        body_pos.x + r_eci.x / SCALE, body_pos.y + r_eci.y / SCALE, body_pos.z + r_eci.z / SCALE,
+                        0.0f, 0.0f, 1.0f);
+
+                    prev_r_eci = r_eci;
+                }
+                else {
+                    break;
+                }
+            }
+
         }
     }
 }
@@ -872,4 +920,6 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, object_path_s
 
     renderCraftPaths(&sim, line_batch, craft_paths);
     renderPlanetPaths(&sim, line_batch, planet_paths);
+
+    renderPredictedOrbits(sim, line_batch);
 }

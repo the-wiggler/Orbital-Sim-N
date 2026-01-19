@@ -206,7 +206,7 @@ static inline mat4 mat4_mul(const mat4 a, const mat4 b) {
 }
 
 // transform a point by a matrix (for rotating camera position)
-static inline vec3_f mat4_transformPoint(const mat4 m, const vec3_f point) {
+static inline vec3_f vec3_transformByMat4(const mat4 m, const vec3_f point) {
     vec3_f result;
     result.x = m.m[0] * point.x + m.m[4] * point.y + m.m[8]  * point.z + m.m[12];
     result.y = m.m[1] * point.x + m.m[5] * point.y + m.m[9]  * point.z + m.m[13];

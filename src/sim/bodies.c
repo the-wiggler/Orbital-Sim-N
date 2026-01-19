@@ -86,7 +86,7 @@ void body_updateRotation(body_t* body, const double dt) {
 // calculates the SOI radius for all bodies
 // assumes the first body (index 0) is the central body
 // SOI = a * (m/M)^(2/5) where a is semi-major axis, m is body mass, M is parent mass
-void body_calculateSOI(body_properties_t* gb) {
+void body_calculateSOI(const body_properties_t* gb) {
     if (gb->count < 2) return;  // need at least 2 bodies
 
     body_t* central = &gb->bodies[0];

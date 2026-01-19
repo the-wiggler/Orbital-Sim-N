@@ -194,7 +194,7 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
 // updates the ID and distance of the closest planet
 // (this should be used when initially spawning a craft because the grav calculations do this exact calculation by default)
 // this is probably executed when the JSON is loaded
-void craft_findClosestPlanet(spacecraft_t* craft, body_properties_t* gb) {
+void craft_findClosestPlanet(spacecraft_t* craft, const body_properties_t* gb) {
     double closest_r_squared = INFINITY;
     int closest_planet_id = 0;
     for (int i = 0; i < gb->count; i++) {
