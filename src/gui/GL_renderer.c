@@ -138,33 +138,30 @@ void deleteVBO(const VBO_t vbo) {
     glDeleteBuffers(1, &vbo.VBO);
 }
 
-// creates a view matrix that looks at the origin from cameraPos
-mat4 createViewMatrix_originCentered(const float cameraPos[3]) {
+// creates a view matrix that looks at target from cameraPos
+mat4 createViewMatrix(const vec3_f cameraPos, const vec3_f target) {
     mat4 viewMatrix;
-    float forward[3] = {-cameraPos[0], -cameraPos[1], -cameraPos[2]};
-    normalize_3d(forward);
-    float up[3] = {0.0f, 0.0f, 1.0f};  // Z is now "up"
-    float right[3];
-    cross_product_3d(forward, up, right);
-    normalize_3d(right);
-    cross_product_3d(right, forward, up);
+    vec3_f forward = vec3_f_normalize(vec3_f_sub(target, cameraPos));
+    vec3_f up = {0.0f, 0.0f, 1.0f}; // z is "UP"
+    vec3_f right = vec3_f_normalize(vec3_f_cross(forward, up));
+    up = vec3_f_cross(right, forward);
 
     // build view matrix
-    viewMatrix.m[0] = right[0];
-    viewMatrix.m[1] = up[0];
-    viewMatrix.m[2] = -forward[0];
+    viewMatrix.m[0] = right.x;
+    viewMatrix.m[1] = up.x;
+    viewMatrix.m[2] = -forward.x;
     viewMatrix.m[3] = 0.0f;
-    viewMatrix.m[4] = right[1];
-    viewMatrix.m[5] = up[1];
-    viewMatrix.m[6] = -forward[1];
+    viewMatrix.m[4] = right.y;
+    viewMatrix.m[5] = up.y;
+    viewMatrix.m[6] = -forward.y;
     viewMatrix.m[7] = 0.0f;
-    viewMatrix.m[8] = right[2];
-    viewMatrix.m[9] = up[2];
-    viewMatrix.m[10] = -forward[2];
+    viewMatrix.m[8] = right.z;
+    viewMatrix.m[9] = up.z;
+    viewMatrix.m[10] = -forward.z;
     viewMatrix.m[11] = 0.0f;
-    viewMatrix.m[12] = -(right[0] * cameraPos[0] + right[1] * cameraPos[1] + right[2] * cameraPos[2]);
-    viewMatrix.m[13] = -(up[0] * cameraPos[0] + up[1] * cameraPos[1] + up[2] * cameraPos[2]);
-    viewMatrix.m[14] = (forward[0] * cameraPos[0] + forward[1] * cameraPos[1] + forward[2] * cameraPos[2]);
+    viewMatrix.m[12] = -vec3_f_dot(right, cameraPos);
+    viewMatrix.m[13] = -vec3_f_dot(up, cameraPos);
+    viewMatrix.m[14] = vec3_f_dot(forward, cameraPos);
     viewMatrix.m[15] = 1.0f;
     return viewMatrix;
 }
@@ -197,30 +194,30 @@ mat4 createProjectionMatrix(const float fov, const float aspect, const float nea
 }
 
 // sets a matrix uniform in the shader
-void setMatrixUniform(const GLuint shaderProgram, const char* name, const mat4* matrix) {
+void GL_setMatrixUniform(const GLuint shaderProgram, const char* name, const mat4* matrix) {
     const GLint location = glGetUniformLocation(shaderProgram, name);
     glUniformMatrix4fv(location, 1, GL_FALSE, matrix->m);
 }
 
 // main function for handling the camera, should be called in main().
 void castCamera(const sim_properties_t sim, const GLuint shaderProgram) {
-    // apply zoom to camera position unit vector
-    const float zoomedCameraPos[3] = {
-        sim.wp.camera_pos.x * sim.wp.zoom,
-        sim.wp.camera_pos.y * sim.wp.zoom,
-        sim.wp.camera_pos.z * sim.wp.zoom
+    // camera position = target + direction * zoom (orbits around target)
+    const vec3_f cameraPos = {
+        sim.wp.cam_target.x + sim.wp.camera_pos.x * sim.wp.zoom,
+        sim.wp.cam_target.y + sim.wp.camera_pos.y * sim.wp.zoom,
+        sim.wp.cam_target.z + sim.wp.camera_pos.z * sim.wp.zoom
     };
 
     // create view matrix
-    const mat4 viewMatrix = createViewMatrix_originCentered(zoomedCameraPos);
+    const mat4 viewMatrix = createViewMatrix(cameraPos, sim.wp.cam_target);
 
     // create projection matrix
     const float aspect = sim.wp.window_size_x / sim.wp.window_size_y;
-    const mat4 projMatrix = createProjectionMatrix(3.14159f / 4.0f, aspect, 0.1f, 100000.0f);
+    const mat4 projMatrix = createProjectionMatrix(PI_OVER_4_f, aspect, 0.1f, 100000.0f);
 
     // set matrices in shader
-    setMatrixUniform(shaderProgram, "view", &viewMatrix);
-    setMatrixUniform(shaderProgram, "projection", &projMatrix);
+    GL_setMatrixUniform(shaderProgram, "view", &viewMatrix);
+    GL_setMatrixUniform(shaderProgram, "projection", &projMatrix);
 }
 
 // sphere mesh generation
@@ -239,12 +236,12 @@ sphere_mesh_t generateUnitSphere(const unsigned int stacks, const unsigned int s
 
     // generate vertices for each stack and sector
     for (unsigned int i = 0; i < stacks; ++i) {
-        const float theta1 = (float)i * M_PI_f / (float)stacks;
-        const float theta2 = (float)(i + 1) * M_PI_f / (float)stacks;
+        const float theta1 = (float)i * PI_f / (float)stacks;
+        const float theta2 = (float)(i + 1) * PI_f / (float)stacks;
 
         for (unsigned int j = 0; j < sectors; ++j) {
-            const float phi1 = (float)j * 2.0f * M_PI_f / (float)sectors;
-            const float phi2 = (float)(j + 1) * 2.0f * M_PI_f / (float)sectors;
+            const float phi1 = (float)j * 2.0f * PI_f / (float)sectors;
+            const float phi2 = (float)(j + 1) * 2.0f * PI_f / (float)sectors;
             const float v1_x = cosf(phi1) * sinf(theta1);
             const float v1_y = sinf(phi1) * sinf(theta1);
             const float v1_z = cosf(theta1);
@@ -363,7 +360,7 @@ void renderLines(line_batch_t* batch, const GLuint shader_program) {
     glBindVertexArray(batch->vbo.VAO);
 
     const mat4 identity_mat = mat4_identity();
-    setMatrixUniform(shader_program, "model", &identity_mat);
+    GL_setMatrixUniform(shader_program, "model", &identity_mat);
 
     // draw all lines in one call
     glDrawArrays(GL_LINES, 0, (GLsizei)(batch->count * 2));
@@ -555,7 +552,7 @@ void renderPlanets(const sim_properties_t sim, const GLuint shader_program, cons
         mat4 planet_model = mat4_mul(translate_mat, temp);
 
         // apply matrix and render to screen
-        setMatrixUniform(shader_program, "model", &planet_model);
+        GL_setMatrixUniform(shader_program, "model", &planet_model);
         glDrawArrays(GL_TRIANGLES, 0, sim.wp.planet_model_vertex_count);
     }
 
@@ -575,7 +572,7 @@ void renderPlanets(const sim_properties_t sim, const GLuint shader_program, cons
             const mat4 translate_mat = mat4_translation((float)body->pos.x / SCALE,(float)body->pos.y / SCALE,(float)body->pos.z / SCALE);
             const mat4 temp = mat4_mul(rotation_mat, scale_mat);
             mat4 planet_model = mat4_mul(translate_mat, temp);
-            setMatrixUniform(shader_program, "model", &planet_model);
+            GL_setMatrixUniform(shader_program, "model", &planet_model);
             glDrawArrays(GL_TRIANGLES, 0, sim.wp.planet_model_vertex_count);
         }
         glUniform1i(glGetUniformLocation(shader_program, "useOverride"), 0);
@@ -603,7 +600,7 @@ void renderCrafts(const sim_properties_t sim, const GLuint shader_program, const
         mat4 model = mat4_mul(T, temp);
 
         // apply matrix and render to screen
-        setMatrixUniform(shader_program, "model", &model);
+        GL_setMatrixUniform(shader_program, "model", &model);
         glDrawArrays(GL_TRIANGLES, 0, 48);
     }
 }

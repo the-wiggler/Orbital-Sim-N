@@ -13,6 +13,10 @@
 #endif
 
 typedef struct {
+    float x, y;
+} vec2_f;
+
+typedef struct {
     float x, y, z;
 } vec3_f;
 
@@ -36,6 +40,8 @@ typedef struct {
     // 3D camera
     vec3_f camera_pos;    // camera position in world space (defined by a unit vector, whereas the magnitude is changed by the viewport zoom)
     float zoom;             // zoom level
+    float cam_pitch, cam_yaw;
+    vec3_f cam_target; // should be the world coordinates
 
     volatile bool window_open;
     bool data_logging_enabled;
@@ -48,8 +54,9 @@ typedef struct {
     int planet_model_vertex_count;
     int frame_counter;
 
-    bool is_dragging;
-    float drag_last_x, drag_last_y;
+    bool is_dragging_orbit_view;
+    vec2_f drag_last;
+    bool is_dragging_translation_view; // activating this means you want to edit camera_pos
 
     bool reset_sim;
     bool is_zooming;

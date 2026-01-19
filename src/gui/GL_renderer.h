@@ -19,9 +19,9 @@ VBO_t createVBO(const float* vertices, size_t vertexDataSize);
 void deleteVBO(VBO_t vbo);
 
 // camera helper functions
-mat4 createViewMatrix_originCentered(const float cameraPos[3]);
+mat4 createViewMatrix(vec3_f cameraPos, vec3_f target);
 mat4 createProjectionMatrix(float fov, float aspect, float near, float far);
-void setMatrixUniform(GLuint shaderProgram, const char* name, const mat4* matrix);
+void GL_setMatrixUniform(GLuint shaderProgram, const char* name, const mat4* matrix);
 void castCamera(sim_properties_t sim, GLuint shaderProgram);
 
 // drawing functions

@@ -47,6 +47,9 @@ static inline vec3 vec3_add(const vec3 a, const vec3 b) {
 static inline vec3 vec3_sub(const vec3 a, const vec3 b) {
     return (vec3){a.x - b.x, a.y - b.y, a.z - b.z};
 }
+static inline vec3_f vec3_f_sub(const vec3_f a, const vec3_f b) {
+    return (vec3_f){a.x - b.x, a.y - b.y, a.z - b.z};
+}
 
 // change magnitude of a vector
 static inline vec3 vec3_scale(const vec3 v, const double s) {
@@ -72,10 +75,16 @@ static inline vec3 vec3_scalar_div(const vec3 a, const double s) {
 static inline double vec3_mag_sq(const vec3 v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
+static inline float vec3_f_mag_sq(const vec3_f v) {
+    return v.x * v.x + v.y * v.y + v.z * v.z;
+}
 
 // magnitude of vector
 static inline double vec3_mag(const vec3 v) {
     return sqrt(vec3_mag_sq(v));
+}
+static inline float vec3_f_mag(const vec3_f v) {
+    return sqrtf(vec3_f_mag_sq(v));
 }
 
 // normalize
@@ -85,6 +94,27 @@ static inline vec3 vec3_normalize(const vec3 v) {
         return vec3_scale(v, 1.0 / mag);
     }
     return v;
+}
+static inline vec3_f vec3_f_normalize(const vec3_f v) {
+    const float mag = vec3_f_mag(v);
+    if (mag > 0.0f) {
+        return (vec3_f){v.x / mag, v.y / mag, v.z / mag};
+    }
+    return v;
+}
+
+// cross product for vec3_f
+static inline vec3_f vec3_f_cross(const vec3_f a, const vec3_f b) {
+    return (vec3_f){
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+}
+
+// dot product for vec3_f
+static inline float vec3_f_dot(const vec3_f a, const vec3_f b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
 // creates an identity matrix
