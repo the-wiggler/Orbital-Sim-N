@@ -13,7 +13,7 @@ jobs:
       matrix:
         config:
           - os: windows-latest
-            artifact: windows-x64-clang
+            artifact: windows-x64-msvc
           - os: macos-15-intel
             artifact: macos-intel
           - os: macos-15
@@ -61,11 +61,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y rpm fakeroot devscripts rpm2cpio
-        
-    - name: Setup Clang (Windows)
-      if: matrix.config.os == 'windows-latest'
-      run: |
-        choco install llvm ninja -y
 
     - name: Build project (Windows)
       if: matrix.config.os == 'windows-latest'
@@ -74,16 +69,9 @@ jobs:
         mkdir build
         cd build
         conan profile detect --force
-        echo [settings] > clang_profile
-        echo arch=x86_64 >> clang_profile
-        echo build_type=Release >> clang_profile
-        echo compiler=clang >> clang_profile
-        echo compiler.cppstd=17 >> clang_profile
-        echo compiler.version=18 >> clang_profile
-        echo os=Windows >> clang_profile
-        conan install .. --profile=clang_profile --build=missing -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
-        cmake .. -G "Ninja" -DCMAKE_C_COMPILER="C:/Program Files/LLVM/bin/clang.exe" -DCMAKE_CXX_COMPILER="C:/Program Files/LLVM/bin/clang++.exe" -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-        cmake --build . --parallel
+        conan install .. --build=missing -s build_type=Release -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=generators\conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+        cmake --build . --config Release --parallel
 
     - name: Build project (Unix/macOS)
       if: matrix.config.os != 'windows-latest'
@@ -166,7 +154,7 @@ jobs:
         mv ubuntu-generic/build/OrbitSimulation-ubuntu-generic.tar.gz ubuntu-generic/build/OrbitSimulation-Linux-x86_64.tar.gz || true
         mv ubuntu-deb/OrbitSimulation-ubuntu-deb.deb ubuntu-deb/OrbitSimulation-Linux-x86_64.deb || true
         mv ubuntu-rpm/OrbitSimulation-ubuntu-rpm.rpm ubuntu-rpm/OrbitSimulation-Linux-x86_64.rpm || true
-        mv windows-x64-clang/build/OrbitSimulation-windows-x64-clang.zip windows-x64-clang/build/OrbitSimulation-Windows-x86_64.zip || true
+        mv windows-x64-msvc/build/OrbitSimulation-windows-x64-msvc.zip windows-x64-msvc/build/OrbitSimulation-Windows-x86_64.zip || true
 
     - name: Update Nightly Release
       uses: andelf/nightly-release@main
