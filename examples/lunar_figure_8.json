@@ -65,7 +65,7 @@
           "throttle": 1.0
         },
         {
-          "burn_target": "Moon",
+          "burn_target": "Earth",
           "burn_type": "tangent",
           "start_time": 189648.0,
           "duration": 30.0,

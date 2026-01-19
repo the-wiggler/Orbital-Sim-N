@@ -137,6 +137,17 @@ void runCalculations(sim_properties_t* sim) {
                     craft_calculateGravForce(sim, i, j);
                 }
 
+                // check if spacecraft has exited its current SOI
+                if (craft->SOI_planet_id > 0 && craft->SOI_planet_id < gb->count) {
+                    const body_t* soi_body = &gb->bodies[craft->SOI_planet_id];
+                    const vec3 delta = vec3_sub(soi_body->pos, craft->pos);
+                    const double dist = vec3_mag(delta);
+                    if (dist > soi_body->SOI_radius) {
+                        // exited SOI, fall back to the closest body
+                        craft->SOI_planet_id = craft->closest_planet_id;
+                    }
+                }
+
                 // apply thrust and consume fuel
                 craft_applyThrust(craft);
                 craft_consumeFuel(craft, wp->time_step);

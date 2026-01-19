@@ -186,7 +186,7 @@ static void handleMouseMotionEvent(const SDL_Event* event, sim_properties_t* sim
         const vec3_f forward_xy = vec3_f_normalize((vec3_f){-wp->camera_pos.x, -wp->camera_pos.y, 0.0f});
 
         // scale movement by zoom level
-        const float sensitivity = 0.002f * wp->zoom;
+        const float sensitivity = 0.001f * wp->zoom;
 
         // move target in XY plane
         wp->cam_target.x -= right.x * delta_x * sensitivity - forward_xy.x * delta_y * sensitivity;

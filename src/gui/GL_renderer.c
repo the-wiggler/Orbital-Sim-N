@@ -657,22 +657,26 @@ void renderStats(const sim_properties_t sim, font_t* font) {
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Semi Major Axis: %.4g", sim.gs.spacecraft[i].semi_major_axis);
+        snprintf(text_buffer, sizeof(text_buffer), "Semi Major Axis: %.4g m", sim.gs.spacecraft[i].semi_major_axis);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
         snprintf(text_buffer, sizeof(text_buffer), "Eccentricity: %.6f", sim.gs.spacecraft[i].eccentricity);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Inclination: %.4f", sim.gs.spacecraft[i].inclination);
+        snprintf(text_buffer, sizeof(text_buffer), "Inclination: %.4f rad", sim.gs.spacecraft[i].inclination);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Ascending Node: %.4f", sim.gs.spacecraft[i].ascending_node);
+        snprintf(text_buffer, sizeof(text_buffer), "Ascending Node: %.4f rad", sim.gs.spacecraft[i].ascending_node);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Arg of Periapsis: %.4f", sim.gs.spacecraft[i].arg_periapsis);
+        snprintf(text_buffer, sizeof(text_buffer), "Arg of Periapsis: %.4f rad", sim.gs.spacecraft[i].arg_periapsis);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4f", sim.gs.spacecraft[i].true_anomaly);
+        snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4f rad", sim.gs.spacecraft[i].true_anomaly);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        cursor_pos[1] += line_height;
+
+        snprintf(text_buffer, sizeof(text_buffer), "Fuel: %.1f kg", sim.gs.spacecraft[i].fuel_mass);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
 

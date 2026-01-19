@@ -35,7 +35,7 @@
   ],
   "spacecraft": [
     {
-      "name": "Apollo Test Craft",
+      "name": "Craft 1",
 
       "position_relative_to": "Earth",
       "pos_x": 6671000.0,
@@ -59,16 +59,16 @@
         {
           "burn_target": "Earth",
           "burn_type": "tangent",
-          "start_time": 3300.0,
-          "duration": 325.0,
+          "start_time": 3320.0,
+          "duration": 323.0,
           "heading": 0.0,
           "throttle": 1.0
         },
         {
           "burn_target": "Moon",
           "burn_type": "tangent",
-          "start_time": 189648.0,
-          "duration": 30.0,
+          "start_time": 219780.0,
+          "duration": 100.0,
           "heading": 3.141593,
           "throttle": 1.0
         }
