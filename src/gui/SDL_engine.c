@@ -271,6 +271,10 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
             sim->wp.draw_lines_between_bodies = true;
             sprintf(console->log, "enabled guidance lines");
         }
+        else if (strcmp(argument, "export") == 0) {
+            sim->wp.data_logging_enabled = true;
+            sprintf(console->log, "enabled telemetry export");
+        }
         else sprintf(console->log, "unknown argument after command: %s", argument);
     }
     else if (strncmp(cmd, "disable ", 8) == 0) {
@@ -278,6 +282,10 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
         if (strcmp(argument, "guidance-lines") == 0) {
             sim->wp.draw_lines_between_bodies = false;
             sprintf(console->log, "disabled guidance lines");
+        }
+        else if (strcmp(argument, "export") == 0) {
+            sim->wp.data_logging_enabled = false;
+            sprintf(console->log, "disabled telemetry export");
         }
         else sprintf(console->log, "unknown argument after disable: %s", argument);
     }

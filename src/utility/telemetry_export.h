@@ -7,6 +7,7 @@
 
 #include "../types.h"
 
-void exportTelemetryBinary(binary_filenames_t filenames, const sim_properties_t* sim);
+void exportTelemetryCSV(binary_filenames_t filenames, sim_properties_t sim);
+void writeCSVHeader(FILE* file);
 
 #endif //ORBITSIMULATION_TELEMETRY_EXPORT_H

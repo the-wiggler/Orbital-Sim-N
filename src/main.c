@@ -84,10 +84,11 @@ int main(int argc, char *argv[]) {
         .wp = {0}
     };
 
-    // binary file creation
+    // CSV file creation
     binary_filenames_t filenames = {
-        .global_data_FILE = fopen("global_data.bin", "wb")
+        .global_data_FILE = fopen("global_data.csv", "w")
     };
+    writeCSVHeader(filenames.global_data_FILE);
 
 #ifdef __linux__
     // force X11 on Linux (fixes SDL text input issues on wayland)
@@ -227,11 +228,7 @@ int main(int argc, char *argv[]) {
 
         // log data
         if (sim.wp.data_logging_enabled) {
-            mutex_lock(&sim_mutex);
-
-            exportTelemetryBinary(filenames, &sim);
-
-            mutex_unlock(&sim_mutex);
+            exportTelemetryCSV(filenames, sim_copy);
         }
 
         // check if sim needs to be reset

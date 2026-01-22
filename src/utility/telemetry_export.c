@@ -5,26 +5,28 @@
 #include "telemetry_export.h"
 #include <stdio.h>
 
-void exportTelemetryBinary(const binary_filenames_t filenames, const sim_properties_t* sim) {
-    const body_properties_t* gb = &sim->gb;
-    const window_params_t* wp = &sim->wp;
+void writeCSVHeader(FILE* file) {
+    fprintf(file, "timestamp,body_index,pos_x,pos_y,vel_x,vel_y,acc_x,acc_y,force_x,force_y\n");
+}
 
-    // write body position data to the .bin file if enabled
+void exportTelemetryCSV(const binary_filenames_t filenames, const sim_properties_t sim) {
+    const body_properties_t* gb = &sim.gb;
+    const window_params_t* wp = &sim.wp;
+
+    // write body position data to the CSV file
     for (int i = 0; i < gb->count; i++) {
         const body_t* body = &gb->bodies[i];
 
-        global_data_t gd;
-        gd.timestamp = wp->sim_time;
-        gd.body_index = i;
-        gd.pos_data_x = body->pos.x;
-        gd.pos_data_y = body->pos.y;
-        gd.vel_data_x = body->vel.x;
-        gd.vel_data_y = body->vel.y;
-        gd.acc_data_x = body->acc.x;
-        gd.acc_data_y = body->acc.y;
-        gd.force_data_x = body->force.x;
-        gd.force_data_y = body->force.y;
-
-        fwrite(&gd, sizeof(gd), 1, filenames.global_data_FILE);
+        fprintf(filenames.global_data_FILE, "%f,%d,%f,%f,%f,%f,%f,%f,%f,%f\n",
+                wp->sim_time,
+                i,
+                body->pos.x,
+                body->pos.y,
+                body->vel.x,
+                body->vel.y,
+                body->acc.x,
+                body->acc.y,
+                body->force.x,
+                body->force.y);
     }
 }
