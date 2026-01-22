@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 
     // CSV file creation
     binary_filenames_t filenames = {
-        .global_data_FILE = fopen("global_data.csv", "w")
+        .global_data_FILE = fopen("osn_telem.csv", "w")
     };
     writeCSVHeader(filenames.global_data_FILE);
 
@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
         ////////////////////////////////////////////////////////
 
         // log data
-        if (sim.wp.data_logging_enabled) {
+        if (sim.wp.data_logging_enabled && sim.wp.sim_running) {
             exportTelemetryCSV(filenames, sim_copy);
         }
 

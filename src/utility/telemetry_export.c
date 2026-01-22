@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 void writeCSVHeader(FILE* file) {
-    fprintf(file, "timestamp,body_name,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,craft_name,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z\n");
+    fprintf(file, "timestamp,body_name,planet_x,planet_y,planet_z,planet_vx,planet_vy,planet_vz,craft_name,craft_x,craft_y,craft_z,craft_vx,craft_vy,craft_vz\n");
 }
 
 void exportTelemetryCSV(const binary_filenames_t filenames, const sim_properties_t sim) {
