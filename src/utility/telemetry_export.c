@@ -6,27 +6,41 @@
 #include <stdio.h>
 
 void writeCSVHeader(FILE* file) {
-    fprintf(file, "timestamp,body_index,pos_x,pos_y,vel_x,vel_y,acc_x,acc_y,force_x,force_y\n");
+    fprintf(file, "timestamp,body_name,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,craft_name,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z\n");
 }
 
 void exportTelemetryCSV(const binary_filenames_t filenames, const sim_properties_t sim) {
     const body_properties_t* gb = &sim.gb;
+    const spacecraft_properties_t* gs = &sim.gs;
     const window_params_t* wp = &sim.wp;
 
-    // write body position data to the CSV file
-    for (int i = 0; i < gb->count; i++) {
-        const body_t* body = &gb->bodies[i];
+    // we choose to iterate over the max of body count and spacecraft count
+    int max_count = gb->count > gs->count ? gb->count : gs->count;
 
-        fprintf(filenames.global_data_FILE, "%f,%d,%f,%f,%f,%f,%f,%f,%f,%f\n",
-                wp->sim_time,
-                i,
-                body->pos.x,
-                body->pos.y,
-                body->vel.x,
-                body->vel.y,
-                body->acc.x,
-                body->acc.y,
-                body->force.x,
-                body->force.y);
+    for (int i = 0; i < max_count; i++) {
+        // write timestamp
+        fprintf(filenames.global_data_FILE, "%f,", wp->sim_time);
+
+        // write body data
+        if (i < gb->count) {
+            const body_t* body = &gb->bodies[i];
+            fprintf(filenames.global_data_FILE, "%s,%f,%f,%f,%f,%f,%f,",
+                    body->name,
+                    body->pos.x, body->pos.y, body->pos.z,
+                    body->vel.x, body->vel.y, body->vel.z);
+        } else {
+            fprintf(filenames.global_data_FILE, ",,,,,,,");
+        }
+
+        // write craft data
+        if (i < gs->count) {
+            const spacecraft_t* craft = &gs->spacecraft[i];
+            fprintf(filenames.global_data_FILE, "%s,%f,%f,%f,%f,%f,%f\n",
+                    craft->name,
+                    craft->pos.x, craft->pos.y, craft->pos.z,
+                    craft->vel.x, craft->vel.y, craft->vel.z);
+        } else {
+            fprintf(filenames.global_data_FILE, ",,,,,,\n");
+        }
     }
 }
