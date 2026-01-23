@@ -89,6 +89,10 @@ void resetSim(sim_properties_t* sim) {
     }
 }
 
+
+// probably the most important function in the entire program lol. This is responsible for updating the position of literally
+// every single planet each time step. It uses a method called Velocity Verlet Integration.
+// https://en.wikipedia.org/wiki/Verlet_integration#Velocity_Verlet
 void runCalculations(sim_properties_t* sim) {
     const body_properties_t* gb = &sim->gb;
     const spacecraft_properties_t* sc = &sim->gs;
@@ -99,31 +103,63 @@ void runCalculations(sim_properties_t* sim) {
         // calculate forces between all body pairs
         ////////////////////////////////////////////////////////////////
         if (gb->bodies != NULL && gb->count > 0) {
-            // reset forces to zero
+            const double dt = wp->time_step;
+
+            // Step 1: update all positions
+            // x(t + Δt) = x(t) + v(t) * Δt + 0.5 * a(t) * Δt^2
+            for (int i = 0; i < gb->count; i++) {
+                body_t* body = &gb->bodies[i];
+                const vec3 pos_delta = vec3_add(
+                    vec3_scale(body->vel, dt),
+                    vec3_scale(body->acc, 0.5 * dt * dt)
+                );
+                body->pos = vec3_add(body->pos, pos_delta);
+                body->acc_prev = body->acc;
+            }
+
+            // Step 2: calculate all forces using new positions
             for (int i = 0; i < gb->count; i++) {
                 gb->bodies[i].force = vec3_zero();
             }
-
-            // calculate gravitational forces between all body pairs
             for (int i = 0; i < gb->count; i++) {
                 for (int j = i + 1; j < gb->count; j++) {
                     body_calculateGravForce(sim, i, j);
                 }
             }
 
-            // calculate kinetic energy and update motion for each body
+            // Step 3: update accelerations and velocities
+            // v(t + Δt) = v(t) + 0.5 * (a(t) + a(t + Δt)) * Δt
             for (int i = 0; i < gb->count; i++) {
                 body_t* body = &gb->bodies[i];
+                body->acc = vec3_scale(body->force, 1.0 / body->mass);
+                const vec3 avg_acc = vec3_add(body->acc_prev, body->acc);
+                body->vel = vec3_add(body->vel, vec3_scale(avg_acc, 0.5 * dt));
+                body->vel_mag = vec3_mag(body->vel);
+
                 body_calculateKineticEnergy(body);
-                body_updateMotion(body, wp->time_step);
-                body_updateRotation(body, wp->time_step);
+                body_updateRotation(body, dt);
             }
         }
 
         ////////////////////////////////////////////////////////////////
-        // calculate forces between spacecraft and bodies
+        // calculate forces between spacecraft and bodies :)
         ////////////////////////////////////////////////////////////////
         if (sc->spacecraft != NULL && sc->count > 0 && gb->bodies != NULL && gb->count > 0) {
+            const double dt = wp->time_step;
+
+            // Step 1: update all spacecraft positions
+            // x(t + Δt) = x(t) + v(t) * Δt + 0.5 * a(t) * Δt^2
+            for (int i = 0; i < sc->count; i++) {
+                spacecraft_t* craft = &sc->spacecraft[i];
+                const vec3 pos_delta = vec3_add(
+                    vec3_scale(craft->vel, dt),
+                    vec3_scale(craft->acc, 0.5 * dt * dt)
+                );
+                craft->pos = vec3_add(craft->pos, pos_delta);
+                craft->acc_prev = craft->acc;
+            }
+
+            // Step 2: calculate all forces using new positions
             for (int i = 0; i < sc->count; i++) {
                 spacecraft_t* craft = &sc->spacecraft[i];
                 craft->grav_force = vec3_zero();
@@ -150,13 +186,17 @@ void runCalculations(sim_properties_t* sim) {
 
                 // apply thrust and consume fuel
                 craft_applyThrust(craft);
-                craft_consumeFuel(craft, wp->time_step);
+                craft_consumeFuel(craft, dt);
             }
 
-            // update motion and orbital elements for each craft
+            // Step 3: update accelerations and velocities
+            // v(t + Δt) = v(t) + 0.5 * (a(t) + a(t + Δt)) * Δt
             for (int i = 0; i < sc->count; i++) {
                 spacecraft_t* craft = &sc->spacecraft[i];
-                craft_updateMotion(craft, wp->time_step);
+                craft->acc = vec3_scale(craft->grav_force, 1.0 / craft->current_total_mass);
+                const vec3 avg_acc = vec3_add(craft->acc_prev, craft->acc);
+                craft->vel = vec3_add(craft->vel, vec3_scale(avg_acc, 0.5 * dt));
+                craft->vel_mag = vec3_mag(craft->vel);
 
                 // calculate orbital elements relative to the SOI body (or closest body)
                 if (craft->SOI_planet_id >= 0 && craft->SOI_planet_id < gb->count) {

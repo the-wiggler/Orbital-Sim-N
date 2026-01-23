@@ -240,25 +240,6 @@ void craft_consumeFuel(spacecraft_t* craft, const double dt) {
     }
 }
 
-// updates the motion of the spacecraft using velocity verlet integration
-void craft_updateMotion(spacecraft_t* craft, const double dt) {
-    // calculate the current acceleration from the force
-    craft->acc = vec3_scale(craft->grav_force, 1.0 / craft->current_total_mass);
-
-    // update position using current velocity and acceleration
-    const vec3 vel_term = vec3_scale(craft->vel, dt);
-    const vec3 acc_term = vec3_scale(craft->acc, 0.5 * dt * dt);
-    craft->pos = vec3_add(craft->pos, vec3_add(vel_term, acc_term));
-
-    // update velocity using average of current and previous acceleration
-    const vec3 avg_acc = vec3_scale(vec3_add(craft->acc, craft->acc_prev), 0.5);
-    craft->vel = vec3_add(craft->vel, vec3_scale(avg_acc, dt));
-    craft->vel_mag = vec3_mag(craft->vel);
-
-    // store current acceleration for next iteration
-    craft->acc_prev = craft->acc;
-}
-
 // adds a spacecraft to the spacecraft array
 void craft_addSpacecraft(spacecraft_properties_t* gs, const char* name,
                         const vec3 pos, const vec3 vel,

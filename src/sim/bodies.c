@@ -10,21 +10,21 @@ void displayError(const char* title, const char* message);
 
 // calculates gravitational force between two bodies and applies it to both
 // i is the body that has the force applied to it, whilst j is the body applying force to i
-void body_calculateGravForce(sim_properties_t* sim, const int i, const int j) {
-    body_t* bi = &sim->gb.bodies[i];
-    body_t* bj = &sim->gb.bodies[j];
+void body_calculateGravForce(sim_properties_t* sim, const int force_recipient, const int force_applier) {
+    body_t* recipient_body = &sim->gb.bodies[force_recipient]; // the body recieving the applied force
+    body_t* application_body = &sim->gb.bodies[force_applier]; // the body applying the force
 
     // calculate the distance between the two bodies
-    const vec3 delta_pos = vec3_sub(bj->pos, bi->pos);
+    const vec3 delta_pos = vec3_sub(application_body->pos, recipient_body->pos);
     const double r_squared = vec3_mag_sq(delta_pos);
 
     // planet collision logic -- checks if planets are too close
-    const double radius_squared = bi->radius * bi->radius;
+    const double radius_squared = recipient_body->radius * recipient_body->radius;
     if (r_squared < radius_squared) {
         sim->wp.sim_running = false;
         sim->wp.reset_sim = true;
         char err_txt[128];
-        snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", bi->name, bj->name);
+        snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", recipient_body->name, application_body->name);
         displayError("PLANET COLLISION", err_txt);
         return;
     }
@@ -32,33 +32,13 @@ void body_calculateGravForce(sim_properties_t* sim, const int i, const int j) {
     // force = (G * m1 * m2) * delta / r^3
     const double r = sqrt(r_squared);
     const double r_cubed = r_squared * r;
-    const double force_factor = (G * bi->mass * bj->mass) / r_cubed;
+    const double force_factor = (G * recipient_body->mass * application_body->mass) / r_cubed;
 
     const vec3 force = vec3_scale(delta_pos, force_factor);
 
     // applies force to both bodies (Newton's third law)
-    bi->force = vec3_add(bi->force, force);
-    bj->force = vec3_sub(bj->force, force);
-}
-
-// calculates changes of velocity and position based on force values
-// uses velocity verlet integration
-void body_updateMotion(body_t* body, const double dt) {
-    // calculate the current acceleration from the force on the object
-    body->acc = vec3_scale(body->force, 1.0 / body->mass);
-
-    // update position using current velocity and acceleration
-    const vec3 vel_term = vec3_scale(body->vel, dt);
-    const vec3 acc_term = vec3_scale(body->acc, 0.5 * dt * dt);
-    body->pos = vec3_add(body->pos, vec3_add(vel_term, acc_term));
-
-    // update velocity using average of current and previous acceleration
-    const vec3 avg_acc = vec3_scale(vec3_add(body->acc, body->acc_prev), 0.5);
-    body->vel = vec3_add(body->vel, vec3_scale(avg_acc, dt));
-    body->vel_mag = vec3_mag(body->vel);
-
-    // store current acceleration for next iteration
-    body->acc_prev = body->acc;
+    recipient_body->force = vec3_add(recipient_body->force, force);
+    application_body->force = vec3_sub(application_body->force, force);
 }
 
 // calculates the kinetic energy of a target body

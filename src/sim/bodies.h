@@ -3,8 +3,7 @@
 
 #include "../types.h"
 
-void body_calculateGravForce(sim_properties_t* sim, int i, int j);
-void body_updateMotion(body_t* body, double dt);
+void body_calculateGravForce(sim_properties_t* sim, int force_recipient, int force_applier);
 void body_updateRotation(body_t* body, double dt);
 void body_calculateKineticEnergy(body_t* body);
 void body_calculateSOI(const body_properties_t* gb);
