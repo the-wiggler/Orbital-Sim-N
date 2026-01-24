@@ -13,7 +13,7 @@ jobs:
       matrix:
         config:
           - os: windows-latest
-            artifact: windows-x64-msvc
+            artifact: windows-x64-clang
           - os: macos-15-intel
             artifact: macos-intel
           - os: macos-15
@@ -69,8 +69,8 @@ jobs:
         mkdir build
         cd build
         conan profile detect --force
-        conan install .. --build=missing -s build_type=Release -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=generators\conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+        conan install .. --build=missing -s build_type=Release -s compiler=clang -s compiler.version=18 -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=generators\conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
         cmake --build . --config Release --parallel
 
     - name: Build project (Unix/macOS)
@@ -154,7 +154,7 @@ jobs:
         mv ubuntu-generic/build/OrbitSimulation-ubuntu-generic.tar.gz ubuntu-generic/build/OrbitSimulation-Linux-x86_64.tar.gz || true
         mv ubuntu-deb/OrbitSimulation-ubuntu-deb.deb ubuntu-deb/OrbitSimulation-Linux-x86_64.deb || true
         mv ubuntu-rpm/OrbitSimulation-ubuntu-rpm.rpm ubuntu-rpm/OrbitSimulation-Linux-x86_64.rpm || true
-        mv windows-x64-msvc/build/OrbitSimulation-windows-x64-msvc.zip windows-x64-msvc/build/OrbitSimulation-Windows-x86_64.zip || true
+        mv windows-x64-clang/build/OrbitSimulation-windows-x64-clang.zip windows-x64-clang/build/OrbitSimulation-Windows-x86_64.zip || true
 
     - name: Update Nightly Release
       uses: andelf/nightly-release@main
@@ -171,10 +171,10 @@ jobs:
           
           **For the packaged artifacts** the `simulation_data.json` is provided separately as it needs to be in the working directory where the executable is called.
         files: |
-          windows-x64-msvc/build/OrbitSimulation-Windows-x86_64.zip
+          windows-x64-clang/build/OrbitSimulation-Windows-x86_64.zip
           macos-intel/build/OrbitSimulation-macOS-Intel-x86_64.tar.gz
           macos-arm64/build/OrbitSimulation-macOS-Apple-Silicon.tar.gz
           ubuntu-generic/build/OrbitSimulation-Linux-x86_64.tar.gz
           ubuntu-deb/OrbitSimulation-Linux-x86_64.deb
           ubuntu-rpm/OrbitSimulation-Linux-x86_64.rpm
-          windows-x64-msvc/simulation_data.json
+          windows-x64-clang/simulation_data.json
