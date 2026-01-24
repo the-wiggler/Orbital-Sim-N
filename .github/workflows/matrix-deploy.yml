@@ -70,8 +70,8 @@ jobs:
         cd build
         conan profile detect --force
         conan install .. --build=missing -s build_type=Release -s compiler=clang -s compiler.version=18 -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=generators\conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-        cmake --build . --config Release --parallel
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=Release\generators\conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+        cmake --build . --parallel
 
     - name: Build project (Unix/macOS)
       if: matrix.config.os != 'windows-latest'
