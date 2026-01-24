@@ -167,6 +167,7 @@ typedef struct {
     double ascending_node; // rad
     double arg_periapsis; // rad
     double true_anomaly; // rad
+    double specific_E; // specific energy
 
     int num_burns;
     burn_properties_t* burn_properties;

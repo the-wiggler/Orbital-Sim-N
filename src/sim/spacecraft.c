@@ -24,10 +24,10 @@ void craft_calculateOrbitalElements(spacecraft_t* craft, const body_t* body) {
     const vec3 term1     = vec3_scalar_div(vec3_cross(c_vel, c_h), mu); // first term of e_vec
     const vec3 term2     = vec3_scalar_div(c_pos, c_r); // second term of e_vec
     const vec3 e_vec     = vec3_sub(term1, term2); // eccentricity vector
-    const double sE      = ((c_speed * c_speed) / 2) - (mu / c_r); // specific orbital energy
+    craft->specific_E    = ((c_speed * c_speed) / 2) - (mu / c_r); // specific orbital energy
 
     // orbital elements
-    craft->semi_major_axis = -1.0 * (mu / (2 * sE));
+    craft->semi_major_axis = -1.0 * (mu / (2 * craft->specific_E));
     craft->eccentricity = vec3_mag(e_vec);
 
     const double h_mag = vec3_mag(c_h);

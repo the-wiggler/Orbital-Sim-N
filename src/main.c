@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
     VBO_t sphere_buffer = createVBO(sphere_mesh.vertices, sphere_mesh.data_size);
     sim.wp.planet_model_vertex_count = (int)sphere_mesh.vertex_count; // I couldn't think of a better way to do this ngl
 
-    // create batch to hold all the line geometries we would ever want to draw!
+    // create batch to hold all the line geometries we would ever want to draw
     line_batch_t line_batch = createLineBatch(PATH_CAPACITY * MAX_PLANETS + 100);
 
     // planet path tracking

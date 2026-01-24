@@ -213,7 +213,7 @@ void castCamera(const sim_properties_t sim, const GLuint shaderProgram) {
 
     // create projection matrix
     const float aspect = sim.wp.window_size_x / sim.wp.window_size_y;
-    const mat4 projMatrix = createProjectionMatrix(PI_OVER_4_f, aspect, 0.1f, 100000.0f);
+    const mat4 projMatrix = createProjectionMatrix(PI_OVER_4_f, aspect, 0.1f, 1000000000.0f);
 
     // set matrices in shader
     GL_setMatrixUniform(shaderProgram, "view", &viewMatrix);
@@ -675,6 +675,9 @@ void renderStats(const sim_properties_t sim, font_t* font) {
         snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4f rad", sim.gs.spacecraft[i].true_anomaly);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "Specific Energy: %.4f J", sim.gs.spacecraft[i].specific_E);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        cursor_pos[1] += line_height * 1.5f;
 
         snprintf(text_buffer, sizeof(text_buffer), "Fuel: %.1f kg", sim.gs.spacecraft[i].fuel_mass);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);

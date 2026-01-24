@@ -335,6 +335,9 @@ static void handleWindowResizeEvent(const SDL_Event* event, sim_properties_t* si
 
     console->cmd_pos_x = 0.02f * wp->window_size_x;
     console->cmd_pos_y = wp->window_size_y - 0.1f * wp->window_size_y;
+
+    console->log_pos_x = console->cmd_pos_x;
+    console->log_pos_y = console->cmd_pos_y + 0.05f * wp->window_size_y;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
