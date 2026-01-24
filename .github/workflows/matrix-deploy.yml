@@ -76,8 +76,8 @@ jobs:
         mkdir build
         cd build
         conan profile detect --force
-        conan install .. --build=missing -s build_type=Release -s compiler=clang -s compiler.version=18 -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
-        cmake .. -G "MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE=Release\generators\conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+        conan install .. --build=missing -s build_type=Release -s compiler=clang -s compiler.version=18 -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True -c "tools.build:compiler_executables={'rc': 'windres'}"
+        cmake .. -G "MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE=Release\generators\conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_RC_COMPILER=windres
         cmake --build . --parallel
 
     - name: Build project (Unix/macOS)
