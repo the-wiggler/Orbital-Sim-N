@@ -105,15 +105,20 @@ jobs:
       if: matrix.config.os == 'windows-latest'
       shell: powershell
       run: |
-        cd build/Release
+        cd build
         $binary = (Get-ChildItem -Filter "OrbitSimulation*.exe" | Select-Object -First 1).Name
         if (-not $binary) {
           Write-Error "No OrbitSimulation executable found"
           Get-ChildItem
           exit 1
         }
-        cp ../../data/simulation_data.json .
-        Compress-Archive -Path $binary, ../../shaders, ../../assets, simulation_data.json, SDL3*.dll -DestinationPath "../OrbitSimulation-${{ matrix.config.artifact }}.zip" -Force
+        cp ../data/simulation_data.json .
+        # Find SDL3.dll from Conan package and copy it
+        $sdlDll = Get-ChildItem -Path "$env:USERPROFILE\.conan2" -Recurse -Filter "SDL3.dll" | Select-Object -First 1
+        if ($sdlDll) {
+          cp $sdlDll.FullName .
+        }
+        Compress-Archive -Path $binary, ../shaders, ../assets, simulation_data.json, SDL3.dll -DestinationPath "OrbitSimulation-${{ matrix.config.artifact }}.zip" -Force
 
     - name: Zip artifacts (Unix/macOS)
       if: matrix.config.os != 'windows-latest' && !matrix.config.package
@@ -170,7 +175,7 @@ jobs:
         mv ubuntu-generic/build/OrbitSimulation-ubuntu-generic.tar.gz ubuntu-generic/build/OrbitSimulation-Linux-x86_64.tar.gz || true
         mv ubuntu-deb/OrbitSimulation-ubuntu-deb.deb ubuntu-deb/OrbitSimulation-Linux-x86_64.deb || true
         mv ubuntu-rpm/OrbitSimulation-ubuntu-rpm.rpm ubuntu-rpm/OrbitSimulation-Linux-x86_64.rpm || true
-        mv windows-x64-clang/build/OrbitSimulation-windows-x64-clang.zip windows-x64-clang/build/OrbitSimulation-Windows-x86_64.zip || true
+        mv windows-x64-clang/build/OrbitSimulation-windows-x64-clang.zip windows-x64-clang/OrbitSimulation-Windows-x86_64.zip 2>/dev/null || true
 
     - name: Update Nightly Release
       uses: andelf/nightly-release@main
@@ -187,7 +192,7 @@ jobs:
           
           **For the packaged artifacts** the `simulation_data.json` is provided separately as it needs to be in the working directory where the executable is called.
         files: |
-          windows-x64-clang/build/OrbitSimulation-Windows-x86_64.zip
+          windows-x64-clang/OrbitSimulation-Windows-x86_64.zip
           macos-intel/build/OrbitSimulation-macOS-Intel-x86_64.tar.gz
           macos-arm64/build/OrbitSimulation-macOS-Apple-Silicon.tar.gz
           ubuntu-generic/build/OrbitSimulation-Linux-x86_64.tar.gz
