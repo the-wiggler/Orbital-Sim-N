@@ -106,7 +106,12 @@ jobs:
       shell: powershell
       run: |
         cd build/Release
-        $binary = Get-ChildItem -Name "OrbitSimulation*" -Include *.exe | Select-Object -First 1
+        $binary = (Get-ChildItem -Filter "OrbitSimulation*.exe" | Select-Object -First 1).Name
+        if (-not $binary) {
+          Write-Error "No OrbitSimulation executable found"
+          Get-ChildItem
+          exit 1
+        }
         cp ../../data/simulation_data.json .
         Compress-Archive -Path $binary, ../../shaders, ../../assets, simulation_data.json, SDL3*.dll -DestinationPath "../OrbitSimulation-${{ matrix.config.artifact }}.zip" -Force
 
