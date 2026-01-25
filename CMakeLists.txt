@@ -3,6 +3,19 @@ cmake_minimum_required(VERSION 3.20)
 # Project definition
 project(OrbitSimulation C)
 
+###################################################################################
+# BUILD OPTIONS:
+# - ENABLE_GUI (default: ON) - Build with graphical interface
+#
+# To build headless (command-line only):
+#   cmake -DENABLE_GUI=OFF ..
+#   make
+#
+# To build with GUI (default):
+#   cmake ..
+#   make
+###################################################################################
+
 # C Standard
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -14,9 +27,13 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
+# --- 1. BUILD OPTIONS ---
+# Option to enable/disable GUI (default: enabled)
+option(ENABLE_GUI "Build with GUI support" ON)
+
 # Find required packages
 # Note: On Linux, ensure these are installed via package manager or built from source
-# --- 1. FIND PACKAGES ---
+# --- 2. FIND PACKAGES ---
 if(APPLE)
     # Try common Homebrew installation paths
     if(EXISTS "/opt/homebrew")
@@ -28,12 +45,15 @@ if(APPLE)
     endif()
 endif()
 
-find_package(SDL3 CONFIG REQUIRED)
 find_package(cJSON CONFIG REQUIRED)
 
-if(NOT EMSCRIPTEN)
-    find_package(OpenGL REQUIRED)
-    find_package(GLEW REQUIRED)
+# Only require GUI dependencies if GUI is enabled
+if(ENABLE_GUI)
+    find_package(SDL3 CONFIG REQUIRED)
+    if(NOT EMSCRIPTEN)
+        find_package(OpenGL REQUIRED)
+        find_package(GLEW REQUIRED)
+    endif()
 endif()
 
 if(NOT EMSCRIPTEN)
@@ -41,23 +61,27 @@ if(NOT EMSCRIPTEN)
     find_package(Threads REQUIRED)
 endif()
 
-# --- 2. DEFINE SOURCES ---
-set(SOURCES
-        src/main.c
+# --- 3. DEFINE SOURCES ---
+# Common sources used by both GUI and headless builds
+set(COMMON_SOURCES
         src/types.h
         src/globals.h
         src/sim/bodies.h
         src/sim/bodies.c
         src/sim/spacecraft.h
         src/sim/spacecraft.c
-        src/gui/SDL_engine.h
-        src/gui/SDL_engine.c
         src/utility/json_loader.h
         src/utility/json_loader.c
         src/sim/simulation.h
         src/sim/simulation.c
         src/utility/telemetry_export.c
         src/utility/telemetry_export.h
+)
+
+# GUI-specific sources
+set(GUI_SOURCES
+        src/gui/SDL_engine.h
+        src/gui/SDL_engine.c
         src/gui/GL_renderer.h
         src/gui/GL_renderer.c
         src/math/matrix.h
@@ -66,7 +90,15 @@ set(SOURCES
         src/gui/stb_truetype.h
 )
 
-# --- 3. CREATE EXECUTABLE ---
+# Select the appropriate main file and sources based on GUI option
+if(ENABLE_GUI)
+    add_compile_definitions(GUI_ENABLED)
+    set(SOURCES ${COMMON_SOURCES} ${GUI_SOURCES} src/main.c)
+else()
+    set(SOURCES ${COMMON_SOURCES} src/main.c src/headless_main.c)
+endif()
+
+# --- 4. CREATE EXECUTABLE ---
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Windows-specific: hide console window
@@ -74,7 +106,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 #    set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 #endif()
 
-# --- 4. COMPILER FLAGS & OPTIMIZATIONS ---
+# --- 5. COMPILER FLAGS & OPTIMIZATIONS ---
 if(EMSCRIPTEN)
     # --- WEB ASSEMBLY FLAGS ---
     target_compile_options(${PROJECT_NAME} PRIVATE -msimd128 -pthread)
@@ -138,7 +170,7 @@ elseif(MSVC)
     add_link_options(/LTCG)    # Link-time code generation
 endif()
 
-# --- 5. INCLUDE PATHS (macOS) ---
+# --- 6. INCLUDE PATHS (macOS) ---
 if(APPLE)
     if(EXISTS "/opt/homebrew")
         target_include_directories(${PROJECT_NAME} PRIVATE "/opt/homebrew/include")
@@ -149,14 +181,18 @@ if(APPLE)
     endif()
 endif()
 
-# --- 6. LINK LIBRARIES ---
+# --- 7. LINK LIBRARIES ---
 set(EXTRA_LIBS "")
-if(NOT EMSCRIPTEN)
-    list(APPEND EXTRA_LIBS OpenGL::GL GLEW::GLEW)
+
+# Link GUI libraries only if GUI is enabled
+if(ENABLE_GUI)
+    list(APPEND EXTRA_LIBS SDL3::SDL3)
+    if(NOT EMSCRIPTEN)
+        list(APPEND EXTRA_LIBS OpenGL::GL GLEW::GLEW)
+    endif()
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-        SDL3::SDL3
         cjson
         ${EXTRA_LIBS}
 )
@@ -169,7 +205,8 @@ if(NOT EMSCRIPTEN)
     endif()
 endif()
 
-# --- 7. ASSET COPYING ---
+# --- 8. ASSET COPYING ---
+# Always copy data files (used by both GUI and headless)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/data"
@@ -177,19 +214,22 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMENT "Copying data files"
 )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/shaders"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders"
-        COMMENT "Copying shader files"
-)
+# Only copy GUI assets if GUI is enabled
+if(ENABLE_GUI)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/shaders"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders"
+            COMMENT "Copying shader files"
+    )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/assets"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
-        COMMENT "Copying assets"
-)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
+            COMMENT "Copying assets"
+    )
+endif()
 
 # Windows: Copy SDL3 DLLs automatically
 if(WIN32)
@@ -259,7 +299,7 @@ if(EMSCRIPTEN)
     )
 endif()
 
-# --- 8. INSTALLATION & PACKAGING ---
+# --- 9. INSTALLATION & PACKAGING ---
 include(GNUInstallDirs)
 
 install(TARGETS ${PROJECT_NAME}

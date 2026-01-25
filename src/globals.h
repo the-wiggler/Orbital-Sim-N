@@ -1,6 +1,10 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+//////////////////////
+// COMPILE CONFIG:  //
+//////////////////////
+
 static const double G = 6.67430E-11;
 
 static const double PI = 3.14159265358979323846;

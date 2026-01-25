@@ -1,12 +1,25 @@
+/* //////////////////////////////////////////////////////////////////// *
+*      ____  ____  ____  __________     _____ ______  ___     _   __    *
+*     / __ \/ __ \/ __ )/  _/_  __/    / ___//  _/  |/  /    / | / /    *
+*    / / / / /_/ / __  |/ /  / /       \__ \ / // /|_/ /    /  |/ /     *
+*   / /_/ / _, _/ /_/ // /  / /       ___/ // // /  / /    / /|  /      *
+*   \____/_/ |_/_____/___/ /_/       /____/___/_/  /_/    /_/ |_/       *
+*                                                                       *
+*   Author: toastyy-1                                                   *
+*   Description: This is the main file for the Orbital Sim N Software.  *
+*                                                                       *
+* ////////////////////////////////////////////////////////////////////  */
+
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include "globals.h"
 #include "types.h"
 #include "sim/simulation.h"
-#include "gui/SDL_engine.h"
-#include "gui/GL_renderer.h"
-#include "gui/models.h"
+#include "utility/json_loader.h"
 #include "utility/telemetry_export.h"
 #include "utility/sim_thread.h"
 
@@ -15,6 +28,12 @@
 #else
     #include <pthread.h>
 #endif
+
+// GUI INCLUDES
+#ifdef GUI_ENABLED
+#include "gui/SDL_engine.h"
+#include "gui/GL_renderer.h"
+#include "gui/models.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -31,6 +50,9 @@
 #else
     #include <GL/glew.h>
 #endif
+
+#endif
+// END GUI INCLUDES
 
 // Global mutex definition
 mutex_t sim_mutex;
@@ -69,8 +91,9 @@ void* physicsSim(void* args) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// MAIN :)
+// GUI MAIN :)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef GUI_ENABLED
 int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
@@ -298,3 +321,6 @@ int main(int argc, char *argv[]) {
     SDL_Quit();
     return 0;
 }
+#endif
+
+
