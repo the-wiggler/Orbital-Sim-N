@@ -20,7 +20,7 @@ void deleteVBO(VBO_t vbo);
 
 // camera helper functions
 mat4 createViewMatrix(vec3_f cameraPos, vec3_f target);
-mat4 createProjectionMatrix(float fov, float aspect, float near, float far);
+mat4 createProjectionMatrix(const float fov, const float aspect, const float near_plane, const float far_plane);
 void GL_setMatrixUniform(GLuint shaderProgram, const char* name, const mat4* matrix);
 void castCamera(sim_properties_t sim, GLuint shaderProgram);
 
@@ -30,13 +30,13 @@ void freeSphere(sphere_mesh_t* sphere);
 
 // line rendering
 line_batch_t createLineBatch(size_t max_lines);
-void addLine(line_batch_t* batch, float x1, float y1, float z1, float x2, float y2, float z2, float r, float g, float b);
+void addLine(line_batch_t* batch, const float start_x, const float start_y, const float start_z, const float end_x, const float end_y, const float end_z, const float red, const float green, const float blue);
 void renderLines(line_batch_t* batch, GLuint shader_program);
 void freeLines(line_batch_t* batch);
 
 font_t initFont(const char* path, float size);
-void addText(font_t* font, float x, float y, const char* text, float scale);
-void renderText(font_t* font, float window_w, float window_h, float r, float g, float b);
+void addText(font_t* font, float pos_x, const float pos_y, const char* text, const float scale);
+void renderText(font_t* font, const float window_width, const float window_height, const float red, const float green, const float blue);
 void freeFont(const font_t* font);
 
 

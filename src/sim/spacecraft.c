@@ -4,13 +4,15 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "../types.h"
 
 #include "../math/matrix.h"
 
 void displayError(const char* title, const char* message);
 
 // check and activate burns
-void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* gb, const double sim_time) {
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* global_bodies, const double sim_time) {
     bool burn_active = false;
     for (int j = 0; j < craft->num_burns; j++) {
         const burn_properties_t* burn = &craft->burn_properties[j];
@@ -22,7 +24,7 @@ void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* gb, c
             // calculate attitude based on burn type
             quaternion_t final_attitude = {0};
             const int target_id = burn->burn_target_id;
-            const body_t* target = &gb->bodies[target_id];
+            const body_t* target = &global_bodies->bodies[target_id];
 
             if (burn->relative_burn_target.absolute) {
                 // absolute: heading is in absolute space coordinates
@@ -74,20 +76,21 @@ void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* gb, c
 }
 
 // calculates the force applied on a spacecraft by a specific body
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const int body_idx) {
-    spacecraft_t* craft = &sim->gs.spacecraft[craft_idx];
-    const body_t* body = &sim->gb.bodies[body_idx];
+    spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_idx];
+    const body_t* body = &sim->global_bodies.bodies[body_idx];
 
     // calculate the distance between the spacecraft and the body
     const vec3 delta_pos = vec3_sub(body->pos, craft->pos);
     const double r_squared = vec3_mag_sq(delta_pos);
-    const double r = sqrt(r_squared);
+    const double radius = sqrt(r_squared);
 
     // planet collision logic
-    if (r < body->radius) {
-        sim->wp.sim_running = false;
-        sim->wp.reset_sim = true;
-        char err_txt[128];
+    if (radius < body->radius) {
+        sim->window_params.sim_running = false;
+        sim->window_params.reset_sim = true;
+        char err_txt[MAX_ERR_SIZE];
         snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", craft->name, body->name);
         displayError("PLANET COLLISION", err_txt);
         return;
@@ -97,7 +100,7 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     craft->current_total_mass = craft->fuel_mass + craft->dry_mass;
 
     // force = (G * m1 * m2) * delta / r^3
-    const double r_cubed = r_squared * r;
+    const double r_cubed = r_squared * radius;
     const double force_factor = (G * craft->current_total_mass * body->mass) / r_cubed;
 
     // apply the force to the craft
@@ -108,7 +111,7 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     if (r_squared < craft->oe.closest_r_squared) {
         craft->oe.closest_r_squared = r_squared;
         craft->oe.closest_planet_id = body_idx;
-        if (r <= body->SOI_radius) {
+        if (radius <= body->SOI_radius) {
             craft->oe.SOI_planet_id = body_idx;
         }
     }
@@ -117,12 +120,12 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
 // updates the ID and distance of the closest planet
 // (this should be used when initially spawning a craft because the grav calculations do this exact calculation by default)
 // this is probably executed when the JSON is loaded
-void craft_findClosestPlanet(spacecraft_t* craft, const body_properties_t* gb) {
+void craft_findClosestPlanet(spacecraft_t* craft, const body_properties_t* global_bodies) {
     double closest_r_squared = INFINITY;
     int closest_planet_id = 0;
-    for (int i = 0; i < gb->count; i++) {
+    for (int i = 0; i < global_bodies->count; i++) {
         // calculate the distance between the spacecraft and the body
-        const vec3 delta_pos = vec3_sub(gb->bodies[i].pos, craft->pos);
+        const vec3 delta_pos = vec3_sub(global_bodies->bodies[i].pos, craft->pos);
         const double r_squared = vec3_mag_sq(delta_pos);
         if (r_squared < closest_r_squared) {
             closest_r_squared = r_squared;
@@ -149,9 +152,9 @@ void craft_applyThrust(spacecraft_t* craft) {
     }
 }
 
-void craft_consumeFuel(spacecraft_t* craft, const double dt) {
+void craft_consumeFuel(spacecraft_t* craft, const double delta_t) {
     if (craft->engine_on && craft->fuel_mass > 0) {
-        double fuel_consumed = craft->mass_flow_rate * craft->throttle * dt;
+        double fuel_consumed = craft->mass_flow_rate * craft->throttle * delta_t;
 
         if (fuel_consumed > craft->fuel_mass) {
             fuel_consumed = craft->fuel_mass;
@@ -164,29 +167,24 @@ void craft_consumeFuel(spacecraft_t* craft, const double dt) {
 }
 
 // adds a spacecraft to the spacecraft array
-void craft_addSpacecraft(spacecraft_properties_t* gs, const char* name,
-                        const vec3 pos, const vec3 vel,
-                        const double dry_mass, const double fuel_mass, const double thrust,
-                        const double specific_impulse, const double mass_flow_rate,
-                        const double attitude_angle, const double moment_of_inertia,
-                        const double nozzle_gimbal_range,
-                        const burn_properties_t* burns, const int num_burns) {
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+void craft_addSpacecraft(spacecraft_properties_t* global_spacecraft, const char* name, const vec3 pos, const vec3 vel, const double dry_mass, const double fuel_mass, const double thrust, const double specific_impulse, const double mass_flow_rate, const double attitude_angle, const double moment_of_inertia, const double nozzle_gimbal_range, const burn_properties_t* burns, const int num_burns) {
 
     // check bounds
-    if (gs->count >= MAX_SPACECRAFT) {
-        char err_txt[128];
+    if (global_spacecraft->count >= MAX_SPACECRAFT) {
+        char err_txt[MAX_ERR_SIZE];
         snprintf(err_txt, sizeof(err_txt), "Cannot add spacecraft '%s': Maximum of %d spacecraft reached", name, MAX_SPACECRAFT);
         displayError("ERROR", err_txt);
         return;
     }
 
-    const int idx = gs->count;
-    spacecraft_t* craft = &gs->spacecraft[idx];
+    const int idx = global_spacecraft->count;
+    spacecraft_t* craft = &global_spacecraft->spacecraft[idx];
 
     // validate and copy name
     const size_t name_len = strlen(name);
     if (name_len >= MAX_NAME_LENGTH) {
-        char err_txt[128];
+        char err_txt[MAX_ERR_SIZE];
         snprintf(err_txt, sizeof(err_txt), "Warning: Spacecraft name '%s' truncated to %d characters", name, MAX_NAME_LENGTH - 1);
         displayError("WARNING", err_txt);
     }
@@ -242,7 +240,7 @@ void craft_addSpacecraft(spacecraft_properties_t* gs, const char* name,
 
     // initialize burn schedule
     if (num_burns > MAX_BURNS_PER_SPACECRAFT) {
-        char err_txt[128];
+        char err_txt[MAX_ERR_SIZE];
         snprintf(err_txt, sizeof(err_txt), "Warning: Spacecraft '%s' has %d burns, exceeding maximum of %d. Truncating.",
                  name, num_burns, MAX_BURNS_PER_SPACECRAFT);
         displayError("WARNING", err_txt);
@@ -256,5 +254,5 @@ void craft_addSpacecraft(spacecraft_properties_t* gs, const char* name,
         craft->burn_properties[i] = burns[i];
     }
 
-    gs->count++;
+    global_spacecraft->count++;
 }

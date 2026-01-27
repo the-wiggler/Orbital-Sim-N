@@ -1,18 +1,20 @@
 #include "../utility/json_loader.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <cjson/cJSON.h>
+
+#include "../globals.h"
 #include "../sim/bodies.h"
 #include "../sim/spacecraft.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <cjson/cJSON.h>
-#include <string.h>
 #include "../types.h"
 #include "../math/matrix.h"
 
 void displayError(const char* title, const char* message);
 
-int findBurnTargetID(const body_properties_t* gb, const char* target_name) {
-    for (int i = 0; i < gb->count; i++) {
-        if (strcmp(gb->bodies[i].name, target_name) == 0) {
+int findBurnTargetID(const body_properties_t* global_bodies, const char* target_name) {
+    for (int i = 0; i < global_bodies->count; i++) {
+        if (strcmp(global_bodies->bodies[i].name, target_name) == 0) {
             return i;
         }
     }
@@ -21,22 +23,25 @@ int findBurnTargetID(const body_properties_t* gb, const char* target_name) {
 }
 
 relative_burn_target_t findRelativeBurnType(const char* input_burn_type) {
-    if (strcmp(input_burn_type, "tangent") == 0)
+    if (strcmp(input_burn_type, "tangent") == 0) {
         return (relative_burn_target_t){.tangent = true};
-    if (strcmp(input_burn_type, "normal") == 0)
+    }
+    if (strcmp(input_burn_type, "normal") == 0) {
         return (relative_burn_target_t){.normal = true};
-    if (strcmp(input_burn_type, "absolute") == 0)
+    }
+    if (strcmp(input_burn_type, "absolute") == 0) {
         return (relative_burn_target_t){.absolute = true};
+    }
 
     displayError("ERROR", "Invalid relative burn type");
     return (relative_burn_target_t){0};
 }
 
 // finds the body position by name for relative spacecraft positioning
-vec3 findBodyPosition(const body_properties_t* gb, const char* body_name) {
-    for (int i = 0; i < gb->count; i++) {
-        if (strcmp(gb->bodies[i].name, body_name) == 0) {
-            return gb->bodies[i].pos;
+vec3 findBodyPosition(const body_properties_t* global_bodies, const char* body_name) {
+    for (int i = 0; i < global_bodies->count; i++) {
+        if (strcmp(global_bodies->bodies[i].name, body_name) == 0) {
+            return global_bodies->bodies[i].pos;
         }
     }
     displayError("ERROR", "Body not found for relative positioning");
@@ -44,46 +49,48 @@ vec3 findBodyPosition(const body_properties_t* gb, const char* body_name) {
 }
 
 // finds the body velocity by name for relative spacecraft positioning
-vec3 findBodyVelocity(const body_properties_t* gb, const char* body_name) {
-    for (int i = 0; i < gb->count; i++) {
-        if (strcmp(gb->bodies[i].name, body_name) == 0) {
-            return gb->bodies[i].vel;
+vec3 findBodyVelocity(const body_properties_t* global_bodies, const char* body_name) {
+    for (int i = 0; i < global_bodies->count; i++) {
+        if (strcmp(global_bodies->bodies[i].name, body_name) == 0) {
+            return global_bodies->bodies[i].vel;
         }
     }
     return vec3_zero();
 }
 
 // json handling logic for reading json files
-void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_properties_t* sc) {
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, spacecraft_properties_t* global_spacecraft) {
     #ifdef _WIN32
-    FILE *fp;
-    fopen_s(&fp, FILENAME, "r");
+    FILE *file_ptr;
+    fopen_s(&file_ptr, FILENAME, "r");
     #else
-    FILE *fp = fopen(FILENAME, "r");
+    FILE *file_ptr = fopen(FILENAME, "r");
     #endif
-    if (fp == NULL) {
+    if (file_ptr == NULL) {
         displayError("ERROR", "Error: Could not open simulation JSON file");
         return;
     }
 
     // read entire file into buffer
-    fseek(fp, 0, SEEK_END);
-    const long file_size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
+    fseek(file_ptr, 0, SEEK_END);
+    const long file_size = ftell(file_ptr);
+    fseek(file_ptr, 0, SEEK_SET);
 
     // validate file size
     if (file_size >= JSON_BUFFER_SIZE) {
         char err_txt[128];
         snprintf(err_txt, sizeof(err_txt), "JSON file too large: %ld bytes (max %d)", file_size, JSON_BUFFER_SIZE);
         displayError("ERROR", err_txt);
-        fclose(fp);
+        fclose(file_ptr);
         return;
     }
 
     char json_buffer[JSON_BUFFER_SIZE];
-    fread(json_buffer, 1, file_size, fp);
+    fread(json_buffer, 1, (size_t)file_size, file_ptr);
+    // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound) - safe because we check file_size < JSON_BUFFER_SIZE above
     json_buffer[file_size] = '\0';
-    fclose(fp);
+    fclose(file_ptr);
 
     // parse json
     cJSON* json = cJSON_Parse(json_buffer);
@@ -124,14 +131,14 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
                 vel_z_item->valuedouble
             };
 
-            body_addOrbitalBody(gb,
+            body_addOrbitalBody(global_bodies,
                                 name_item->valuestring,
                                 mass_item->valuedouble,
                                 radius_item->valuedouble,
                                 pos, vel);
 
             // set rotational velocity if present in JSON
-            body_t* added_body = &gb->bodies[gb->count - 1];
+            body_t* added_body = &global_bodies->bodies[global_bodies->count - 1];
             if (rotational_v_item != NULL) {
                 added_body->rotational_v = rotational_v_item->valuedouble;
             }
@@ -150,7 +157,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
     }
 
     // calculate SOI for all bodies after they're loaded
-    body_calculateSOI(gb);
+    body_calculateSOI(global_bodies);
 
     // get spacecraft array
     const cJSON* spacecraft = cJSON_GetObjectItemCaseSensitive(json, "spacecraft");
@@ -200,7 +207,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
                         cJSON* throttle = cJSON_GetObjectItemCaseSensitive(burn, "throttle");
 
                         const char* burn_target_name = burn_target->valuestring;
-                        const int burn_target_id = findBurnTargetID(gb, burn_target_name);
+                        const int burn_target_id = findBurnTargetID(global_bodies, burn_target_name);
                         if (burn_target_id == -1) {
                             char err_txt[64];
                             snprintf(err_txt, sizeof(err_txt), "Burn target %s not found or is invalid", burn_target_name);
@@ -238,14 +245,14 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
                 const char* relative_to = position_relative_to_item->valuestring;
                 if (strcmp(relative_to, "absolute") != 0) {
                     // if the position is relative to a body, add its position and velocity
-                    vec3 body_pos = findBodyPosition(gb, relative_to);
-                    vec3 body_vel = findBodyVelocity(gb, relative_to);
+                    vec3 body_pos = findBodyPosition(global_bodies, relative_to);
+                    vec3 body_vel = findBodyVelocity(global_bodies, relative_to);
                     final_pos = vec3_add(final_pos, body_pos);
                     final_vel = vec3_add(final_vel, body_vel);
                 }
             }
 
-            craft_addSpacecraft(sc,
+            craft_addSpacecraft(global_spacecraft,
                                 name_item->valuestring,
                                 final_pos, final_vel,
                                 dry_mass_item->valuedouble,
@@ -260,11 +267,11 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
         }
     }
     // set the initial closest planet on initialization
-    for (int i = 0; i < sc->count; i++) {
-        craft_findClosestPlanet(&sc->spacecraft[i], gb);
+    for (int i = 0; i < global_spacecraft->count; i++) {
+        craft_findClosestPlanet(&global_spacecraft->spacecraft[i], global_bodies);
     }
-    for (int i = 0; i < gb->count; i++) {
-        body_findClosestPlanet(&gb->bodies[i], gb);
+    for (int i = 0; i < global_bodies->count; i++) {
+        body_findClosestPlanet(&global_bodies->bodies[i], global_bodies);
     }
 
     cJSON_Delete(json);

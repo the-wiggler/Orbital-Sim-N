@@ -13,21 +13,18 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include "globals.h"
-#include "types.h"
-#include "sim/simulation.h"
-#include "utility/json_loader.h"
-#include "utility/telemetry_export.h"
-#include "utility/sim_thread.h"
 
 #ifdef _WIN32
-    #include <windows.h>
+    #include <minwindef.h>
 #else
     #include <pthread.h>
 #endif
+
+#include "globals.h"
+#include "types.h"
+#include "sim/simulation.h"
+#include "utility/telemetry_export.h"
+#include "utility/sim_thread.h"
 
 // GUI INCLUDES
 #ifdef GUI_ENABLED
@@ -35,7 +32,6 @@
 #include "gui/GL_renderer.h"
 #include "gui/models.h"
 
-#include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
 #ifdef __APPLE__
@@ -50,6 +46,10 @@
 #else
     #include <GL/glew.h>
 #endif
+
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_video.h>
+#include <SDL3/SDL_events.h>
 
 #endif
 // END GUI INCLUDES
@@ -71,8 +71,8 @@ DWORD WINAPI physicsSim(LPVOID args) {
 void* physicsSim(void* args) {
 #endif
     sim_properties_t* sim = (sim_properties_t*)args;
-    while (sim->wp.window_open) {
-        while (sim->wp.sim_running) {
+    while (sim->window_params.window_open) {
+        while (sim->window_params.sim_running) {
             // lock mutex before accessing data
             mutex_lock(&sim_mutex);
 
@@ -102,9 +102,9 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
     // initialize simulation objects
     sim_properties_t sim = {
-        .gb = {0},
-        .gs = {0},
-        .wp = {0}
+        .global_bodies = {0},
+        .global_spacecraft = {0},
+        .window_params = {0}
     };
 
     // CSV file creation
@@ -127,12 +127,12 @@ int main(int argc, char *argv[]) {
     SDL_Init(SDL_INIT_VIDEO);
 
     // window parameters & command prompt init
-    sim.wp = init_window_params();
-    sim.console = init_console(sim.wp);
+    sim.window_params = init_window_params();
+    sim.console = init_console(sim.window_params);
 
     // SDL and OpenGL window
     SDL_GL_init_t windowInit = init_SDL_OPENGL_window("Orbit Simulation N",
-        (int)sim.wp.window_size_x, (int)sim.wp.window_size_y, &sim.wp.main_window_ID);
+        (int)sim.window_params.window_size_x, (int)sim.window_params.window_size_y, &sim.window_params.main_window_ID);
     SDL_Window* window = windowInit.window;
     SDL_GLContext glctx = windowInit.glContext;
 
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
     sphere_mesh_t sphere_mesh;
     sphere_mesh = generateUnitSphere(15, 15);
     VBO_t sphere_buffer = createVBO(sphere_mesh.vertices, sphere_mesh.data_size);
-    sim.wp.planet_model_vertex_count = (int)sphere_mesh.vertex_count; // I couldn't think of a better way to do this ngl
+    sim.window_params.planet_model_vertex_count = (int)sphere_mesh.vertex_count; // I couldn't think of a better way to do this ngl
 
     // create batch to hold all the line geometries we would ever want to draw
     line_batch_t line_batch;
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
 
     // initialize font for text rendering
     font_t font;
-    font = initFont("assets/font.ttf", 24.0f);
+    font = initFont("assets/font.ttf", 24.0F);
     if (font.shader == 0) {
         displayError("Font Error", "Failed to initialize font. Check console for details.");
         return 1;
@@ -188,6 +188,8 @@ int main(int argc, char *argv[]) {
     mutex_init(&sim_mutex);
 
 #ifdef _WIN32
+    #include <winnt.h>
+    #include <processthreadsapi.h>
     HANDLE sim_thread = CreateThread(NULL, 0, physicsSim, &sim, 0, NULL);
 #else
     pthread_t simThread;
@@ -198,11 +200,11 @@ int main(int argc, char *argv[]) {
     // simulation loop                                    //
     ////////////////////////////////////////////////////////
     // default time step
-    sim.wp.time_step = 0.01;
+    sim.window_params.time_step = 0.01;
 
-    while (sim.wp.window_open) {
+    while (sim.window_params.window_open) {
         // clears previous frame from the screen
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // user input event checking logic (modifies UI state, no lock needed)
@@ -221,7 +223,7 @@ int main(int argc, char *argv[]) {
         // OPENGL RENDERER
         ////////////////////////////////////////////////////////
         // update viewport for window resizing
-        glViewport(0, 0, (int)sim_copy.wp.window_size_x, (int)sim_copy.wp.window_size_y);
+        glViewport(0, 0, (int)sim_copy.window_params.window_size_x, (int)sim_copy.window_params.window_size_y);
 
         // use shader program
         glUseProgram(shaderProgram);
@@ -251,18 +253,18 @@ int main(int argc, char *argv[]) {
         renderLines(&line_batch, shaderProgram);
 
         // render all queued text
-        renderText(&font, sim_copy.wp.window_size_x, sim_copy.wp.window_size_y, 1, 1, 1);
+        renderText(&font, sim_copy.window_params.window_size_x, sim_copy.window_params.window_size_y, 1, 1, 1);
         ////////////////////////////////////////////////////////
         // END OPENGL RENDERER
         ////////////////////////////////////////////////////////
 
         // log data
-        if (sim.wp.data_logging_enabled && sim.wp.sim_running) {
+        if (sim.window_params.data_logging_enabled && sim.window_params.sim_running) {
             exportTelemetryCSV(filenames, sim_copy);
         }
 
         // check if sim needs to be reset
-        if (sim.wp.reset_sim) {
+        if (sim.window_params.reset_sim) {
             mutex_lock(&sim_mutex);
 
             resetSim(&sim);
@@ -276,7 +278,7 @@ int main(int argc, char *argv[]) {
         }
 
         // increment frame counter
-        sim.wp.frame_counter++;
+        sim.window_params.frame_counter++;
 
         // present the renderer to the screen
         SDL_GL_SwapWindow(window);
@@ -295,7 +297,9 @@ int main(int argc, char *argv[]) {
 
     // wait for simulation thread
 #ifdef _WIN32
+    // NOLINTNEXTLINE(misc-include-cleaner)
     WaitForSingleObject(sim_thread, INFINITE);
+    // NOLINTNEXTLINE(misc-include-cleaner)
     CloseHandle(sim_thread);
 #else
     pthread_join(simThread, NULL);

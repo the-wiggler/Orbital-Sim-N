@@ -22,6 +22,27 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# --- CLANG-TIDY STATIC ANALYSIS (Linux/macOS only) ---
+# Disabled on Windows: CMake forces --driver-mode=gcc for clang-tidy which is
+# incompatible with Windows SDK headers.
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" ON)
+if(ENABLE_CLANG_TIDY AND NOT WIN32)
+    find_program(CLANG_TIDY clang-tidy)
+    if(CLANG_TIDY)
+        set(CLANG_TIDY_ARGS
+            ${CLANG_TIDY}
+            -checks=readability-*,performance-*,bugprone-*,portability-*,misc-*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,-clang-analyzer-security.ArrayBound,-readability-magic-numbers
+            -warnings-as-errors=*
+            --header-filter=.*src/.*
+            --system-headers=0
+        )
+        set(CMAKE_C_CLANG_TIDY ${CLANG_TIDY_ARGS})
+        message(STATUS "clang-tidy enabled for static analysis")
+    else()
+        message(WARNING "clang-tidy not found. Install with: brew install llvm (macOS) or apt install clang-tidy (Linux)")
+    endif()
+endif()
+
 # Force Release build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)

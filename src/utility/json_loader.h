@@ -3,6 +3,6 @@
 
 #include "../types.h"
 
-void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_properties_t* sc);
+void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, spacecraft_properties_t* global_spacecraft);
 
 #endif

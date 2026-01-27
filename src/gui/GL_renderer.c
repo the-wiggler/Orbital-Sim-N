@@ -3,11 +3,16 @@
 //
 
 #include "GL_renderer.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdint.h>
+#include <inttypes.h>
+
 #include "../globals.h"
 #include "../math/matrix.h"
+#include "../types.h"
 
 char* loadShaderSource(const char* filepath) {
     // use two alternating buffers to support loading vertex and fragment shaders simultaneously
@@ -124,10 +129,12 @@ VBO_t createVBO(const float* vertices, const size_t vertexDataSize) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo.VBO);
     glBufferData(GL_ARRAY_BUFFER, (long)vertexDataSize, vertices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) - required for OpenGL buffer offset
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(uintptr_t)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) - required for OpenGL buffer offset
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(uintptr_t)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     // unbind
@@ -145,54 +152,55 @@ void deleteVBO(const VBO_t vbo) {
 mat4 createViewMatrix(const vec3_f cameraPos, const vec3_f target) {
     mat4 viewMatrix;
     vec3_f forward = vec3_f_normalize(vec3_f_sub(target, cameraPos));
-    vec3_f up = {0.0f, 0.0f, 1.0f}; // z is "UP"
-    vec3_f right = vec3_f_normalize(vec3_f_cross(forward, up));
-    up = vec3_f_cross(right, forward);
+    vec3_f up_vec = {0.0F, 0.0F, 1.0F}; // z is "UP"
+    vec3_f right = vec3_f_normalize(vec3_f_cross(forward, up_vec));
+    up_vec = vec3_f_cross(right, forward);
 
     // build view matrix
     viewMatrix.m[0] = right.x;
-    viewMatrix.m[1] = up.x;
+    viewMatrix.m[1] = up_vec.x;
     viewMatrix.m[2] = -forward.x;
-    viewMatrix.m[3] = 0.0f;
+    viewMatrix.m[3] = 0.0F;
     viewMatrix.m[4] = right.y;
-    viewMatrix.m[5] = up.y;
+    viewMatrix.m[5] = up_vec.y;
     viewMatrix.m[6] = -forward.y;
-    viewMatrix.m[7] = 0.0f;
+    viewMatrix.m[7] = 0.0F;
     viewMatrix.m[8] = right.z;
-    viewMatrix.m[9] = up.z;
+    viewMatrix.m[9] = up_vec.z;
     viewMatrix.m[10] = -forward.z;
-    viewMatrix.m[11] = 0.0f;
+    viewMatrix.m[11] = 0.0F;
     viewMatrix.m[12] = -vec3_f_dot(right, cameraPos);
-    viewMatrix.m[13] = -vec3_f_dot(up, cameraPos);
+    viewMatrix.m[13] = -vec3_f_dot(up_vec, cameraPos);
     viewMatrix.m[14] = vec3_f_dot(forward, cameraPos);
-    viewMatrix.m[15] = 1.0f;
+    viewMatrix.m[15] = 1.0F;
     return viewMatrix;
 }
 
 // creates a perspective projection matrix
-mat4 createProjectionMatrix(const float fov, const float aspect, const float near, const float far) {
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) - parameters are semantically different
+mat4 createProjectionMatrix(const float fov, const float aspect, const float near_plane, const float far_plane) {
     mat4 projMatrix;
-    const float f = 1.0f / tanf(fov * 0.5f);
+    const float focal_length = 1.0F / tanf(fov * 0.5F);
 
-    projMatrix.m[0] = f / aspect;
-    projMatrix.m[1] = 0.0f;
-    projMatrix.m[2] = 0.0f;
-    projMatrix.m[3] = 0.0f;
+    projMatrix.m[0] = focal_length / aspect;
+    projMatrix.m[1] = 0.0F;
+    projMatrix.m[2] = 0.0F;
+    projMatrix.m[3] = 0.0F;
 
-    projMatrix.m[4] = 0.0f;
-    projMatrix.m[5] = f;
-    projMatrix.m[6] = 0.0f;
-    projMatrix.m[7] = 0.0f;
+    projMatrix.m[4] = 0.0F;
+    projMatrix.m[5] = focal_length;
+    projMatrix.m[6] = 0.0F;
+    projMatrix.m[7] = 0.0F;
 
-    projMatrix.m[8] = 0.0f;
-    projMatrix.m[9] = 0.0f;
-    projMatrix.m[10] = (far + near) / (near - far);
-    projMatrix.m[11] = -1.0f;
+    projMatrix.m[8] = 0.0F;
+    projMatrix.m[9] = 0.0F;
+    projMatrix.m[10] = (far_plane + near_plane) / (near_plane - far_plane);
+    projMatrix.m[11] = -1.0F;
 
-    projMatrix.m[12] = 0.0f;
-    projMatrix.m[13] = 0.0f;
-    projMatrix.m[14] = (2.0f * far * near) / (near - far);
-    projMatrix.m[15] = 0.0f;
+    projMatrix.m[12] = 0.0F;
+    projMatrix.m[13] = 0.0F;
+    projMatrix.m[14] = (2.0F * far_plane * near_plane) / (near_plane - far_plane);
+    projMatrix.m[15] = 0.0F;
     return projMatrix;
 }
 
@@ -206,17 +214,17 @@ void GL_setMatrixUniform(const GLuint shaderProgram, const char* name, const mat
 void castCamera(const sim_properties_t sim, const GLuint shaderProgram) {
     // camera position = target + direction * zoom (orbits around target)
     const vec3_f cameraPos = {
-        sim.wp.cam_target.x + sim.wp.camera_pos.x * sim.wp.zoom,
-        sim.wp.cam_target.y + sim.wp.camera_pos.y * sim.wp.zoom,
-        sim.wp.cam_target.z + sim.wp.camera_pos.z * sim.wp.zoom
+        sim.window_params.cam_target.x + (sim.window_params.camera_pos.x * sim.window_params.zoom),
+        sim.window_params.cam_target.y + (sim.window_params.camera_pos.y * sim.window_params.zoom),
+        sim.window_params.cam_target.z + (sim.window_params.camera_pos.z * sim.window_params.zoom)
     };
 
     // create view matrix
-    const mat4 viewMatrix = createViewMatrix(cameraPos, sim.wp.cam_target);
+    const mat4 viewMatrix = createViewMatrix(cameraPos, sim.window_params.cam_target);
 
     // create projection matrix
-    const float aspect = sim.wp.window_size_x / sim.wp.window_size_y;
-    const mat4 projMatrix = createProjectionMatrix(PI_OVER_4_f, aspect, 0.1f, 1000000000.0f);
+    const float aspect = sim.window_params.window_size_x / sim.window_params.window_size_y;
+    const mat4 projMatrix = createProjectionMatrix(PI_OVER_4_f, aspect, 0.1F, 1000000000.0F);
 
     // set matrices in shader
     GL_setMatrixUniform(shaderProgram, "view", &viewMatrix);
@@ -226,7 +234,7 @@ void castCamera(const sim_properties_t sim, const GLuint shaderProgram) {
 // sphere mesh generation
 sphere_mesh_t generateUnitSphere(const unsigned int stacks, const unsigned int sectors) {
     sphere_mesh_t sphere = {0};
-    sphere.vertex_count = stacks * sectors * 6;
+    sphere.vertex_count = (size_t)stacks * sectors * 6;
     sphere.data_size = sphere.vertex_count * 6 * sizeof(float);
 
     // validate vertex count against static buffer size
@@ -246,8 +254,8 @@ sphere_mesh_t generateUnitSphere(const unsigned int stacks, const unsigned int s
         const float theta2 = (float)(i + 1) * PI_f / (float)stacks;
 
         for (unsigned int j = 0; j < sectors; ++j) {
-            const float phi1 = (float)j * 2.0f * PI_f / (float)sectors;
-            const float phi2 = (float)(j + 1) * 2.0f * PI_f / (float)sectors;
+            const float phi1 = (float)j * 2.0F * PI_f / (float)sectors;
+            const float phi2 = (float)(j + 1) * 2.0F * PI_f / (float)sectors;
             const float v1_x = cosf(phi1) * sinf(theta1);
             const float v1_y = sinf(phi1) * sinf(theta1);
             const float v1_z = cosf(theta1);
@@ -314,7 +322,8 @@ line_batch_t createLineBatch(const size_t max_lines) {
     glEnableVertexAttribArray(0);
 
     // color
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) - required for OpenGL buffer offset
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(uintptr_t)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
@@ -322,7 +331,8 @@ line_batch_t createLineBatch(const size_t max_lines) {
     return batch;
 }
 
-void addLine(line_batch_t* batch, const float x1, const float y1, const float z1, const float x2, const float y2, const float z2, const float r, const float g, const float b) {
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) - start/end points are semantically distinct
+void addLine(line_batch_t* batch, const float start_x, const float start_y, const float start_z, const float end_x, const float end_y, const float end_z, const float red, const float green, const float blue) {
     if (!batch || batch->count >= batch->capacity) {
         return;
     }
@@ -331,20 +341,20 @@ void addLine(line_batch_t* batch, const float x1, const float y1, const float z1
     const size_t index = batch->count * 12; // 12 floats per line (2 vertices * 6 floats)
 
     // first vertex
-    batch->vertices[index + 0] = x1;
-    batch->vertices[index + 1] = y1;
-    batch->vertices[index + 2] = z1;
-    batch->vertices[index + 3] = r;
-    batch->vertices[index + 4] = g;
-    batch->vertices[index + 5] = b;
+    batch->vertices[index + 0] = start_x;
+    batch->vertices[index + 1] = start_y;
+    batch->vertices[index + 2] = start_z;
+    batch->vertices[index + 3] = red;
+    batch->vertices[index + 4] = green;
+    batch->vertices[index + 5] = blue;
 
     // second vertex
-    batch->vertices[index + 6] = x2;
-    batch->vertices[index + 7] = y2;
-    batch->vertices[index + 8] = z2;
-    batch->vertices[index + 9] = r;
-    batch->vertices[index + 10] = g;
-    batch->vertices[index + 11] = b;
+    batch->vertices[index + 6] = end_x;
+    batch->vertices[index + 7] = end_y;
+    batch->vertices[index + 8] = end_z;
+    batch->vertices[index + 9] = red;
+    batch->vertices[index + 10] = green;
+    batch->vertices[index + 11] = blue;
 
     batch->count++;
 }
@@ -393,31 +403,32 @@ void freeLines(line_batch_t* batch) {
 static stbtt_bakedchar cdata[96];
 
 font_t initFont(const char* path, const float size) {
-    font_t f = {0};
+    font_t font_struct = {0};
 
     #ifdef _WIN32
-    FILE* fp;
-    fopen_s(&fp, path, "rb");
+    FILE* file_ptr;
+    fopen_s(&file_ptr, path, "rb");
     #else
-    FILE* fp = fopen(path, "rb");
+    FILE* file_ptr = fopen(path, "rb");
     #endif
-    if (!fp) {
+    if (!file_ptr) {
         fprintf(stderr, "Failed to open font file: %s\n", path);
-        return f;
+        return font_struct;
     }
-    fseek(fp, 0, SEEK_END);
-    const long len = ftell(fp);
-    rewind(fp);
-    unsigned char* buf = malloc(len);
-    fread(buf, 1, len, fp);
-    fclose(fp);
+    fseek(file_ptr, 0, SEEK_END);
+    const long file_len = ftell(file_ptr);
+    fseek(file_ptr, 0, SEEK_SET);
+    unsigned char* font_data = malloc((size_t)file_len);
+    fread(font_data, 1, (size_t)file_len, file_ptr);
+    fclose(file_ptr);
 
-    unsigned char* bmp = malloc(ATLAS * ATLAS);
-    stbtt_BakeFontBitmap(buf, 0, size, bmp, ATLAS, ATLAS, 32, 96, cdata);
-    free(buf);
+    unsigned char* glyph_bitmap = malloc((size_t)ATLAS * ATLAS);
+    // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound) - false positive in stbtt_BakeFontBitmap
+    stbtt_BakeFontBitmap(font_data, 0, size, glyph_bitmap, ATLAS, ATLAS, 32, 96, cdata);
+    free(font_data);
 
-    glGenTextures(1, &f.tex);
-    glBindTexture(GL_TEXTURE_2D, f.tex);
+    glGenTextures(1, &font_struct.tex);
+    glBindTexture(GL_TEXTURE_2D, font_struct.tex);
 
     GLint internalFormat = GL_RED;
 
@@ -426,70 +437,81 @@ font_t initFont(const char* path, const float size) {
     internalFormat = GL_R8;
 #endif
 
-    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, ATLAS, ATLAS, 0, GL_RED, GL_UNSIGNED_BYTE, bmp);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, ATLAS, ATLAS, 0, GL_RED, GL_UNSIGNED_BYTE, glyph_bitmap);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    free(bmp);
+    free(glyph_bitmap);
 
-    f.shader = createShaderProgram("shaders/text.vert", "shaders/text.frag");
-    if (f.shader == 0) {
+    font_struct.shader = createShaderProgram("shaders/text.vert", "shaders/text.frag");
+    if (font_struct.shader == 0) {
         fprintf(stderr, "Failed to create text shader program\n");
-        glDeleteTextures(1, &f.tex);
-        return f;
+        glDeleteTextures(1, &font_struct.tex);
+        return font_struct;
     }
 
-    glGenVertexArrays(1, &f.vao);
-    glGenBuffers(1, &f.vbo);
-    glBindVertexArray(f.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, f.vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_CHARS * 24 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+    glGenVertexArrays(1, &font_struct.vao);
+    glGenBuffers(1, &font_struct.vbo);
+    glBindVertexArray(font_struct.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, font_struct.vbo);
+    glBufferData(GL_ARRAY_BUFFER, (long long)MAX_CHARS * 24 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
     glEnableVertexAttribArray(0);
 
     printf("Successfully initialized font: %s\n", path);
-    return f;
+    return font_struct;
 }
 
-void addText(font_t* font, float x, const float y, const char* text, const float scale) {
+void addText(font_t* font, float pos_x, const float pos_y, const char* text, const float scale) {
     for (; *text; text++) {
-        const int c = *text - 32;
-        if (c < 0 || c >= 96) continue;
-        const stbtt_bakedchar* b = &cdata[c];
+        const int char_index = *text - 32;
+        if (char_index < 0 || char_index >= 96) {
+            continue;
+        }
+        const stbtt_bakedchar* glyph_char = &cdata[char_index];
 
-        float x0 = x + b->xoff * scale, y0 = y + b->yoff * scale;
-        float x1 = x0 + (float)(b->x1 - b->x0) * scale, y1 = y0 + (float)(b->y1 - b->y0) * scale;
-        float s0 = (float)b->x0 / (float)ATLAS, t0 = (float)b->y0 / (float)ATLAS;
-        float s1 = (float)b->x1 / (float)ATLAS, t1 = (float)b->y1 / (float)ATLAS;
+        float glyph_x0 = pos_x + (glyph_char->xoff * scale);
+        float glyph_y0 = pos_y + (glyph_char->yoff * scale);
+        float glyph_x1 = glyph_x0 + ((float)(glyph_char->x1 - glyph_char->x0) * scale);
+        float glyph_y1 = glyph_y0 + ((float)(glyph_char->y1 - glyph_char->y0) * scale);
+        float tex_s0 = (float)glyph_char->x0 / (float)ATLAS;
+        float tex_t0 = (float)glyph_char->y0 / (float)ATLAS;
+        float tex_s1 = (float)glyph_char->x1 / (float)ATLAS;
+        float tex_t1 = (float)glyph_char->y1 / (float)ATLAS;
 
-        float* v = &font->verts[font->count++ * 24];
-        v[0]=x0; v[1]=y0; v[2]=s0; v[3]=t0;
-        v[4]=x1; v[5]=y0; v[6]=s1; v[7]=t0;
-        v[8]=x1; v[9]=y1; v[10]=s1; v[11]=t1;
-        v[12]=x0; v[13]=y0; v[14]=s0; v[15]=t0;
-        v[16]=x1; v[17]=y1; v[18]=s1; v[19]=t1;
-        v[20]=x0; v[21]=y1; v[22]=s0; v[23]=t1;
+        float* vertex_data = &font->verts[(size_t)font->count++ * 24];
+        vertex_data[0]=glyph_x0; vertex_data[1]=glyph_y0; vertex_data[2]=tex_s0; vertex_data[3]=tex_t0;
+        vertex_data[4]=glyph_x1; vertex_data[5]=glyph_y0; vertex_data[6]=tex_s1; vertex_data[7]=tex_t0;
+        vertex_data[8]=glyph_x1; vertex_data[9]=glyph_y1; vertex_data[10]=tex_s1; vertex_data[11]=tex_t1;
+        vertex_data[12]=glyph_x0; vertex_data[13]=glyph_y0; vertex_data[14]=tex_s0; vertex_data[15]=tex_t0;
+        vertex_data[16]=glyph_x1; vertex_data[17]=glyph_y1; vertex_data[18]=tex_s1; vertex_data[19]=tex_t1;
+        vertex_data[20]=glyph_x0; vertex_data[21]=glyph_y1; vertex_data[22]=tex_s0; vertex_data[23]=tex_t1;
 
-        x += b->xadvance * scale;
+        pos_x += glyph_char->xadvance * scale;
     }
 }
 
-void renderText(font_t* font, const float window_w, const float window_h, const float r, const float g, const float b) {
-    if (!font->count) return;
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) - window dimensions are semantically distinct from colors
+void renderText(font_t* font, const float window_width, const float window_height, const float red, const float green, const float blue) {
+    if (!font->count) {
+        return;
+    }
 
     glDisable(GL_DEPTH_TEST);
     glUseProgram(font->shader);
 
-    const float proj[16] =   {2/window_w,0,0,0,
-                        0,-2/window_h,0,0,
-                        0,0,-1,0,
-                        -1,1,0,1};
+    const float proj[16] = {
+        2.0F/window_width, 0.0F, 0.0F, 0.0F,
+        0.0F, -2.0F/window_height, 0.0F, 0.0F,
+        0.0F, 0.0F, -1.0F, 0.0F,
+        -1.0F, 1.0F, 0.0F, 1.0F
+    };
     glUniformMatrix4fv(glGetUniformLocation(font->shader, "proj"), 1, GL_FALSE, proj);
-    glUniform3f(glGetUniformLocation(font->shader, "color"), r, g, b);
+    glUniform3f(glGetUniformLocation(font->shader, "color"), red, green, blue);
 
     glBindTexture(GL_TEXTURE_2D, font->tex);
     glBindBuffer(GL_ARRAY_BUFFER, font->vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, font->count * 24 * sizeof(float), font->verts);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)((size_t)font->count * 24 * sizeof(float)), font->verts);
     glBindVertexArray(font->vao);
     glDrawArrays(GL_TRIANGLES, 0, font->count * 6);
 
@@ -513,27 +535,27 @@ void freeFont(const font_t* font) {
 
 // render the coordinate plane to the screen
 void renderCoordinatePlane(const sim_properties_t sim, line_batch_t* line_batch) {
-    const float scale = sim.wp.zoom;
+    const float scale = sim.window_params.zoom;
 
     // X axis (red) - horizontal
-    addLine(line_batch, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f, 0.0f, 0.0f);
+    addLine(line_batch, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, 0.0F, 0.0F, 0.3F, 0.0F, 0.0F);
 
     // Y axis (green) - horizontal
-    addLine(line_batch, 0.0f, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f, 0.0f);
+    addLine(line_batch, 0.0F, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, 0.0F, 0.0F, 0.3F, 0.0F);
 
     // Z axis (blue) - vertical "up"
-    addLine(line_batch, 0.0f, 0.0f, -10.0f * scale, 0.0f, 0.0f, 10.0f * scale, 0.0f, 0.0f, 0.3f);
+    addLine(line_batch, 0.0F, 0.0F, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, 0.0F, 0.0F, 0.3F);
 
     // perspective lines in X-Y plane (gray)
-    addLine(line_batch, 10.0f * scale, 10.0f * scale, 0.0f, -10.0f * scale, -10.0f * scale, 0.0f, 0.3f, 0.3f, 0.3f);
-    addLine(line_batch, 10.0f * scale, -10.0f * scale, 0.0f, -10.0f * scale, 10.0f * scale, 0.0f, 0.3f, 0.3f, 0.3f);
+    addLine(line_batch, 10.0F * scale, 10.0F * scale, 0.0F, -10.0F * scale, -10.0F * scale, 0.0F, 0.3F, 0.3F, 0.3F);
+    addLine(line_batch, 10.0F * scale, -10.0F * scale, 0.0F, -10.0F * scale, 10.0F * scale, 0.0F, 0.3F, 0.3F, 0.3F);
 }
 
 // render the sim planets to the screen
 void renderPlanets(const sim_properties_t sim, const GLuint shader_program, const VBO_t planet_shape_buffer) {
     glBindVertexArray(planet_shape_buffer.VAO);
-    for (int i = 0; i < sim.gb.count; i++) {
-        const body_t* body = &sim.gb.bodies[i];
+    for (int i = 0; i < sim.global_bodies.count; i++) {
+        const body_t* body = &sim.global_bodies.bodies[i];
 
         // create a scale matrix based on the radius of the planet
         const float size_scale_factor = (float)body->radius / SCALE;
@@ -554,19 +576,19 @@ void renderPlanets(const sim_properties_t sim, const GLuint shader_program, cons
 
         // apply matrix and render to screen
         GL_setMatrixUniform(shader_program, "model", &planet_model);
-        glDrawArrays(GL_TRIANGLES, 0, sim.wp.planet_model_vertex_count);
+        glDrawArrays(GL_TRIANGLES, 0, sim.window_params.planet_model_vertex_count);
     }
 
     // draw sphere of influence
-    if (sim.wp.draw_planet_SOI) {
+    if (sim.window_params.draw_planet_SOI) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask(GL_FALSE);
         glUniform1i(glGetUniformLocation(shader_program, "useOverride"), 1);
-        glUniform4f(glGetUniformLocation(shader_program, "colorOverride"), 0.0f, 0.5f, 1.0f, 0.2f);
+        glUniform4f(glGetUniformLocation(shader_program, "colorOverride"), 0.0F, 0.5F, 1.0F, 0.2F);
         glBindVertexArray(planet_shape_buffer.VAO);
-        for (int i = 0; i < sim.gb.count; i++) {
-            const body_t* body = &sim.gb.bodies[i];
+        for (int i = 0; i < sim.global_bodies.count; i++) {
+            const body_t* body = &sim.global_bodies.bodies[i];
             const float size_scale_factor = (float)body->SOI_radius / SCALE;
             const mat4 scale_mat = mat4_scale(size_scale_factor, size_scale_factor, size_scale_factor);
             const mat4 rotation_mat = quaternionToMatrix(body->attitude);
@@ -574,7 +596,7 @@ void renderPlanets(const sim_properties_t sim, const GLuint shader_program, cons
             const mat4 temp = mat4_mul(rotation_mat, scale_mat);
             mat4 planet_model = mat4_mul(translate_mat, temp);
             GL_setMatrixUniform(shader_program, "model", &planet_model);
-            glDrawArrays(GL_TRIANGLES, 0, sim.wp.planet_model_vertex_count);
+            glDrawArrays(GL_TRIANGLES, 0, sim.window_params.planet_model_vertex_count);
         }
         glUniform1i(glGetUniformLocation(shader_program, "useOverride"), 0);
         glDepthMask(GL_TRUE);
@@ -585,20 +607,20 @@ void renderPlanets(const sim_properties_t sim, const GLuint shader_program, cons
 // render the sim crafts to the renderer
 void renderCrafts(const sim_properties_t sim, const GLuint shader_program, const VBO_t craft_shape_buffer) {
     glBindVertexArray(craft_shape_buffer.VAO);
-    for (int i = 0; i < sim.gs.count; i++) {
-        const spacecraft_t* craft = &sim.gs.spacecraft[i];
+    for (int i = 0; i < sim.global_spacecraft.count; i++) {
+        const spacecraft_t* craft = &sim.global_spacecraft.spacecraft[i];
 
         // create a scale matrix
-        const float size_scale_factor = 0.05f;
-        const mat4 S = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
-        const mat4 R = quaternionToMatrix(craft->attitude);
-        const mat4 T = mat4_translation(
+        const float size_scale_factor = 0.05F;
+        const mat4 scale_matrix = mat4_scale(size_scale_factor, size_scale_factor * 2, size_scale_factor);
+        const mat4 rotation_matrix = quaternionToMatrix(craft->attitude);
+        const mat4 translation_matrix = mat4_translation(
             (float)craft->pos.x / SCALE,
             (float)craft->pos.y / SCALE,
             (float)craft->pos.z / SCALE);
 
-        const mat4 temp = mat4_mul(R, S);
-        mat4 model = mat4_mul(T, temp);
+        const mat4 temp = mat4_mul(rotation_matrix, scale_matrix);
+        mat4 model = mat4_mul(translation_matrix, temp);
 
         // apply matrix and render to screen
         GL_setMatrixUniform(shader_program, "model", &model);
@@ -610,78 +632,84 @@ void renderCrafts(const sim_properties_t sim, const GLuint shader_program, const
 void renderStats(const sim_properties_t sim, font_t* font) {
 
     // calculate proper line height
-    const float line_height = 20.0f;
-    const float cursor_starting_pos[2] = { 10.0f, line_height + 10.0f};
+    const float line_height = 20.0F;
+    const float cursor_starting_pos[2] = { 10.0F, line_height + 10.0F};
     float cursor_pos[2] = { cursor_starting_pos[0], cursor_starting_pos[1] };
 
     // text buffer used to hold text written to the stats window
     char text_buffer[64];
 
     // paused indication
-    if (sim.wp.sim_running) snprintf(text_buffer, sizeof(text_buffer), "Sim running");
-    else snprintf(text_buffer, sizeof(text_buffer), "Sim paused");
-    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
+    if (sim.window_params.sim_running) {
+        snprintf(text_buffer, sizeof(text_buffer), "Sim running");
+    } else {
+        snprintf(text_buffer, sizeof(text_buffer), "Sim paused");
+    }
+    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8F);
     cursor_pos[1] += line_height;
 
     // write time step
-    snprintf(text_buffer, sizeof(text_buffer), "Step: %.4g", sim.wp.time_step);
-    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
+    snprintf(text_buffer, sizeof(text_buffer), "Step: %.4g", sim.window_params.time_step);
+    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8F);
     cursor_pos[1] += line_height;
 
     // time indication
-    const double time = sim.wp.sim_time / 3600;
-    if (time < 72.0) snprintf(text_buffer, sizeof(text_buffer), "Time: %.2f hrs", time);
-    else if (time < 8766.0) snprintf(text_buffer, sizeof(text_buffer), "Time: %.2f days", time / 24);
-    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
+    const double time = sim.window_params.sim_time / 3600;
+    if (time < 72.0) {
+        snprintf(text_buffer, sizeof(text_buffer), "Time: %.2F hrs", time);
+    } else if (time < 8766.0) {
+        snprintf(text_buffer, sizeof(text_buffer), "Time: %.2F days", time / 24);
+    }
+    addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8F);
     cursor_pos[1] += line_height;
 
     // spacer
     cursor_pos[1] += line_height;
 
-    for (int i = 0; i < sim.gs.count; i++) {
-        const int closest_id = sim.gs.spacecraft[i].oe.closest_planet_id;
-        const int soi_id = sim.gs.spacecraft[i].oe.SOI_planet_id;
+    for (int i = 0; i < sim.global_spacecraft.count; i++) {
+        const int closest_id = sim.global_spacecraft.spacecraft[i].oe.closest_planet_id;
+        const int soi_id = sim.global_spacecraft.spacecraft[i].oe.SOI_planet_id;
 
-        snprintf(text_buffer, sizeof(text_buffer), "%s", sim.gs.spacecraft[i].name);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
-        cursor_pos[1] += line_height;
-
-        snprintf(text_buffer, sizeof(text_buffer), "Closest Planet: %s", sim.gb.bodies[closest_id].name);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        snprintf(text_buffer, sizeof(text_buffer), "%s", sim.global_spacecraft.spacecraft[i].name);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8F);
         cursor_pos[1] += line_height;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Distance: %.2f km", sqrt(sim.gs.spacecraft[i].oe.closest_r_squared) / 1000 - sim.gb.bodies[closest_id].radius / 1000);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        snprintf(text_buffer, sizeof(text_buffer), "Closest Planet: %s", sim.global_bodies.bodies[closest_id].name);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
 
-        snprintf(text_buffer, sizeof(text_buffer), "In SOI of: %s", sim.gb.bodies[soi_id].name);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        snprintf(text_buffer, sizeof(text_buffer), "Distance: %.2F km", (sqrt(sim.global_spacecraft.spacecraft[i].oe.closest_r_squared) / 1000.0) - (sim.global_bodies.bodies[closest_id].radius / 1000.0));
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Semi Major Axis: %.4g m", sim.gs.spacecraft[i].oe.semi_major_axis);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        snprintf(text_buffer, sizeof(text_buffer), "In SOI of: %s", sim.global_bodies.bodies[soi_id].name);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Eccentricity: %.6f", sim.gs.spacecraft[i].oe.eccentricity);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
-        cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Inclination: %.4f rad", sim.gs.spacecraft[i].oe.inclination);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
-        cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Ascending Node: %.4f rad", sim.gs.spacecraft[i].oe.ascending_node);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
-        cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Arg of Periapsis: %.4f rad", sim.gs.spacecraft[i].oe.arg_periapsis);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
-        cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4f rad", sim.gs.spacecraft[i].oe.true_anomaly);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
-        cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Specific Energy: %.4f J", sim.gs.spacecraft[i].oe.specific_E);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
-        cursor_pos[1] += line_height * 1.5f;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Fuel: %.1f kg", sim.gs.spacecraft[i].fuel_mass);
-        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
+        snprintf(text_buffer, sizeof(text_buffer), "Semi Major Axis: %.4g m", sim.global_spacecraft.spacecraft[i].oe.semi_major_axis);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "Eccentricity: %.6F", sim.global_spacecraft.spacecraft[i].oe.eccentricity);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "Inclination: %.4F rad", sim.global_spacecraft.spacecraft[i].oe.inclination);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "Ascending Node: %.4F rad", sim.global_spacecraft.spacecraft[i].oe.ascending_node);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "Arg of Periapsis: %.4F rad", sim.global_spacecraft.spacecraft[i].oe.arg_periapsis);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4F rad", sim.global_spacecraft.spacecraft[i].oe.true_anomaly);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "Specific Energy: %.4F J", sim.global_spacecraft.spacecraft[i].oe.specific_E);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height * 1.5F;
+
+        snprintf(text_buffer, sizeof(text_buffer), "Fuel: %.1F kg", sim.global_spacecraft.spacecraft[i].fuel_mass);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
 
         cursor_pos[1] += line_height;
@@ -689,25 +717,25 @@ void renderStats(const sim_properties_t sim, font_t* font) {
 }
 
 void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, craft_path_storage_t* craft_paths) {
-    window_params_t wp = sim->wp;
-    spacecraft_properties_t gs = sim->gs;
+    window_params_t window_params = sim->window_params;
+    spacecraft_properties_t global_spacecraft = sim->global_spacecraft;
 
-    if (wp.draw_craft_path && craft_paths->num_objects > 0) {
+    if (window_params.draw_craft_path && craft_paths->num_objects > 0) {
         // draw orbital paths for all crafts
-        for (int p = 0; p < craft_paths->num_objects; p++) {
-            const int base = p * craft_paths->capacity;
-            for (int i = 1; i < craft_paths->counts[p]; i++) {
-                const vec3 p1 = craft_paths->positions[base + i - 1];
-                const vec3 p2 = craft_paths->positions[base + i];
-                addLine(line_batch, (float)p1.x, (float)p1.y, (float)p1.z,
-                                    (float)p2.x, (float)p2.y, (float)p2.z, 1.0f, 1.0f, 0.5f);
+        for (int craft_idx = 0; craft_idx < craft_paths->num_objects; craft_idx++) {
+            const int base = craft_idx * craft_paths->capacity;
+            for (int i = 1; i < craft_paths->counts[craft_idx]; i++) {
+                const vec3 prev_pos = craft_paths->positions[base + i - 1];
+                const vec3 curr_pos = craft_paths->positions[base + i];
+                addLine(line_batch, (float)prev_pos.x, (float)prev_pos.y, (float)prev_pos.z,
+                                    (float)curr_pos.x, (float)curr_pos.y, (float)curr_pos.z, 1.0F, 1.0F, 0.5F);
             }
         }
     }
 
     // initialize or resize craft paths if needed
-    if (gs.count > 0 && craft_paths->num_objects != gs.count) {
-        craft_paths->num_objects = gs.count;
+    if (global_spacecraft.count > 0 && craft_paths->num_objects != global_spacecraft.count) {
+        craft_paths->num_objects = global_spacecraft.count;
         craft_paths->capacity = PATH_CAPACITY;
         // clear counts for all spacecraft
         for (int i = 0; i < craft_paths->num_objects && i < MAX_SPACECRAFT; i++) {
@@ -716,17 +744,17 @@ void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, cra
     }
 
     // record craft paths
-    if (gs.count > 0) {
-        for (int p = 0; p < gs.count; p++) {
-            const spacecraft_t* craft = &sim->gs.spacecraft[p];
-            const int idx = p * craft_paths->capacity + craft_paths->counts[p];
-            if (craft_paths->counts[p] < craft_paths->capacity) {
+    if (global_spacecraft.count > 0) {
+        for (int craft_idx = 0; craft_idx < global_spacecraft.count; craft_idx++) {
+            const spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_idx];
+            const int idx = (craft_idx * craft_paths->capacity) + craft_paths->counts[craft_idx];
+            if (craft_paths->counts[craft_idx] < craft_paths->capacity) {
                 craft_paths->positions[idx].x = craft->pos.x / SCALE;
                 craft_paths->positions[idx].y = craft->pos.y / SCALE;
                 craft_paths->positions[idx].z = craft->pos.z / SCALE;
-                craft_paths->counts[p]++;
+                craft_paths->counts[craft_idx]++;
             } else {
-                const int base = p * craft_paths->capacity;
+                const int base = craft_idx * craft_paths->capacity;
                 for (int i = 1; i < craft_paths->capacity; i++) {
                     craft_paths->positions[base + i - 1] = craft_paths->positions[base + i];
                 }
@@ -740,90 +768,96 @@ void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, cra
 
 void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
     // render predicted orbits for bodies (skip central body at index 0)
-    for (int i = 1; i < sim.gb.count; i++) {
-        body_t body = sim.gb.bodies[i];
-        if (body.oe.SOI_planet_id == i) continue;
+    for (int i = 1; i < sim.global_bodies.count; i++) {
+        body_t body = sim.global_bodies.bodies[i];
+        if (body.oe.SOI_planet_id == i) {
+            continue;
+        }
 
         vec3_f parent_pos = {
-            (float)(sim.gb.bodies[body.oe.SOI_planet_id].pos.x / SCALE),
-            (float)(sim.gb.bodies[body.oe.SOI_planet_id].pos.y / SCALE),
-            (float)(sim.gb.bodies[body.oe.SOI_planet_id].pos.z / SCALE)
+            (float)(sim.global_bodies.bodies[body.oe.SOI_planet_id].pos.x / SCALE),
+            (float)(sim.global_bodies.bodies[body.oe.SOI_planet_id].pos.y / SCALE),
+            (float)(sim.global_bodies.bodies[body.oe.SOI_planet_id].pos.z / SCALE)
         };
 
-        float p = (float)(body.oe.semi_major_axis * (1 - body.oe.eccentricity * body.oe.eccentricity));
+        float semi_latus_rectum = (float)(body.oe.semi_major_axis * (1 - body.oe.eccentricity * body.oe.eccentricity));
 
-        mat4 Rz_0 = mat4_rotationZ(-(float)body.oe.ascending_node);
-        mat4 Rx_i = mat4_rotationX(-(float)body.oe.inclination);
-        mat4 Rz_w = mat4_rotationZ(-(float)body.oe.arg_periapsis);
-        mat4 R = mat4_mul(Rz_0, mat4_mul(Rx_i, Rz_w));
+        mat4 rotation_z_0 = mat4_rotationZ(-(float)body.oe.ascending_node);
+        mat4 rotation_x_i = mat4_rotationX(-(float)body.oe.inclination);
+        mat4 rotation_z_w = mat4_rotationZ(-(float)body.oe.arg_periapsis);
+        mat4 rotation_matrix = mat4_mul(rotation_z_0, mat4_mul(rotation_x_i, rotation_z_w));
 
-        if (body.oe.eccentricity >= 1.0) continue;
+        if (body.oe.eccentricity >= 1.0) {
+            continue;
+        }
 
         int path_res = 100;
-        float r0 = p / (1 + (float)body.oe.eccentricity);
-        vec3_f r_p0 = { r0, 0, 0 };
-        vec3_f prev_r_eci = vec3_transformByMat4(R, r_p0);
+        float periapsis_distance = semi_latus_rectum / (1 + (float)body.oe.eccentricity);
+        vec3_f position_perifocal_0 = { periapsis_distance, 0, 0 };
+        vec3_f prev_position_eci = vec3_transformByMat4(rotation_matrix, position_perifocal_0);
 
         for (int j = 1; j <= path_res; j++) {
             float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
-            float r = p / (1 + (float)body.oe.eccentricity * cosf(true_anomaly));
-            vec3_f r_p = {
-                r * cosf(true_anomaly),
-                r * sinf(true_anomaly),
+            float orbital_radius = semi_latus_rectum / (1 + (float)body.oe.eccentricity * cosf(true_anomaly));
+            vec3_f position_perifocal = {
+                orbital_radius * cosf(true_anomaly),
+                orbital_radius * sinf(true_anomaly),
                 0
             };
-            vec3_f r_eci = vec3_transformByMat4(R, r_p);
+            vec3_f position_eci = vec3_transformByMat4(rotation_matrix, position_perifocal);
 
             addLine(line_batch,
-                parent_pos.x + prev_r_eci.x / SCALE, parent_pos.y + prev_r_eci.y / SCALE, parent_pos.z + prev_r_eci.z / SCALE,
-                parent_pos.x + r_eci.x / SCALE, parent_pos.y + r_eci.y / SCALE, parent_pos.z + r_eci.z / SCALE,
-                0.5f, 0.5f, 0.5f);
+                parent_pos.x + (prev_position_eci.x / SCALE), parent_pos.y + (prev_position_eci.y / SCALE), parent_pos.z + (prev_position_eci.z / SCALE),
+                parent_pos.x + (position_eci.x / SCALE), parent_pos.y + (position_eci.y / SCALE), parent_pos.z + (position_eci.z / SCALE),
+                0.5F, 0.5F, 0.5F);
 
-            prev_r_eci = r_eci;
+            prev_position_eci = position_eci;
         }
     }
 
     // render predicted orbits for spacecraft
-    if (sim.gs.count > 0) {
-        for (int i = 0; i < sim.gs.count; i++) {
-            spacecraft_t craft = sim.gs.spacecraft[i];
+    if (sim.global_spacecraft.count > 0) {
+        for (int i = 0; i < sim.global_spacecraft.count; i++) {
+            spacecraft_t craft = sim.global_spacecraft.spacecraft[i];
             vec3_f body_pos = {
-                (float)(sim.gb.bodies[craft.oe.SOI_planet_id].pos.x / SCALE),
-                (float)(sim.gb.bodies[craft.oe.SOI_planet_id].pos.y / SCALE),
-                (float)(sim.gb.bodies[craft.oe.SOI_planet_id].pos.z / SCALE)
+                (float)(sim.global_bodies.bodies[craft.oe.SOI_planet_id].pos.x / SCALE),
+                (float)(sim.global_bodies.bodies[craft.oe.SOI_planet_id].pos.y / SCALE),
+                (float)(sim.global_bodies.bodies[craft.oe.SOI_planet_id].pos.z / SCALE)
             };
 
-            float p = (float)(craft.oe.semi_major_axis * (1 - craft.oe.eccentricity * craft.oe.eccentricity));
+            float semi_latus_rectum = (float)(craft.oe.semi_major_axis * (1 - craft.oe.eccentricity * craft.oe.eccentricity));
 
-            mat4 Rz_0 = mat4_rotationZ(-(float)craft.oe.ascending_node);
-            mat4 Rx_i = mat4_rotationX(-(float)craft.oe.inclination);
-            mat4 Rz_w = mat4_rotationZ(-(float)craft.oe.arg_periapsis);
-            mat4 R = mat4_mul(Rz_0, mat4_mul(Rx_i, Rz_w));
+            mat4 rotation_z_0 = mat4_rotationZ(-(float)craft.oe.ascending_node);
+            mat4 rotation_x_i = mat4_rotationX(-(float)craft.oe.inclination);
+            mat4 rotation_z_w = mat4_rotationZ(-(float)craft.oe.arg_periapsis);
+            mat4 rotation_matrix = mat4_mul(rotation_z_0, mat4_mul(rotation_x_i, rotation_z_w));
 
-            if (craft.oe.eccentricity >= 1.0) continue;
+            if (craft.oe.eccentricity >= 1.0) {
+                continue;
+            }
 
             // increment through true anomaly values to build the orbit with given parameters
             int path_res = 100;
-            float r0 = p / (1 + (float)craft.oe.eccentricity);
-            vec3_f r_p0 = { r0, 0, 0 };
-            vec3_f prev_r_eci = vec3_transformByMat4(R, r_p0);
+            float periapsis_distance = semi_latus_rectum / (1 + (float)craft.oe.eccentricity);
+            vec3_f position_perifocal_0 = { periapsis_distance, 0, 0 };
+            vec3_f prev_position_eci = vec3_transformByMat4(rotation_matrix, position_perifocal_0);
 
             for (int j = 1; j <= path_res; j++) {
                 float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
-                float r = p / (1 + (float)craft.oe.eccentricity * cosf(true_anomaly));
-                vec3_f r_p = {
-                    r * cosf(true_anomaly),
-                    r * sinf(true_anomaly),
+                float orbital_radius = semi_latus_rectum / (1 + (float)craft.oe.eccentricity * cosf(true_anomaly));
+                vec3_f position_perifocal = {
+                    orbital_radius * cosf(true_anomaly),
+                    orbital_radius * sinf(true_anomaly),
                     0
                 };
-                vec3_f r_eci = vec3_transformByMat4(R, r_p);
+                vec3_f position_eci = vec3_transformByMat4(rotation_matrix, position_perifocal);
 
                 addLine(line_batch,
-                    body_pos.x + prev_r_eci.x / SCALE, body_pos.y + prev_r_eci.y / SCALE, body_pos.z + prev_r_eci.z / SCALE,
-                    body_pos.x + r_eci.x / SCALE, body_pos.y + r_eci.y / SCALE, body_pos.z + r_eci.z / SCALE,
-                    0.0f, 0.0f, 1.0f);
+                    body_pos.x + (prev_position_eci.x / SCALE), body_pos.y + (prev_position_eci.y / SCALE), body_pos.z + (prev_position_eci.z / SCALE),
+                    body_pos.x + (position_eci.x / SCALE), body_pos.y + (position_eci.y / SCALE), body_pos.z + (position_eci.z / SCALE),
+                    0.0F, 0.0F, 1.0F);
 
-                prev_r_eci = r_eci;
+                prev_position_eci = position_eci;
             }
 
         }
@@ -832,48 +866,55 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
 
 // renders debug features when they are enabled
 void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_storage_t* craft_paths) {
-    window_params_t wp = sim.wp;
-    spacecraft_properties_t gs = sim.gs;
-    body_properties_t gb = sim.gb;
+    window_params_t window_params = sim.window_params;
+    spacecraft_properties_t global_spacecraft = sim.global_spacecraft;
+    body_properties_t global_bodies = sim.global_bodies;
 
     // create temporary arrays for scaled positions
-    vec3_f scaled_body_pos[gb.count];
-    vec3_f scaled_craft_pos[gs.count];
+    vec3_f scaled_body_pos[global_bodies.count];
+    vec3_f scaled_craft_pos[global_spacecraft.count];
 
-    for (int i = 0; i < gb.count; i++) {
-        scaled_body_pos[i].x = (float)(gb.bodies[i].pos.x / SCALE);
-        scaled_body_pos[i].y = (float)(gb.bodies[i].pos.y / SCALE);
-        scaled_body_pos[i].z = (float)(gb.bodies[i].pos.z / SCALE);
+    for (int i = 0; i < global_bodies.count; i++) {
+        scaled_body_pos[i].x = (float)(global_bodies.bodies[i].pos.x / SCALE);
+        scaled_body_pos[i].y = (float)(global_bodies.bodies[i].pos.y / SCALE);
+        scaled_body_pos[i].z = (float)(global_bodies.bodies[i].pos.z / SCALE);
     }
-    for (int i = 0; i < gs.count; i++) {
-        scaled_craft_pos[i].x = (float)(gs.spacecraft[i].pos.x / SCALE);
-        scaled_craft_pos[i].y = (float)(gs.spacecraft[i].pos.y / SCALE);
-        scaled_craft_pos[i].z = (float)(gs.spacecraft[i].pos.z / SCALE);
+    for (int i = 0; i < global_spacecraft.count; i++) {
+        scaled_craft_pos[i].x = (float)(global_spacecraft.spacecraft[i].pos.x / SCALE);
+        scaled_craft_pos[i].y = (float)(global_spacecraft.spacecraft[i].pos.y / SCALE);
+        scaled_craft_pos[i].z = (float)(global_spacecraft.spacecraft[i].pos.z / SCALE);
     }
 
-    if (wp.draw_lines_between_bodies) {
+    if (window_params.draw_lines_between_bodies) {
         // draw lines between planets to show distance
-        for (int i = 0; i < gb.count; i++) {
-            const vec3_f pp1 = scaled_body_pos[i];
-            int pp2idx = i + 1;
-            if (i + 1 > gb.count - 1) pp2idx = 0;
-            const vec3_f pp2 = scaled_body_pos[pp2idx];
-            addLine(line_batch, pp1.x, pp1.y, pp1.z, pp2.x, pp2.y, pp2.z, 1, 1, 1);
+        for (int i = 0; i < global_bodies.count; i++) {
+            const vec3_f body_pos_1 = scaled_body_pos[i];
+            int other_body_index = i + 1;
+            if (i + 1 > global_bodies.count - 1) {
+                other_body_index = 0;
+            }
+            const vec3_f body_pos_2 = scaled_body_pos[other_body_index];
+            addLine(line_batch, body_pos_1.x, body_pos_1.y, body_pos_1.z, body_pos_2.x, body_pos_2.y, body_pos_2.z, 1.0F, 1.0F, 1.0F);
         }
     }
-    if (wp.draw_inclination_height) {
-        for (int i = 0; i < gb.count; i++) {
-            const vec3_f pp = scaled_body_pos[i];
-            float r, g, b;
-            if (pp.z > 0) { r = 0.5f, g = 0.5f; b = 1.0f; }
-            else { r = 1.0f, g = 0.5f; b = 0.5f; }
-            addLine(line_batch, pp.x, pp.y, pp.z, pp.x, pp.y, 0, r, g, b);
+    if (window_params.draw_inclination_height) {
+        for (int i = 0; i < global_bodies.count; i++) {
+            const vec3_f body_scaled_pos = scaled_body_pos[i];
+            float red = 1.0F;
+            float green = 0.5F;
+            float blue = 0.5F;
+            if (body_scaled_pos.z > 0) {
+                red = 0.5F;
+                green = 0.5F;
+                blue = 1.0F;
+            }
+            addLine(line_batch, body_scaled_pos.x, body_scaled_pos.y, body_scaled_pos.z, body_scaled_pos.x, body_scaled_pos.y, 0.0F, red, green, blue);
         }
     }
 
     // draw rotation axes for all bodies
-    for (int i = 0; i < gb.count; i++) {
-        const body_t body = gb.bodies[i];
+    for (int i = 0; i < global_bodies.count; i++) {
+        const body_t body = global_bodies.bodies[i];
         if (body.rotational_v != 0.0) {
             // get planet position (already scaled)
             const vec3_f planet_pos = scaled_body_pos[i];
@@ -883,22 +924,22 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
             const vec3 rotation_axis = quaternionRotate(body.attitude, z_axis);
 
             // scale the axis to extend beyond the planet
-            const float axis_length = (float)(body.radius / SCALE) * 1.5f;
+            const float axis_length = (float)(body.radius / SCALE) * 1.5F;
             const vec3_f axis_end1 = {
-                planet_pos.x + (float)rotation_axis.x * axis_length,
-                planet_pos.y + (float)rotation_axis.y * axis_length,
-                planet_pos.z + (float)rotation_axis.z * axis_length
+                planet_pos.x + ((float)rotation_axis.x * axis_length),
+                planet_pos.y + ((float)rotation_axis.y * axis_length),
+                planet_pos.z + ((float)rotation_axis.z * axis_length)
             };
             const vec3_f axis_end2 = {
-                planet_pos.x - (float)rotation_axis.x * axis_length,
-                planet_pos.y - (float)rotation_axis.y * axis_length,
-                planet_pos.z - (float)rotation_axis.z * axis_length
+                planet_pos.x - ((float)rotation_axis.x * axis_length),
+                planet_pos.y - ((float)rotation_axis.y * axis_length),
+                planet_pos.z - ((float)rotation_axis.z * axis_length)
             };
 
             // draw the rotation axis line
             addLine(line_batch, axis_end1.x, axis_end1.y, axis_end1.z,
                                axis_end2.x, axis_end2.y, axis_end2.z,
-                               0.0f, 1.0f, 1.0f);
+                               0.0F, 1.0F, 1.0F);
         }
     }
 
@@ -906,17 +947,17 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
     // craft orbital visuals
     //////////////////////////////////////////////////
     // render orbit property lines
-    for (int i = 0; i < gs.count; i++) {
-        spacecraft_t craft = gs.spacecraft[i];
+    for (int i = 0; i < global_spacecraft.count; i++) {
+        spacecraft_t craft = global_spacecraft.spacecraft[i];
         const vec3_f craft_pos = scaled_craft_pos[i];
         const vec3_f body_pos = scaled_body_pos[craft.oe.SOI_planet_id];
 
         // line from planet to craft!
-        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, body_pos.x, body_pos.y, body_pos.z, 1.0f, 1.0f, 1.0f);
+        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, body_pos.x, body_pos.y, body_pos.z, 1.0F, 1.0F, 1.0F);
         // line to view angle from equatorial plane
-        addLine(line_batch, craft_pos.x, craft_pos.y, body_pos.z, body_pos.x, body_pos.y, body_pos.z, 1.0f, 0.0f, 0.0f);
+        addLine(line_batch, craft_pos.x, craft_pos.y, body_pos.z, body_pos.x, body_pos.y, body_pos.z, 1.0F, 0.0F, 0.0F);
         // line to connect the triangle
-        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, craft_pos.x, craft_pos.y, body_pos.z, 0.0f, 1.0f, 0.0f);
+        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, craft_pos.x, craft_pos.y, body_pos.z, 0.0F, 1.0F, 0.0F);
     }
 
     renderCraftPaths(&sim, line_batch, craft_paths);

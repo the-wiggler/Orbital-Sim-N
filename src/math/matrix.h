@@ -11,7 +11,7 @@
 // normalize a 3d vector
 static inline void normalize_3d(float v[3]) {
     const float length = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-    if (length > 0.0f) {
+    if (length > 0.0F) {
         v[0] /= length;
         v[1] /= length;
         v[2] /= length;
@@ -97,7 +97,7 @@ static inline vec3 vec3_normalize(const vec3 v) {
 }
 static inline vec3_f vec3_f_normalize(const vec3_f v) {
     const float mag = vec3_f_mag(v);
-    if (mag > 0.0f) {
+    if (mag > 0.0F) {
         return (vec3_f){v.x / mag, v.y / mag, v.z / mag};
     }
     return v;
@@ -341,28 +341,28 @@ static inline mat4 quaternionToMatrix(const quaternion_t q) {
 
     mat4 mat;
     // column 0
-    mat.m[0] = 1.0f - 2.0f * (yy + zz);
-    mat.m[1] = 2.0f * (xy + wz);
-    mat.m[2] = 2.0f * (xz - wy);
-    mat.m[3] = 0.0f;
+    mat.m[0] = 1.0F - 2.0F * (yy + zz);
+    mat.m[1] = 2.0F * (xy + wz);
+    mat.m[2] = 2.0F * (xz - wy);
+    mat.m[3] = 0.0F;
 
     // column 1
-    mat.m[4] = 2.0f * (xy - wz);
-    mat.m[5] = 1.0f - 2.0f * (xx + zz);
-    mat.m[6] = 2.0f * (yz + wx);
-    mat.m[7] = 0.0f;
+    mat.m[4] = 2.0F * (xy - wz);
+    mat.m[5] = 1.0F - 2.0F * (xx + zz);
+    mat.m[6] = 2.0F * (yz + wx);
+    mat.m[7] = 0.0F;
 
     // column 2
-    mat.m[8] = 2.0f * (xz + wy);
-    mat.m[9] = 2.0f * (yz - wx);
-    mat.m[10] = 1.0f - 2.0f * (xx + yy);
-    mat.m[11] = 0.0f;
+    mat.m[8] = 2.0F * (xz + wy);
+    mat.m[9] = 2.0F * (yz - wx);
+    mat.m[10] = 1.0F - 2.0F * (xx + yy);
+    mat.m[11] = 0.0F;
 
     // column 3
-    mat.m[12] = 0.0f;
-    mat.m[13] = 0.0f;
-    mat.m[14] = 0.0f;
-    mat.m[15] = 1.0f;
+    mat.m[12] = 0.0F;
+    mat.m[13] = 0.0F;
+    mat.m[14] = 0.0F;
+    mat.m[15] = 1.0F;
 
     return mat;
 }
