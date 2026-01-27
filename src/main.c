@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
     line_batch = createLineBatch(MAX_LINE_BATCH);
 
     // craft path tracking
-    object_path_storage_t craft_paths = {0};
+    craft_path_storage_t craft_paths = {0};
 
     // initialize font for text rendering
     font_t font;

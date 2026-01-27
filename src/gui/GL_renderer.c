@@ -688,7 +688,7 @@ void renderStats(const sim_properties_t sim, font_t* font) {
     }
 }
 
-void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* craft_paths) {
+void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, craft_path_storage_t* craft_paths) {
     window_params_t wp = sim->wp;
     spacecraft_properties_t gs = sim->gs;
 
@@ -831,7 +831,7 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
 }
 
 // renders debug features when they are enabled
-void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, object_path_storage_t* craft_paths) {
+void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_storage_t* craft_paths) {
     window_params_t wp = sim.wp;
     spacecraft_properties_t gs = sim.gs;
     body_properties_t gb = sim.gb;

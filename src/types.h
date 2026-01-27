@@ -34,6 +34,14 @@ typedef struct {
 } quaternion_t;
 
 typedef struct {
+    char cmd_text_box[256];
+    char log[256];
+    int cmd_text_box_length;
+    float cmd_pos_x, cmd_pos_y;
+    float log_pos_x, log_pos_y;
+} console_t;
+
+typedef struct {
     int SOI_planet_id;
     int closest_planet_id;
     double closest_r_squared;
@@ -48,55 +56,6 @@ typedef struct {
     double true_anomaly; // rad
     double specific_E; // specific energy
 } orbital_elements_t;
-
-typedef struct {
-    int screen_width, screen_height;
-    double time_step;
-    float window_size_x, window_size_y;
-
-    // 3D camera
-    vec3_f camera_pos;    // camera position in world space (defined by a unit vector, whereas the magnitude is changed by the viewport zoom)
-    float zoom;           // zoom level
-    float cam_pitch, cam_yaw;
-    vec3_f cam_target; // should be the world coordinates
-
-    volatile bool window_open;
-    bool data_logging_enabled;
-    volatile bool sim_running;
-    double sim_time;
-    SDL_WindowID main_window_ID;
-
-    double meters_per_pixel;
-
-    int planet_model_vertex_count;
-    int frame_counter;
-    float csv_update_frequency; // how often (per second) the csv file should be updated with data
-
-    bool is_dragging_orbit_view;
-    vec2_f drag_last;
-    bool is_dragging_translation_view; // activating this means you want to edit camera_pos
-
-    bool reset_sim;
-    bool is_zooming;
-    bool is_zooming_out;
-    bool is_zooming_in;
-
-    // visual stuff
-    bool draw_lines_between_bodies;
-    bool draw_inclination_height;
-    bool draw_planet_path;
-    bool draw_craft_path;
-    bool draw_planet_SOI;
-
-} window_params_t;
-
-typedef struct {
-    char cmd_text_box[256];
-    char log[256];
-    int cmd_text_box_length;
-    float cmd_pos_x, cmd_pos_y;
-    float log_pos_x, log_pos_y;
-} console_t;
 
 // celestial body
 typedef struct {
@@ -186,6 +145,47 @@ typedef struct {
     spacecraft_t spacecraft[MAX_SPACECRAFT];
 } spacecraft_properties_t;
 
+typedef struct {
+    int screen_width, screen_height;
+    double time_step;
+    float window_size_x, window_size_y;
+
+    // 3D camera
+    vec3_f camera_pos;    // camera position in world space (defined by a unit vector, whereas the magnitude is changed by the viewport zoom)
+    float zoom;           // zoom level
+    float cam_pitch, cam_yaw;
+    vec3_f cam_target; // should be the world coordinates
+
+    volatile bool window_open;
+    bool data_logging_enabled;
+    volatile bool sim_running;
+    double sim_time;
+    SDL_WindowID main_window_ID;
+
+    double meters_per_pixel;
+
+    int planet_model_vertex_count;
+    int frame_counter;
+    float csv_update_frequency; // how often (per second) the csv file should be updated with data
+
+    bool is_dragging_orbit_view;
+    vec2_f drag_last;
+    bool is_dragging_translation_view; // activating this means you want to edit camera_pos
+
+    bool reset_sim;
+    bool is_zooming;
+    bool is_zooming_out;
+    bool is_zooming_in;
+
+    // visual stuff
+    bool draw_lines_between_bodies;
+    bool draw_inclination_height;
+    bool draw_planet_path;
+    bool draw_craft_path;
+    bool draw_planet_SOI;
+
+} window_params_t;
+
 // container for all the sim elements
 typedef struct {
     body_properties_t gb; // global bodies
@@ -266,10 +266,10 @@ typedef struct {
 
 // planet path tracking
 typedef struct {
-    vec3 positions[MAX_PLANETS * PATH_CAPACITY];
-    int counts[MAX_PLANETS];
+    vec3 positions[MAX_SPACECRAFT * PATH_CAPACITY];
+    int counts[MAX_SPACECRAFT];
     int capacity;
     int num_objects;
-} object_path_storage_t;
+} craft_path_storage_t;
 
 #endif

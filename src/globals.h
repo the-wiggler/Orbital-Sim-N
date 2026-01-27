@@ -26,9 +26,9 @@ static const char* SIMULATION_FILENAME = "simulation_data.json";
 static const float SCALE = 1e7f; // scales in-sim meters to openGL coordinates -- this is an arbitrary number that can be adjusted... probably
 
 // memory limits
-#define MAX_PLANETS 16
+#define MAX_PLANETS 32
 #define PATH_CAPACITY 1000
-#define MAX_SPACECRAFT 32
+#define MAX_SPACECRAFT 16
 #define MAX_BURNS_PER_SPACECRAFT 32
 #define MAX_NAME_LENGTH 64
 #define JSON_BUFFER_SIZE 65536
