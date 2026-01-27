@@ -23,9 +23,19 @@ static const float PI_OVER_2_f   =  1.57079632679f; // π/2
 static const float TWO_PI_f      =  6.28318530718f; // 2π
 
 static const char* SIMULATION_FILENAME = "simulation_data.json";
-static const float SCALE = 1e7f; // scales in-sim meters to openGL coordinates -- this is an arbitrary number that can be adjusted
-static const int MAX_PLANETS = 16;
-static const int PATH_CAPACITY = 1000;
+static const float SCALE = 1e7f; // scales in-sim meters to openGL coordinates -- this is an arbitrary number that can be adjusted... probably
+
+// memory limits
+#define MAX_PLANETS 16
+#define PATH_CAPACITY 1000
+#define MAX_SPACECRAFT 32
+#define MAX_BURNS_PER_SPACECRAFT 32
+#define MAX_NAME_LENGTH 64
+#define JSON_BUFFER_SIZE 65536
+#define SHADER_BUFFER_SIZE 16384
+#define MAX_SPHERE_VERTICES 13500
+#define MAX_LINE_BATCH 2000
+#define MAX_FONT_CHARS 512
 
 
 #endif

@@ -10,7 +10,21 @@
 #include "../math/matrix.h"
 
 char* loadShaderSource(const char* filepath) {
+    // use two alternating buffers to support loading vertex and fragment shaders simultaneously
+    static char shader_buffer_0[SHADER_BUFFER_SIZE];
+    static char shader_buffer_1[SHADER_BUFFER_SIZE];
+    static int buffer_index = 0;
+
+    // alternate between buffers
+    char* shader_buffer = (buffer_index == 0) ? shader_buffer_0 : shader_buffer_1;
+    buffer_index = 1 - buffer_index;
+
+    #ifdef _WIN32
+    FILE* file;
+    fopen_s(&file, filepath, "r");
+    #else
     FILE* file = fopen(filepath, "rb");
+    #endif
     if (!file) {
         fprintf(stderr, "Failed to open shader file: %s\n", filepath);
         return NULL;
@@ -20,18 +34,18 @@ char* loadShaderSource(const char* filepath) {
     const long size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    char* source = (char*)malloc(size + 1);
-    if (!source) {
-        fprintf(stderr, "Failed to allocate memory for shader source\n");
+    // validate size
+    if (size >= SHADER_BUFFER_SIZE) {
+        fprintf(stderr, "Shader file too large: %ld bytes (max %d): %s\n", size, SHADER_BUFFER_SIZE, filepath);
         fclose(file);
         return NULL;
     }
 
-    const size_t bytesRead = fread(source, 1, size, file);
-    source[bytesRead] = '\0';  // Use actual bytes read, not file size
+    const size_t bytesRead = fread(shader_buffer, 1, size, file);
+    shader_buffer[bytesRead] = '\0';  // Use actual bytes read, not file size
 
     fclose(file);
-    return source;
+    return shader_buffer;
 }
 
 GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
@@ -45,7 +59,6 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     }
     if (!fragmentShaderSource) {
         fprintf(stderr, "Failed to load fragment shader: %s\n", fragmentPath);
-        free(vertexShaderSource);
         return 0;
     }
 
@@ -61,8 +74,6 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     if (!success) {
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         fprintf(stderr, "ERROR: Vertex shader compilation failed (%s):\n%s\n", vertexPath, infoLog);
-        free(vertexShaderSource);
-        free(fragmentShaderSource);
         return 0;
     }
 
@@ -77,8 +88,6 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         fprintf(stderr, "ERROR: Fragment shader compilation failed (%s):\n%s\n", fragmentPath, infoLog);
         glDeleteShader(vertexShader);
-        free(vertexShaderSource);
-        free(fragmentShaderSource);
         return 0;
     }
 
@@ -95,17 +104,11 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
         fprintf(stderr, "ERROR: Shader program linking failed:\n%s\n", infoLog);
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
-        free(vertexShaderSource);
-        free(fragmentShaderSource);
         return 0;
     }
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-
-    // free the shader source strings (byebye)
-    free(vertexShaderSource);
-    free(fragmentShaderSource);
 
     printf("Successfully compiled shader program: %s + %s\n", vertexPath, fragmentPath);
     return shaderProgram;
@@ -226,9 +229,12 @@ sphere_mesh_t generateUnitSphere(const unsigned int stacks, const unsigned int s
     sphere.vertex_count = stacks * sectors * 6;
     sphere.data_size = sphere.vertex_count * 6 * sizeof(float);
 
-    sphere.vertices = (float*)malloc(sphere.data_size);
-    if (!sphere.vertices) {
-        fprintf(stderr, "Failed to allocate memory for sphere vertices\n");
+    // validate vertex count against static buffer size
+    const size_t required_floats = sphere.vertex_count * 6;
+    if (required_floats > MAX_SPHERE_VERTICES) {
+        fprintf(stderr, "Sphere vertices exceed buffer: %zu floats required (max %d)\n", required_floats, MAX_SPHERE_VERTICES);
+        sphere.vertex_count = 0;
+        sphere.data_size = 0;
         return sphere;
     }
 
@@ -273,9 +279,7 @@ sphere_mesh_t generateUnitSphere(const unsigned int stacks, const unsigned int s
 }
 
 void freeSphere(sphere_mesh_t* sphere) {
-    if (sphere && sphere->vertices) {
-        free(sphere->vertices);
-        sphere->vertices = NULL;
+    if (sphere) {
         sphere->vertex_count = 0;
         sphere->data_size = 0;
     }
@@ -285,17 +289,17 @@ void freeSphere(sphere_mesh_t* sphere) {
 line_batch_t createLineBatch(const size_t max_lines) {
     line_batch_t batch = {0};
 
-    batch.capacity = max_lines;
+    // validate capacity against static buffer size
+    if (max_lines > MAX_LINE_BATCH) {
+        fprintf(stderr, "Line batch capacity %zu exceeds maximum %d\n", max_lines, MAX_LINE_BATCH);
+        batch.capacity = MAX_LINE_BATCH;
+    } else {
+        batch.capacity = max_lines;
+    }
     batch.count = 0;
 
-    // allocate vertex buffer
-    const size_t vertex_array_size = max_lines * 2 * 6 * sizeof(float);
-    batch.vertices = (float*)malloc(vertex_array_size);
-
-    if (!batch.vertices) {
-        fprintf(stderr, "Failed to allocate memory for line batch\n");
-        return batch;
-    }
+    // calculate vertex buffer size
+    const size_t vertex_array_size = batch.capacity * 2 * 6 * sizeof(float);
 
     // create VBO
     glGenVertexArrays(1, &batch.vbo.VAO);
@@ -319,7 +323,7 @@ line_batch_t createLineBatch(const size_t max_lines) {
 }
 
 void addLine(line_batch_t* batch, const float x1, const float y1, const float z1, const float x2, const float y2, const float z2, const float r, const float g, const float b) {
-    if (!batch || !batch->vertices || batch->count >= batch->capacity) {
+    if (!batch || batch->count >= batch->capacity) {
         return;
     }
 
@@ -346,7 +350,7 @@ void addLine(line_batch_t* batch, const float x1, const float y1, const float z1
 }
 
 void renderLines(line_batch_t* batch, const GLuint shader_program) {
-    if (!batch || !batch->vertices || batch->count == 0) {
+    if (!batch || batch->count == 0) {
         return;
     }
 
@@ -374,11 +378,6 @@ void freeLines(line_batch_t* batch) {
         return;
     }
 
-    if (batch->vertices) {
-        free(batch->vertices);
-        batch->vertices = NULL;
-    }
-
     deleteVBO(batch->vbo);
 
     batch->capacity = 0;
@@ -396,7 +395,12 @@ static stbtt_bakedchar cdata[96];
 font_t initFont(const char* path, const float size) {
     font_t f = {0};
 
+    #ifdef _WIN32
+    FILE* fp;
+    fopen_s(&fp, path, "rb");
+    #else
     FILE* fp = fopen(path, "rb");
+    #endif
     if (!fp) {
         fprintf(stderr, "Failed to open font file: %s\n", path);
         return f;
@@ -434,8 +438,6 @@ font_t initFont(const char* path, const float size) {
         glDeleteTextures(1, &f.tex);
         return f;
     }
-
-    f.verts = malloc(MAX_CHARS * 24 * sizeof(float));
 
     glGenVertexArrays(1, &f.vao);
     glGenBuffers(1, &f.vbo);
@@ -496,7 +498,6 @@ void renderText(font_t* font, const float window_w, const float window_h, const 
 }
 
 void freeFont(const font_t* font) {
-    free(font->verts);
     glDeleteTextures(1, &font->tex);
     glDeleteProgram(font->shader);
     glDeleteVertexArrays(1, &font->vao);
@@ -687,53 +688,6 @@ void renderStats(const sim_properties_t sim, font_t* font) {
     }
 }
 
-void renderPlanetPaths(const sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* planet_paths) {
-    // initialize or resize planet paths if needed
-    if (sim->gb.count > 0 && planet_paths->num_objects != sim->gb.count) {
-        free(planet_paths->positions);
-        free(planet_paths->counts);
-        planet_paths->num_objects = sim->gb.count;
-        planet_paths->capacity = PATH_CAPACITY;
-        planet_paths->positions = malloc(planet_paths->num_objects * planet_paths->capacity * sizeof(vec3));
-        planet_paths->counts = calloc(planet_paths->num_objects, sizeof(int));
-    }
-
-    if (sim->wp.draw_planet_path && planet_paths->num_objects > 0 && planet_paths->positions != NULL && planet_paths->counts != NULL) {
-        // draw orbital paths for all planets
-        for (int p = 0; p < planet_paths->num_objects; p++) {
-            const int base = p * planet_paths->capacity;
-            for (int i = 1; i < planet_paths->counts[p]; i++) {
-                const vec3 p1 = planet_paths->positions[base + i - 1];
-                const vec3 p2 = planet_paths->positions[base + i];
-                addLine(line_batch, (float)p1.x, (float)p1.y, (float)p1.z,
-                                    (float)p2.x, (float)p2.y, (float)p2.z, 0.5f, 1.0f, 0.5f);
-            }
-        }
-    }
-
-    // record planet paths
-    if (sim->wp.frame_counter % 5 == 0 && sim->gb.count > 0 && planet_paths->counts != NULL && planet_paths->positions != NULL) {
-        for (int p = 0; p < sim->gb.count; p++) {
-            const body_t* body = &sim->gb.bodies[p];
-            const int idx = p * planet_paths->capacity + planet_paths->counts[p];
-            if (planet_paths->counts[p] < planet_paths->capacity) {
-                planet_paths->positions[idx].x = body->pos.x / SCALE;
-                planet_paths->positions[idx].y = body->pos.y / SCALE;
-                planet_paths->positions[idx].z = body->pos.z / SCALE;
-                planet_paths->counts[p]++;
-            } else {
-                const int base = p * planet_paths->capacity;
-                for (int i = 1; i < planet_paths->capacity; i++) {
-                    planet_paths->positions[base + i - 1] = planet_paths->positions[base + i];
-                }
-                planet_paths->positions[base + planet_paths->capacity - 1].x = body->pos.x / SCALE;
-                planet_paths->positions[base + planet_paths->capacity - 1].y = body->pos.y / SCALE;
-                planet_paths->positions[base + planet_paths->capacity - 1].z = body->pos.z / SCALE;
-            }
-        }
-    }
-}
-
 void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, object_path_storage_t* craft_paths) {
     window_params_t wp = sim->wp;
     spacecraft_properties_t gs = sim->gs;
@@ -753,12 +707,12 @@ void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, obj
 
     // initialize or resize craft paths if needed
     if (gs.count > 0 && craft_paths->num_objects != gs.count) {
-        free(craft_paths->positions);
-        free(craft_paths->counts);
         craft_paths->num_objects = gs.count;
         craft_paths->capacity = PATH_CAPACITY;
-        craft_paths->positions = malloc(craft_paths->num_objects * craft_paths->capacity * sizeof(vec3));
-        craft_paths->counts = calloc(craft_paths->num_objects, sizeof(int));
+        // clear counts for all spacecraft
+        for (int i = 0; i < craft_paths->num_objects && i < MAX_SPACECRAFT; i++) {
+            craft_paths->counts[i] = 0;
+        }
     }
 
     // record craft paths
@@ -833,12 +787,12 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
 }
 
 // renders debug features when they are enabled
-void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, object_path_storage_t* planet_paths, object_path_storage_t* craft_paths) {
+void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, object_path_storage_t* craft_paths) {
     window_params_t wp = sim.wp;
     spacecraft_properties_t gs = sim.gs;
     body_properties_t gb = sim.gb;
 
-    // create temporary arrays for scaled positions (avoids modifying original data)
+    // create temporary arrays for scaled positions
     vec3_f scaled_body_pos[gb.count];
     vec3_f scaled_craft_pos[gs.count];
 
@@ -922,7 +876,6 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, object_path_s
     }
 
     renderCraftPaths(&sim, line_batch, craft_paths);
-    renderPlanetPaths(&sim, line_batch, planet_paths);
 
     renderPredictedOrbits(sim, line_batch);
 }

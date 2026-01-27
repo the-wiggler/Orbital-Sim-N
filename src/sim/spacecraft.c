@@ -249,32 +249,30 @@ void craft_addSpacecraft(spacecraft_properties_t* gs, const char* name,
                         const double nozzle_gimbal_range,
                         const burn_properties_t* burns, const int num_burns) {
 
-    // grow capacity if needed
-    if (gs->count >= gs->capacity) {
-        const int new_capacity = gs->capacity == 0 ? 4 : gs->capacity * 2;
-        spacecraft_t* temp = (spacecraft_t*)realloc(gs->spacecraft, new_capacity * sizeof(spacecraft_t));
-        if (temp == NULL) {
-            displayError("ERROR", "Failed to allocate memory for spacecraft");
-            return;
-        }
-        gs->spacecraft = temp;
-        gs->capacity = new_capacity;
+    // check bounds
+    if (gs->count >= MAX_SPACECRAFT) {
+        char err_txt[128];
+        snprintf(err_txt, sizeof(err_txt), "Cannot add spacecraft '%s': Maximum of %d spacecraft reached", name, MAX_SPACECRAFT);
+        displayError("ERROR", err_txt);
+        return;
     }
 
     const int idx = gs->count;
     spacecraft_t* craft = &gs->spacecraft[idx];
 
-    // allocate and copy name
-    craft->name = (char*)malloc(strlen(name) + 1);
-    if (craft->name == NULL) {
-        displayError("ERROR", "Error: Failed to allocate memory for spacecraft name\n");
-        return;
+    // validate and copy name
+    const size_t name_len = strlen(name);
+    if (name_len >= MAX_NAME_LENGTH) {
+        char err_txt[128];
+        snprintf(err_txt, sizeof(err_txt), "Warning: Spacecraft name '%s' truncated to %d characters", name, MAX_NAME_LENGTH - 1);
+        displayError("WARNING", err_txt);
     }
-#ifdef WIN32
-    strcpy_s(craft->name, strlen(name) + 1, name);
+#ifdef _WIN32
+    strncpy_s(craft->name, MAX_NAME_LENGTH, name, MAX_NAME_LENGTH - 1);
 #else
-    strcpy(craft->name, name);
+    strncpy(craft->name, name, MAX_NAME_LENGTH - 1);
 #endif
+    craft->name[MAX_NAME_LENGTH - 1] = '\0';  // ensure null termination
 
     // initialize position and velocity
     craft->pos = pos;
@@ -320,14 +318,19 @@ void craft_addSpacecraft(spacecraft_properties_t* gs, const char* name,
     craft->eccentricity = 0.0;
 
     // initialize burn schedule
-    craft->num_burns = num_burns;
-    if (num_burns > 0) {
-        craft->burn_properties = (burn_properties_t*)malloc(num_burns * sizeof(burn_properties_t));
-        for (int i = 0; i < num_burns; i++) {
-            craft->burn_properties[i] = burns[i];
-        }
+    if (num_burns > MAX_BURNS_PER_SPACECRAFT) {
+        char err_txt[128];
+        snprintf(err_txt, sizeof(err_txt), "Warning: Spacecraft '%s' has %d burns, exceeding maximum of %d. Truncating.",
+                 name, num_burns, MAX_BURNS_PER_SPACECRAFT);
+        displayError("WARNING", err_txt);
+        craft->num_burns = MAX_BURNS_PER_SPACECRAFT;
     } else {
-        craft->burn_properties = NULL;
+        craft->num_burns = num_burns;
+    }
+
+    // copy burns into fixed array
+    for (int i = 0; i < craft->num_burns; i++) {
+        craft->burn_properties[i] = burns[i];
     }
 
     gs->count++;

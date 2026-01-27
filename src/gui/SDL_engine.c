@@ -320,7 +320,11 @@ static void handleTextInputEvent(const SDL_Event* event, sim_properties_t* sim) 
 
     const size_t text_len = strlen(event->text.text);
     if (console->cmd_text_box_length + text_len < 255) {
+        #ifdef _WIN32
+        strcat_s(console->cmd_text_box, sizeof(console->cmd_text_box), event->text.text);
+        #else
         strcat(console->cmd_text_box, event->text.text);
+        #endif
         console->cmd_text_box_length += (int)text_len;
     }
 }
@@ -393,9 +397,9 @@ void runEventCheck(SDL_Event* event, sim_properties_t* sim) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CONSOLE RENDERING
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void renderCMDWindow(sim_properties_t* sim, font_t* font) {
-    console_t* console = &sim->console;
-    const window_params_t* wp = &sim->wp;
+void renderCMDWindow(sim_properties_t sim, font_t* font) {
+    console_t* console = &sim.console;
+    const window_params_t* wp = &sim.wp;
 
     // display what's in the text box
     addText(font, console->cmd_pos_x, console->cmd_pos_y, console->cmd_text_box, 1.0f);

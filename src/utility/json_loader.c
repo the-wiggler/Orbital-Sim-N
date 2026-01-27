@@ -71,20 +71,22 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
     const long file_size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
-    char* json_buffer = (char*)malloc(file_size + 1);
-    if (json_buffer == NULL) {
-        displayError("ERROR", "Error: Could not allocate memory for JSON buffer");
+    // validate file size
+    if (file_size >= JSON_BUFFER_SIZE) {
+        char err_txt[128];
+        snprintf(err_txt, sizeof(err_txt), "JSON file too large: %ld bytes (max %d)", file_size, JSON_BUFFER_SIZE);
+        displayError("ERROR", err_txt);
         fclose(fp);
         return;
     }
 
+    char json_buffer[JSON_BUFFER_SIZE];
     fread(json_buffer, 1, file_size, fp);
     json_buffer[file_size] = '\0';
     fclose(fp);
 
     // parse json
     cJSON* json = cJSON_Parse(json_buffer);
-    free(json_buffer);
 
     if (json == NULL) {
         displayError("ERROR", "Error: Failed to parse simulation JSON");
@@ -175,12 +177,18 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
             // parse burns array
             cJSON* burns_array = cJSON_GetObjectItemCaseSensitive(craft, "burns");
             int num_burns = 0;
-            burn_properties_t* burns = NULL;
+            burn_properties_t burns[MAX_BURNS_PER_SPACECRAFT] = {0};
 
             if (burns_array != NULL && cJSON_IsArray(burns_array)) {
                 num_burns = cJSON_GetArraySize(burns_array);
+                if (num_burns > MAX_BURNS_PER_SPACECRAFT) {
+                    char err_txt[128];
+                    snprintf(err_txt, sizeof(err_txt), "Warning: Spacecraft has %d burns, exceeding maximum of %d. Truncating.",
+                             num_burns, MAX_BURNS_PER_SPACECRAFT);
+                    displayError("WARNING", err_txt);
+                    num_burns = MAX_BURNS_PER_SPACECRAFT;
+                }
                 if (num_burns > 0) {
-                    burns = (burn_properties_t*)malloc(num_burns * sizeof(burn_properties_t));
                     cJSON* burn = NULL;
                     int burn_idx = 0;
                     cJSON_ArrayForEach(burn, burns_array) {
@@ -249,11 +257,6 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
                                 moment_of_inertia_item->valuedouble,
                                 nozzle_gimbal_range_item->valuedouble,
                                 burns, num_burns);
-
-            // free burns array after adding spacecraft
-            if (burns != NULL) {
-                free(burns);
-            }
         }
     }
     // set the initial closest planet on initialization

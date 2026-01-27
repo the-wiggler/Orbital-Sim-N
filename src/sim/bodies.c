@@ -66,7 +66,7 @@ void body_updateRotation(body_t* body, const double dt) {
 // calculates the SOI radius for all bodies
 // assumes the first body (index 0) is the central body
 // SOI = a * (m/M)^(2/5) where a is semi-major axis, m is body mass, M is parent mass
-void body_calculateSOI(const body_properties_t* gb) {
+void body_calculateSOI(body_properties_t* gb) {
     if (gb->count < 2) return;  // need at least 2 bodies
 
     body_t* central = &gb->bodies[0];
@@ -91,32 +91,30 @@ void body_calculateSOI(const body_properties_t* gb) {
 // function to add a new body to the system
 void body_addOrbitalBody(body_properties_t* gb, const char* name, const double mass,
                          const double radius, const vec3 pos, const vec3 vel) {
-    // grow capacity if needed (amortized growth)
-    if (gb->count >= gb->capacity) {
-        const int new_capacity = gb->capacity == 0 ? 4 : gb->capacity * 2;
-        body_t* temp = (body_t*)realloc(gb->bodies, new_capacity * sizeof(body_t));
-        if (temp == NULL) {
-            displayError("ERROR", "Failed to allocate memory for body");
-            return;
-        }
-        gb->bodies = temp;
-        gb->capacity = new_capacity;
+    // check bounds
+    if (gb->count >= MAX_PLANETS) {
+        char err_txt[128];
+        snprintf(err_txt, sizeof(err_txt), "Cannot add body '%s': Maximum of %d bodies reached", name, MAX_PLANETS);
+        displayError("ERROR", err_txt);
+        return;
     }
 
     const int idx = gb->count;
     body_t* body = &gb->bodies[idx];
 
-    // allocate and copy name
-    body->name = (char*)malloc(strlen(name) + 1);
-    if (body->name == NULL) {
-        displayError("ERROR", "Error: Failed to allocate memory for body name\n");
-        return;
+    // validate and copy name
+    const size_t name_len = strlen(name);
+    if (name_len >= MAX_NAME_LENGTH) {
+        char err_txt[128];
+        snprintf(err_txt, sizeof(err_txt), "Warning: Body name '%s' truncated to %d characters", name, MAX_NAME_LENGTH - 1);
+        displayError("WARNING", err_txt);
     }
-#ifdef WIN32
-    strcpy_s(body->name, strlen(name) + 1, name);
+#ifdef _WIN32
+    strncpy_s(body->name, MAX_NAME_LENGTH, name, MAX_NAME_LENGTH - 1);
 #else
-    strcpy(body->name, name);
+    strncpy(body->name, name, MAX_NAME_LENGTH - 1);
 #endif
+    body->name[MAX_NAME_LENGTH - 1] = '\0';
 
     // initialize properties
     body->mass = mass;

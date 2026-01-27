@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
+#include "globals.h"
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -83,7 +84,7 @@ typedef struct {
 
 // celestial body
 typedef struct {
-    char* name;
+    char name[MAX_NAME_LENGTH];
 
     double mass;
     double radius;
@@ -106,8 +107,7 @@ typedef struct {
 // container for all bodies
 typedef struct {
     int count;
-    int capacity;
-    body_t* bodies;
+    body_t bodies[MAX_PLANETS];
 } body_properties_t;
 
 typedef struct {
@@ -127,7 +127,7 @@ typedef struct {
 
 // craft
 typedef struct {
-    char* name;
+    char name[MAX_NAME_LENGTH];
 
     double current_total_mass; // kg
     double dry_mass; // kg
@@ -171,14 +171,13 @@ typedef struct {
     double specific_E; // specific energy
 
     int num_burns;
-    burn_properties_t* burn_properties;
+    burn_properties_t burn_properties[MAX_BURNS_PER_SPACECRAFT];
 } spacecraft_t;
 
 // container for all spacecraft
 typedef struct {
     int count;
-    int capacity;
-    spacecraft_t* spacecraft;
+    spacecraft_t spacecraft[MAX_SPACECRAFT];
 } spacecraft_properties_t;
 
 // container for all the sim elements
@@ -241,13 +240,13 @@ typedef struct {
 
 typedef struct {
     VBO_t vbo;
-    float* vertices;
+    float vertices[MAX_LINE_BATCH * 12];
     size_t capacity;  // max number of lines
     size_t count;     // current number of lines
 } line_batch_t;
 
 typedef struct {
-    float* vertices;
+    float vertices[MAX_SPHERE_VERTICES];
     size_t vertex_count;
     size_t data_size;
 } sphere_mesh_t;
@@ -255,14 +254,14 @@ typedef struct {
 // text rendering
 typedef struct {
     GLuint tex, shader, vao, vbo;
-    float* verts;
+    float verts[MAX_FONT_CHARS * 24];
     int count;
 } font_t;
 
 // planet path tracking
 typedef struct {
-    vec3* positions;
-    int* counts;
+    vec3 positions[MAX_PLANETS * PATH_CAPACITY];
+    int counts[MAX_PLANETS];
     int capacity;
     int num_objects;
 } object_path_storage_t;

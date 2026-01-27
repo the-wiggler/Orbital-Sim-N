@@ -109,8 +109,13 @@ int main(int argc, char *argv[]) {
 
     // CSV file creation
     binary_filenames_t filenames = {
-        .global_data_FILE = fopen("osn_telem.csv", "w")
+        .global_data_FILE = NULL
     };
+#ifdef _WIN32
+    fopen_s(&filenames.global_data_FILE, "osn_telem.csv", "w");
+#else
+    filenames.global_data_FILE = fopen("osn_telem.csv", "w");
+#endif
     writeCSVHeader(filenames.global_data_FILE);
 
 #ifdef __linux__
@@ -156,19 +161,21 @@ int main(int argc, char *argv[]) {
     VBO_t cone_buffer = createVBO(CONE_VERTICES, sizeof(CONE_VERTICES));
 
     // create buffer for sphere shape
-    sphere_mesh_t sphere_mesh = generateUnitSphere(15, 15);
+    sphere_mesh_t sphere_mesh;
+    sphere_mesh = generateUnitSphere(15, 15);
     VBO_t sphere_buffer = createVBO(sphere_mesh.vertices, sphere_mesh.data_size);
     sim.wp.planet_model_vertex_count = (int)sphere_mesh.vertex_count; // I couldn't think of a better way to do this ngl
 
     // create batch to hold all the line geometries we would ever want to draw
-    line_batch_t line_batch = createLineBatch(PATH_CAPACITY * MAX_PLANETS + 100);
+    line_batch_t line_batch;
+    line_batch = createLineBatch(MAX_LINE_BATCH);
 
-    // planet path tracking
-    object_path_storage_t planet_paths = {0};
+    // craft path tracking
     object_path_storage_t craft_paths = {0};
 
     // initialize font for text rendering
-    font_t font = initFont("assets/font.ttf", 24.0f);
+    font_t font;
+    font = initFont("assets/font.ttf", 24.0f);
     if (font.shader == 0) {
         displayError("Font Error", "Failed to initialize font. Check console for details.");
         return 1;
@@ -177,7 +184,7 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////
     // SIM THREAD INIT                    //
     ////////////////////////////////////////
-    // Initialize mutex
+    // initialize mutex
     mutex_init(&sim_mutex);
 
 #ifdef _WIN32
@@ -206,7 +213,7 @@ int main(int argc, char *argv[]) {
         mutex_lock(&sim_mutex);
 
         // make a quick copy for rendering
-        sim_properties_t sim_copy = sim;
+        const sim_properties_t sim_copy = sim;
 
         mutex_unlock(&sim_mutex);
 
@@ -235,10 +242,10 @@ int main(int argc, char *argv[]) {
         renderStats(sim_copy, &font);
 
         // renders visuals things if they are enabled
-        renderVisuals(sim_copy, &line_batch, &planet_paths, &craft_paths);
+        renderVisuals(sim_copy, &line_batch, &craft_paths);
 
         // command window display
-        renderCMDWindow(&sim_copy, &font);
+        renderCMDWindow(sim_copy, &font);
 
         // render all queued lines
         renderLines(&line_batch, shaderProgram);
@@ -263,9 +270,6 @@ int main(int argc, char *argv[]) {
             mutex_unlock(&sim_mutex);
 
             // reset paths
-            for (int i = 0; i < planet_paths.num_objects; i++) {
-                planet_paths.counts[i] = 0;
-            }
             for (int i = 0; i < craft_paths.num_objects; i++) {
                 craft_paths.counts[i] = 0;
             }
@@ -302,10 +306,6 @@ int main(int argc, char *argv[]) {
 
     // cleanup all allocated sim memory
     cleanup(&sim);
-
-    // cleanup planet paths
-    free(planet_paths.positions);
-    free(planet_paths.counts);
 
     // cleanup OpenGL resources
     freeSphere(&sphere_mesh);

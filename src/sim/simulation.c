@@ -65,28 +65,11 @@ void resetSim(sim_properties_t* sim) {
     wp->sim_time = 0;
     wp->reset_sim = false;
 
-    // free all bodies
-    if (gb->bodies != NULL) {
-        for (int i = 0; i < gb->count; i++) {
-            free(gb->bodies[i].name);
-        }
-        free(gb->bodies);
-        gb->bodies = NULL;
-        gb->count = 0;
-        gb->capacity = 0;
-    }
+    // reset all bodies
+    gb->count = 0;
 
-    // free all spacecraft
-    if (sc->spacecraft != NULL) {
-        for (int i = 0; i < sc->count; i++) {
-            free(sc->spacecraft[i].name);
-            free(sc->spacecraft[i].burn_properties);
-        }
-        free(sc->spacecraft);
-        sc->spacecraft = NULL;
-        sc->count = 0;
-        sc->capacity = 0;
-    }
+    // reset all spacecraft
+    sc->count = 0;
 }
 
 
@@ -94,15 +77,15 @@ void resetSim(sim_properties_t* sim) {
 // every single planet each time step. It uses a method called Velocity Verlet Integration.
 // https://en.wikipedia.org/wiki/Verlet_integration#Velocity_Verlet
 void runCalculations(sim_properties_t* sim) {
-    const body_properties_t* gb = &sim->gb;
-    const spacecraft_properties_t* sc = &sim->gs;
+    body_properties_t* gb = &sim->gb;
+    spacecraft_properties_t* sc = &sim->gs;
     window_params_t* wp = &sim->wp;
 
     if (wp->sim_running) {
         ////////////////////////////////////////////////////////////////
         // calculate forces between all body pairs
         ////////////////////////////////////////////////////////////////
-        if (gb->bodies != NULL && gb->count > 0) {
+        if (gb->count > 0) {
             const double dt = wp->time_step;
 
             // Step 1: update all positions
@@ -144,7 +127,7 @@ void runCalculations(sim_properties_t* sim) {
         ////////////////////////////////////////////////////////////////
         // calculate forces between spacecraft and bodies :)
         ////////////////////////////////////////////////////////////////
-        if (sc->spacecraft != NULL && sc->count > 0 && gb->bodies != NULL && gb->count > 0) {
+        if (sc->count > 0 && gb->count > 0) {
             const double dt = wp->time_step;
 
             // Step 1: update all spacecraft positions
@@ -206,7 +189,7 @@ void runCalculations(sim_properties_t* sim) {
         }
 
         // increment simulation time
-        if (gb->bodies != NULL && gb->count > 0) {
+        if (gb->count > 0) {
             wp->sim_time += wp->time_step;
         }
     }
@@ -214,23 +197,6 @@ void runCalculations(sim_properties_t* sim) {
 
 // cleanup for main
 void cleanup(const sim_properties_t* sim) {
-    const body_properties_t* gb = &sim->gb;
-    const spacecraft_properties_t* sc = &sim->gs;
-
-    // free all bodies
-    if (gb->bodies != NULL) {
-        for (int i = 0; i < gb->count; i++) {
-            free(gb->bodies[i].name);
-        }
-        free(gb->bodies);
-    }
-
-    // free all spacecraft
-    if (sc->spacecraft != NULL) {
-        for (int i = 0; i < sc->count; i++) {
-            free(sc->spacecraft[i].name);
-            free(sc->spacecraft[i].burn_properties);
-        }
-        free(sc->spacecraft);
-    }
+    // no memory cleanup needed with static allocation
+    (void)sim;  // suppress unused parameter warning
 }
