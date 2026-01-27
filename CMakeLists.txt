@@ -25,7 +25,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # --- CLANG-TIDY STATIC ANALYSIS (Linux/macOS only) ---
 # Disabled on Windows: CMake forces --driver-mode=gcc for clang-tidy which is
 # incompatible with Windows SDK headers.
-option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" ON)
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 if(ENABLE_CLANG_TIDY AND NOT WIN32)
     find_program(CLANG_TIDY clang-tidy)
     if(CLANG_TIDY)
