@@ -563,7 +563,7 @@ void renderPlanets(const sim_properties_t sim, const GLuint shader_program, cons
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask(GL_FALSE);
         glUniform1i(glGetUniformLocation(shader_program, "useOverride"), 1);
-        glUniform4f(glGetUniformLocation(shader_program, "colorOverride"), 0.0f, 0.5f, 1.0f, 0.1f);
+        glUniform4f(glGetUniformLocation(shader_program, "colorOverride"), 0.0f, 0.5f, 1.0f, 0.2f);
         glBindVertexArray(planet_shape_buffer.VAO);
         for (int i = 0; i < sim.gb.count; i++) {
             const body_t* body = &sim.gb.bodies[i];
@@ -639,8 +639,8 @@ void renderStats(const sim_properties_t sim, font_t* font) {
     cursor_pos[1] += line_height;
 
     for (int i = 0; i < sim.gs.count; i++) {
-        const int closest_id = sim.gs.spacecraft[i].closest_planet_id;
-        const int soi_id = sim.gs.spacecraft[i].SOI_planet_id;
+        const int closest_id = sim.gs.spacecraft[i].oe.closest_planet_id;
+        const int soi_id = sim.gs.spacecraft[i].oe.SOI_planet_id;
 
         snprintf(text_buffer, sizeof(text_buffer), "%s", sim.gs.spacecraft[i].name);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8f);
@@ -650,7 +650,7 @@ void renderStats(const sim_properties_t sim, font_t* font) {
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Distance: %.2f km", sqrt(sim.gs.spacecraft[i].closest_r_squared) / 1000 - sim.gb.bodies[closest_id].radius / 1000);
+        snprintf(text_buffer, sizeof(text_buffer), "Distance: %.2f km", sqrt(sim.gs.spacecraft[i].oe.closest_r_squared) / 1000 - sim.gb.bodies[closest_id].radius / 1000);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
 
@@ -658,25 +658,25 @@ void renderStats(const sim_properties_t sim, font_t* font) {
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Semi Major Axis: %.4g m", sim.gs.spacecraft[i].semi_major_axis);
+        snprintf(text_buffer, sizeof(text_buffer), "Semi Major Axis: %.4g m", sim.gs.spacecraft[i].oe.semi_major_axis);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Eccentricity: %.6f", sim.gs.spacecraft[i].eccentricity);
+        snprintf(text_buffer, sizeof(text_buffer), "Eccentricity: %.6f", sim.gs.spacecraft[i].oe.eccentricity);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Inclination: %.4f rad", sim.gs.spacecraft[i].inclination);
+        snprintf(text_buffer, sizeof(text_buffer), "Inclination: %.4f rad", sim.gs.spacecraft[i].oe.inclination);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Ascending Node: %.4f rad", sim.gs.spacecraft[i].ascending_node);
+        snprintf(text_buffer, sizeof(text_buffer), "Ascending Node: %.4f rad", sim.gs.spacecraft[i].oe.ascending_node);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Arg of Periapsis: %.4f rad", sim.gs.spacecraft[i].arg_periapsis);
+        snprintf(text_buffer, sizeof(text_buffer), "Arg of Periapsis: %.4f rad", sim.gs.spacecraft[i].oe.arg_periapsis);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4f rad", sim.gs.spacecraft[i].true_anomaly);
+        snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4f rad", sim.gs.spacecraft[i].oe.true_anomaly);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Specific Energy: %.4f J", sim.gs.spacecraft[i].specific_E);
+        snprintf(text_buffer, sizeof(text_buffer), "Specific Energy: %.4f J", sim.gs.spacecraft[i].oe.specific_E);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7f);
         cursor_pos[1] += line_height * 1.5f;
 
@@ -739,47 +739,91 @@ void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, obj
 }
 
 void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
+    // render predicted orbits for bodies (skip central body at index 0)
+    for (int i = 1; i < sim.gb.count; i++) {
+        body_t body = sim.gb.bodies[i];
+        if (body.oe.SOI_planet_id == i) continue;
+
+        vec3_f parent_pos = {
+            (float)(sim.gb.bodies[body.oe.SOI_planet_id].pos.x / SCALE),
+            (float)(sim.gb.bodies[body.oe.SOI_planet_id].pos.y / SCALE),
+            (float)(sim.gb.bodies[body.oe.SOI_planet_id].pos.z / SCALE)
+        };
+
+        float p = (float)(body.oe.semi_major_axis * (1 - body.oe.eccentricity * body.oe.eccentricity));
+
+        mat4 Rz_0 = mat4_rotationZ(-(float)body.oe.ascending_node);
+        mat4 Rx_i = mat4_rotationX(-(float)body.oe.inclination);
+        mat4 Rz_w = mat4_rotationZ(-(float)body.oe.arg_periapsis);
+        mat4 R = mat4_mul(Rz_0, mat4_mul(Rx_i, Rz_w));
+
+        if (body.oe.eccentricity >= 1.0) continue;
+
+        int path_res = 100;
+        float r0 = p / (1 + (float)body.oe.eccentricity);
+        vec3_f r_p0 = { r0, 0, 0 };
+        vec3_f prev_r_eci = vec3_transformByMat4(R, r_p0);
+
+        for (int j = 1; j <= path_res; j++) {
+            float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
+            float r = p / (1 + (float)body.oe.eccentricity * cosf(true_anomaly));
+            vec3_f r_p = {
+                r * cosf(true_anomaly),
+                r * sinf(true_anomaly),
+                0
+            };
+            vec3_f r_eci = vec3_transformByMat4(R, r_p);
+
+            addLine(line_batch,
+                parent_pos.x + prev_r_eci.x / SCALE, parent_pos.y + prev_r_eci.y / SCALE, parent_pos.z + prev_r_eci.z / SCALE,
+                parent_pos.x + r_eci.x / SCALE, parent_pos.y + r_eci.y / SCALE, parent_pos.z + r_eci.z / SCALE,
+                0.5f, 0.5f, 0.5f);
+
+            prev_r_eci = r_eci;
+        }
+    }
+
+    // render predicted orbits for spacecraft
     if (sim.gs.count > 0) {
         for (int i = 0; i < sim.gs.count; i++) {
             spacecraft_t craft = sim.gs.spacecraft[i];
             vec3_f body_pos = {
-                (float)(sim.gb.bodies[craft.SOI_planet_id].pos.x / SCALE),
-                (float)(sim.gb.bodies[craft.SOI_planet_id].pos.y / SCALE),
-                (float)(sim.gb.bodies[craft.SOI_planet_id].pos.z / SCALE)
+                (float)(sim.gb.bodies[craft.oe.SOI_planet_id].pos.x / SCALE),
+                (float)(sim.gb.bodies[craft.oe.SOI_planet_id].pos.y / SCALE),
+                (float)(sim.gb.bodies[craft.oe.SOI_planet_id].pos.z / SCALE)
             };
 
-            float p = (float)(craft.semi_major_axis * (1 - craft.eccentricity * craft.eccentricity));
+            float p = (float)(craft.oe.semi_major_axis * (1 - craft.oe.eccentricity * craft.oe.eccentricity));
 
-            mat4 Rz_0 = mat4_rotationZ(-(float)craft.ascending_node);
-            mat4 Rx_i = mat4_rotationX(-(float)craft.inclination);
-            mat4 Rz_w = mat4_rotationZ(-(float)craft.arg_periapsis);
+            mat4 Rz_0 = mat4_rotationZ(-(float)craft.oe.ascending_node);
+            mat4 Rx_i = mat4_rotationX(-(float)craft.oe.inclination);
+            mat4 Rz_w = mat4_rotationZ(-(float)craft.oe.arg_periapsis);
             mat4 R = mat4_mul(Rz_0, mat4_mul(Rx_i, Rz_w));
+
+            if (craft.oe.eccentricity >= 1.0) continue;
 
             // increment through true anomaly values to build the orbit with given parameters
             int path_res = 100;
-            vec3_f prev_r_eci = {0};
+            float r0 = p / (1 + (float)craft.oe.eccentricity);
+            vec3_f r_p0 = { r0, 0, 0 };
+            vec3_f prev_r_eci = vec3_transformByMat4(R, r_p0);
 
-            for (int j = 1; j < path_res; j++) {
-                if (craft.eccentricity < 1.0) {
-                    float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
-                    float r = (p) / (1 + craft.eccentricity * cosf(true_anomaly));
-                    vec3_f r_p = {
-                        r * cosf(true_anomaly),
-                        r * sinf(true_anomaly),
-                        0
-                    };
-                    vec3_f r_eci = vec3_transformByMat4(R, r_p);
+            for (int j = 1; j <= path_res; j++) {
+                float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
+                float r = p / (1 + (float)craft.oe.eccentricity * cosf(true_anomaly));
+                vec3_f r_p = {
+                    r * cosf(true_anomaly),
+                    r * sinf(true_anomaly),
+                    0
+                };
+                vec3_f r_eci = vec3_transformByMat4(R, r_p);
 
-                    if (j > 0) addLine(line_batch,
-                        body_pos.x + prev_r_eci.x / SCALE, body_pos.y + prev_r_eci.y / SCALE, body_pos.z + prev_r_eci.z / SCALE,
-                        body_pos.x + r_eci.x / SCALE, body_pos.y + r_eci.y / SCALE, body_pos.z + r_eci.z / SCALE,
-                        0.0f, 0.0f, 1.0f);
+                addLine(line_batch,
+                    body_pos.x + prev_r_eci.x / SCALE, body_pos.y + prev_r_eci.y / SCALE, body_pos.z + prev_r_eci.z / SCALE,
+                    body_pos.x + r_eci.x / SCALE, body_pos.y + r_eci.y / SCALE, body_pos.z + r_eci.z / SCALE,
+                    0.0f, 0.0f, 1.0f);
 
-                    prev_r_eci = r_eci;
-                }
-                else {
-                    break;
-                }
+                prev_r_eci = r_eci;
             }
 
         }
@@ -865,7 +909,7 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, object_path_s
     for (int i = 0; i < gs.count; i++) {
         spacecraft_t craft = gs.spacecraft[i];
         const vec3_f craft_pos = scaled_craft_pos[i];
-        const vec3_f body_pos = scaled_body_pos[craft.SOI_planet_id];
+        const vec3_f body_pos = scaled_body_pos[craft.oe.SOI_planet_id];
 
         // line from planet to craft!
         addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, body_pos.x, body_pos.y, body_pos.z, 1.0f, 1.0f, 1.0f);

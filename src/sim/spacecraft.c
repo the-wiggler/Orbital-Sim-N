@@ -9,83 +9,6 @@
 
 void displayError(const char* title, const char* message);
 
-// calculates orbital elements (this probably needs to be optimized somehow at some point because this seems very resource heavy)
-void craft_calculateOrbitalElements(spacecraft_t* craft, const body_t* body) {
-    // first, the initial properties of the craft relative to the target planet should be calculated
-    const vec3 c_pos     = vec3_sub(craft->pos, body->pos); // position vector
-    const vec3 c_vel     = vec3_sub(craft->vel, body->vel); // velocity vector
-    const double c_r     = vec3_mag(c_pos); // distance
-    const double c_speed = vec3_mag(c_vel);
-    const double mu      = G * body->mass; // gravitational parameter
-    const vec3 c_h       = vec3_cross(c_pos, c_vel); // specific angular momentum
-    const vec3 k         = { 0, 0, 1 };
-    const vec3 c_n       = vec3_cross(k, c_h); // ascending node vector
-
-    const vec3 term1     = vec3_scalar_div(vec3_cross(c_vel, c_h), mu); // first term of e_vec
-    const vec3 term2     = vec3_scalar_div(c_pos, c_r); // second term of e_vec
-    const vec3 e_vec     = vec3_sub(term1, term2); // eccentricity vector
-    craft->specific_E    = ((c_speed * c_speed) / 2) - (mu / c_r); // specific orbital energy
-
-    // orbital elements
-    craft->semi_major_axis = -1.0 * (mu / (2 * craft->specific_E));
-    craft->eccentricity = vec3_mag(e_vec);
-
-    const double h_mag = vec3_mag(c_h);
-    craft->inclination = acos(c_h.z / h_mag); // the angle between the orbital and equatorial planes
-
-    // longitude of ascending node -- the angle from the vernal equinox vector to the ascending node on the equatorial plane
-    const double n_mag = vec3_mag(c_n);
-    if (n_mag > 1e-10) {
-        craft->ascending_node = atan2(c_n.y, c_n.x);
-        if (craft->ascending_node < 0) {
-            craft->ascending_node += 2 * PI;
-        }
-    } else {
-        craft->ascending_node = 0.0; // undefined for equatorial orbits (probably unlikely to happen perfectly)
-    }
-
-    // argument of periapsis -- the angle measured between the ascending node and the perigee
-    if (craft->eccentricity > 1e-10 && n_mag > 1e-10) {
-        const double cos_omega = vec3_dot(c_n, e_vec) / (n_mag * craft->eccentricity);
-        craft->arg_periapsis = acos(fmax(-1.0, fmin(1.0, cos_omega)));
-        if (e_vec.z < 0) {
-            craft->arg_periapsis = 2 * PI - craft->arg_periapsis;
-        }
-    } else if (craft->eccentricity > 1e-10) {
-        // equatorial orbit, use longitude of periapsis
-        craft->arg_periapsis = atan2(e_vec.y, e_vec.x);
-        if (craft->arg_periapsis < 0) {
-            craft->arg_periapsis += 2 * PI;
-        }
-    } else {
-        craft->arg_periapsis = 0.0; // undefined for circular orbits
-    }
-
-    // true anomaly -- the angle between perigee and satellite in the orbital plane at a specific time
-    if (craft->eccentricity > 1e-10) {
-        const double cos_nu = vec3_dot(e_vec, c_pos) / (craft->eccentricity * c_r);
-        craft->true_anomaly = acos(fmax(-1.0, fmin(1.0, cos_nu)));
-        if (vec3_dot(c_pos, c_vel) < 0) {
-            craft->true_anomaly = 2 * PI - craft->true_anomaly;
-        }
-    } else {
-        // circular orbit, use argument of latitude
-        if (n_mag > 1e-10) {
-            const double cos_u = vec3_dot(c_n, c_pos) / (n_mag * c_r);
-            craft->true_anomaly = acos(fmax(-1.0, fmin(1.0, cos_u)));
-            if (c_pos.z < 0) {
-                craft->true_anomaly = 2 * PI - craft->true_anomaly;
-            }
-        } else {
-            // equatorial and circular, use true longitude
-            craft->true_anomaly = atan2(c_pos.y, c_pos.x);
-            if (craft->true_anomaly < 0) {
-                craft->true_anomaly += 2 * PI;
-            }
-        }
-    }
-}
-
 // check and activate burns
 void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* gb, const double sim_time) {
     bool burn_active = false;
@@ -182,11 +105,11 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     craft->grav_force = vec3_add(craft->grav_force, force);
 
     // checks for new closest planet and checks if its in the SOI
-    if (r_squared < craft->closest_r_squared) {
-        craft->closest_r_squared = r_squared;
-        craft->closest_planet_id = body_idx;
+    if (r_squared < craft->oe.closest_r_squared) {
+        craft->oe.closest_r_squared = r_squared;
+        craft->oe.closest_planet_id = body_idx;
         if (r <= body->SOI_radius) {
-            craft->SOI_planet_id = body_idx;
+            craft->oe.SOI_planet_id = body_idx;
         }
     }
 }
@@ -206,8 +129,8 @@ void craft_findClosestPlanet(spacecraft_t* craft, const body_properties_t* gb) {
             closest_planet_id = i;
         }
     }
-    craft->closest_r_squared = closest_r_squared;
-    craft->closest_planet_id = closest_planet_id;
+    craft->oe.closest_r_squared = closest_r_squared;
+    craft->oe.closest_planet_id = closest_planet_id;
 }
 
 // applies thrust force based on current attitude
@@ -308,14 +231,14 @@ void craft_addSpacecraft(spacecraft_properties_t* gs, const char* name,
     craft->torque = 0.0;
 
     // initialize SOI tracking
-    craft->SOI_planet_id = 0;
-    craft->closest_r_squared = INFINITY;
-    craft->closest_planet_id = 0;
+    craft->oe.SOI_planet_id = 0;
+    craft->oe.closest_r_squared = INFINITY;
+    craft->oe.closest_planet_id = 0;
 
-    craft->apoapsis = 0.0;
-    craft->periapsis = 0.0;
-    craft->semi_major_axis = 0.0;
-    craft->eccentricity = 0.0;
+    craft->oe.apoapsis = 0.0;
+    craft->oe.periapsis = 0.0;
+    craft->oe.semi_major_axis = 0.0;
+    craft->oe.eccentricity = 0.0;
 
     // initialize burn schedule
     if (num_burns > MAX_BURNS_PER_SPACECRAFT) {

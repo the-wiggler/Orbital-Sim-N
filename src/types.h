@@ -34,6 +34,22 @@ typedef struct {
 } quaternion_t;
 
 typedef struct {
+    int SOI_planet_id;
+    int closest_planet_id;
+    double closest_r_squared;
+
+    double apoapsis, periapsis;
+
+    double semi_major_axis; // m
+    double eccentricity;
+    double inclination; // rad
+    double ascending_node; // rad
+    double arg_periapsis; // rad
+    double true_anomaly; // rad
+    double specific_E; // specific energy
+} orbital_elements_t;
+
+typedef struct {
     int screen_width, screen_height;
     double time_step;
     float window_size_x, window_size_y;
@@ -100,6 +116,8 @@ typedef struct {
 
     double kinetic_energy;
 
+    orbital_elements_t oe;
+
     double rotational_v;     // angular velocity (rad/s)
     quaternion_t attitude;   // orientation quaternion
 } body_t;
@@ -156,19 +174,7 @@ typedef struct {
     double nozzle_velocity;
     bool engine_on;
 
-    int SOI_planet_id;
-    int closest_planet_id;
-    double closest_r_squared;
-
-    double apoapsis, periapsis;
-
-    double semi_major_axis; // m
-    double eccentricity;
-    double inclination; // rad
-    double ascending_node; // rad
-    double arg_periapsis; // rad
-    double true_anomaly; // rad
-    double specific_E; // specific energy
+    orbital_elements_t oe;
 
     int num_burns;
     burn_properties_t burn_properties[MAX_BURNS_PER_SPACECRAFT];

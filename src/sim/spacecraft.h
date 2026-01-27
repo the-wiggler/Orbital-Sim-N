@@ -4,7 +4,6 @@
 #include "../types.h"
 
 void craft_calculateGravForce(sim_properties_t* sim, int craft_idx, int body_idx);
-void craft_calculateOrbitalElements(spacecraft_t* craft, const body_t* body);
 void craft_updateMotion(spacecraft_t* craft, double dt);
 void craft_applyThrust(spacecraft_t* craft);
 void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* gb, double sim_time);

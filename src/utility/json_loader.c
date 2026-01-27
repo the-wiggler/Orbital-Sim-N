@@ -263,6 +263,9 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* gb, spacecraft_
     for (int i = 0; i < sc->count; i++) {
         craft_findClosestPlanet(&sc->spacecraft[i], gb);
     }
+    for (int i = 0; i < gb->count; i++) {
+        body_findClosestPlanet(&gb->bodies[i], gb);
+    }
 
     cJSON_Delete(json);
 }

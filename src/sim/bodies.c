@@ -18,9 +18,10 @@ void body_calculateGravForce(sim_properties_t* sim, const int force_recipient, c
     const vec3 delta_pos = vec3_sub(application_body->pos, recipient_body->pos);
     const double r_squared = vec3_mag_sq(delta_pos);
 
-    // planet collision logic -- checks if planets are too close
-    const double radius_squared = recipient_body->radius * recipient_body->radius;
-    if (r_squared < radius_squared) {
+    // planet collision logic -- checks if planets are too close (sum of both radii)
+    const double combined_radius = recipient_body->radius + application_body->radius;
+    const double combined_radius_squared = combined_radius * combined_radius;
+    if (r_squared < combined_radius_squared) {
         sim->wp.sim_running = false;
         sim->wp.reset_sim = true;
         char err_txt[128];
@@ -36,9 +37,27 @@ void body_calculateGravForce(sim_properties_t* sim, const int force_recipient, c
 
     const vec3 force = vec3_scale(delta_pos, force_factor);
 
-    // applies force to both bodies (Newton's third law)
+    // applies force to both bodies
     recipient_body->force = vec3_add(recipient_body->force, force);
     application_body->force = vec3_sub(application_body->force, force);
+
+    // closest planet and SOI tracking for recipient body
+    if (r_squared < recipient_body->oe.closest_r_squared) {
+        recipient_body->oe.closest_r_squared = r_squared;
+        recipient_body->oe.closest_planet_id = force_applier;
+        if (r <= application_body->SOI_radius) {
+            recipient_body->oe.SOI_planet_id = force_applier;
+        }
+    }
+
+    // closest planet and SOI tracking for applier body
+    if (r_squared < application_body->oe.closest_r_squared) {
+        application_body->oe.closest_r_squared = r_squared;
+        application_body->oe.closest_planet_id = force_recipient;
+        if (r <= recipient_body->SOI_radius) {
+            application_body->oe.SOI_planet_id = force_recipient;
+        }
+    }
 }
 
 // calculates the kinetic energy of a target body
@@ -86,6 +105,22 @@ void body_calculateSOI(body_properties_t* gb) {
         const double mass_ratio = body->mass / M;
         body->SOI_radius = a * pow(mass_ratio, 0.4);
     }
+}
+
+void body_findClosestPlanet(body_t* body, const body_properties_t* gb) {
+    double closest_r_squared = INFINITY;
+    int closest_planet_id = 0;
+    for (int i = 0; i < gb->count; i++) {
+        // calculate the distance between the spacecraft and the body
+        const vec3 delta_pos = vec3_sub(gb->bodies[i].pos, body->pos);
+        const double r_squared = vec3_mag_sq(delta_pos);
+        if (r_squared < closest_r_squared) {
+            closest_r_squared = r_squared;
+            closest_planet_id = i;
+        }
+    }
+    body->oe.closest_r_squared = closest_r_squared;
+    body->oe.closest_planet_id = closest_planet_id;
 }
 
 // function to add a new body to the system
