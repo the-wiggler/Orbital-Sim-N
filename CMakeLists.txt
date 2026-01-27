@@ -148,6 +148,9 @@ if(EMSCRIPTEN)
     )
 
 elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+    if(WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        add_compile_definitions(_AMD64_)
+    endif()
     add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-function)
     # Aggressive optimization flags for maximum performance
     add_compile_options(
