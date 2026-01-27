@@ -32,7 +32,7 @@
 #include "gui/GL_renderer.h"
 #include "gui/models.h"
 
-#include <SDL3/SDL_main.h>
+#include <SDL3/SDL_hints.h>
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
@@ -192,6 +192,7 @@ int main(int argc, char *argv[]) {
     #include <processthreadsapi.h>
     HANDLE sim_thread = CreateThread(NULL, 0, physicsSim, &sim, 0, NULL);
 #else
+    // NOLINTNEXTLINE(misc-include-cleaner) - pthread_t from conditional pthread.h include above
     pthread_t simThread;
     pthread_create(&simThread, NULL, physicsSim, &sim);
 #endif
@@ -319,7 +320,9 @@ int main(int argc, char *argv[]) {
     freeFont(&font);
     glDeleteProgram(shaderProgram);
 
-    fclose(filenames.global_data_FILE);
+    if (filenames.global_data_FILE != NULL) {
+        fclose(filenames.global_data_FILE);
+    }
     SDL_GL_DestroyContext(glctx);
     SDL_DestroyWindow(window);
     SDL_Quit();

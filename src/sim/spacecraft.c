@@ -101,7 +101,7 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
 
     // force = (G * m1 * m2) * delta / r^3
     const double r_cubed = r_squared * radius;
-    const double force_factor = (G * craft->current_total_mass * body->mass) / r_cubed;
+    const double force_factor = (G_C * craft->current_total_mass * body->mass) / r_cubed;
 
     // apply the force to the craft
     const vec3 force = vec3_scale(delta_pos, force_factor);

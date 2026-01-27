@@ -342,7 +342,7 @@ static void handleTextInputEvent(const SDL_Event* event, sim_properties_t* sim) 
         #ifdef _WIN32
         strcat_s(console->cmd_text_box, sizeof(console->cmd_text_box), event->text.text);
         #else
-        strcat(console->cmd_text_box, event->text.text);
+        strncat(console->cmd_text_box, event->text.text, sizeof(console->cmd_text_box) - console->cmd_text_box_length - 1);
         #endif
         console->cmd_text_box_length += (int)text_len;
     }

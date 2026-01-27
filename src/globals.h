@@ -5,10 +5,10 @@
 // COMPILE CONFIG:  //
 //////////////////////
 
-static const double G = 6.67430E-11;
+static const double G_C = 6.67430E-11;
 static const double EPSILON = 1e-10;  // Threshold for detecting near-zero values in numerical calculations
 
-static const double PI = 3.14159265358979323846;
+static const double N_PI = 3.14159265358979323846;
 static const float PI_f = 3.14159265358979323846F;
 
 static const double PI_OVER_6    =  0.52359877559829877312;  // π/6

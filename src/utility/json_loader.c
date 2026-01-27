@@ -78,7 +78,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
     fseek(file_ptr, 0, SEEK_SET);
 
     // validate file size
-    if (file_size >= JSON_BUFFER_SIZE) {
+    if (file_size < 0 || file_size >= JSON_BUFFER_SIZE) {
         char err_txt[128];
         snprintf(err_txt, sizeof(err_txt), "JSON file too large: %ld bytes (max %d)", file_size, JSON_BUFFER_SIZE);
         displayError("ERROR", err_txt);
@@ -87,9 +87,14 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
     }
 
     char json_buffer[JSON_BUFFER_SIZE];
-    fread(json_buffer, 1, (size_t)file_size, file_ptr);
+    const size_t size_to_read = (size_t)file_size;
+    const size_t bytes_read = fread(json_buffer, 1, size_to_read, file_ptr);
     // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound) - safe because we check file_size < JSON_BUFFER_SIZE above
-    json_buffer[file_size] = '\0';
+    if (bytes_read > 0 && bytes_read <= (size_t)JSON_BUFFER_SIZE - 1) {
+        json_buffer[bytes_read] = '\0';
+    } else {
+        json_buffer[0] = '\0';
+    }
     fclose(file_ptr);
 
     // parse json

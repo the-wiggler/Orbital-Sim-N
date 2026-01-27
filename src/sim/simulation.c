@@ -37,7 +37,7 @@ double calculateTotalSystemEnergy(const sim_properties_t* sim) {
             const vec3 delta = vec3_sub(body_j->pos, body_i->pos);
             const double radius = vec3_mag(delta);
             if (radius > 0) {
-                total_potential += -(G * body_i->mass * body_j->mass) / radius;
+                total_potential += -(G_C * body_i->mass * body_j->mass) / radius;
             }
         }
     }
@@ -50,7 +50,7 @@ double calculateTotalSystemEnergy(const sim_properties_t* sim) {
             const vec3 delta = vec3_sub(body->pos, craft->pos);
             const double radius = vec3_mag(delta);
             if (radius > 0) {
-                total_potential += -(G * craft->current_total_mass * body->mass) / radius;
+                total_potential += -(G_C * craft->current_total_mass * body->mass) / radius;
             }
         }
     }
@@ -66,7 +66,7 @@ void calculateOrbitalElements(orbital_elements_t* target_orbital_elements, vec3 
     const vec3 c_vel     = vec3_sub(target_vel, body->vel); // velocity vector
     const double c_r     = vec3_mag(c_pos); // distance
     const double c_speed = vec3_mag(c_vel);
-    const double grav_p      = G * body->mass; // gravitational parameter
+    const double grav_p      = G_C * body->mass; // gravitational parameter
     const vec3 c_h       = vec3_cross(c_pos, c_vel); // specific angular momentum
     const vec3 z_direction         = { 0, 0, 1 };
     const vec3 c_n       = vec3_cross(z_direction, c_h); // ascending node vector
@@ -88,7 +88,7 @@ void calculateOrbitalElements(orbital_elements_t* target_orbital_elements, vec3 
     if (n_mag > EPSILON) {
         orbital_elements->ascending_node = atan2(c_n.y, c_n.x);
         if (orbital_elements->ascending_node < 0) {
-            orbital_elements->ascending_node += (2 * PI);
+            orbital_elements->ascending_node += (2 * N_PI);
         }
     } else {
         orbital_elements->ascending_node = 0.0; // undefined for equatorial orbits (probably unlikely to happen perfectly)
@@ -99,13 +99,13 @@ void calculateOrbitalElements(orbital_elements_t* target_orbital_elements, vec3 
         const double cos_omega = vec3_dot(c_n, e_vec) / (n_mag * orbital_elements->eccentricity);
         orbital_elements->arg_periapsis = acos(fmax(-1.0, fmin(1.0, cos_omega)));
         if (e_vec.z < 0) {
-            orbital_elements->arg_periapsis = (2 * PI) - orbital_elements->arg_periapsis;
+            orbital_elements->arg_periapsis = (2 * N_PI) - orbital_elements->arg_periapsis;
         }
     } else if (orbital_elements->eccentricity > EPSILON) {
         // equatorial orbit, use longitude of periapsis
         orbital_elements->arg_periapsis = atan2(e_vec.y, e_vec.x);
         if (orbital_elements->arg_periapsis < 0) {
-            orbital_elements->arg_periapsis += (2 * PI);
+            orbital_elements->arg_periapsis += (2 * N_PI);
         }
     } else {
         orbital_elements->arg_periapsis = 0.0; // undefined for circular orbits
@@ -116,7 +116,7 @@ void calculateOrbitalElements(orbital_elements_t* target_orbital_elements, vec3 
         const double cos_nu = vec3_dot(e_vec, c_pos) / (orbital_elements->eccentricity * c_r);
         orbital_elements->true_anomaly = acos(fmax(-1.0, fmin(1.0, cos_nu)));
         if (vec3_dot(c_pos, c_vel) < 0) {
-            orbital_elements->true_anomaly = (2 * PI) - orbital_elements->true_anomaly;
+            orbital_elements->true_anomaly = (2 * N_PI) - orbital_elements->true_anomaly;
         }
     } else {
         // circular orbit, use argument of latitude
@@ -124,13 +124,13 @@ void calculateOrbitalElements(orbital_elements_t* target_orbital_elements, vec3 
             const double cos_u = vec3_dot(c_n, c_pos) / (n_mag * c_r);
             orbital_elements->true_anomaly = acos(fmax(-1.0, fmin(1.0, cos_u)));
             if (c_pos.z < 0) {
-                orbital_elements->true_anomaly = (2 * PI) - orbital_elements->true_anomaly;
+                orbital_elements->true_anomaly = (2 * N_PI) - orbital_elements->true_anomaly;
             }
         } else {
             // equatorial and circular, use true longitude
             orbital_elements->true_anomaly = atan2(c_pos.y, c_pos.x);
             if (orbital_elements->true_anomaly < 0) {
-                orbital_elements->true_anomaly += (2 * PI);
+                orbital_elements->true_anomaly += (2 * N_PI);
             }
         }
     }

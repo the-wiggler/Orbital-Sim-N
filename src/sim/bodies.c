@@ -35,7 +35,7 @@ void body_calculateGravForce(sim_properties_t* sim, const int force_recipient, c
     // force = (G * m1 * m2) * delta / r^3
     const double radius = sqrt(r_squared);
     const double r_cubed = r_squared * radius;
-    const double force_factor = (G * recipient_body->mass * application_body->mass) / r_cubed;
+    const double force_factor = (G_C * recipient_body->mass * application_body->mass) / r_cubed;
 
     const vec3 force = vec3_scale(delta_pos, force_factor);
 
