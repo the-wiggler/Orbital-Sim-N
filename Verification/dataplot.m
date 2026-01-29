@@ -7,32 +7,59 @@
 step001 = readtable('step0-001.csv');
 step0001 = readtable('step0-0001.csv');
 step00001 = readtable('step0-00001.csv');
-
-% Optional NESC file (comment out if you just want to see telemetry)
+% Optional NESC file
 NESC_telem = readtable('NESC_test.csv');
 
 %% PLOT CSV FILE DATA
 figure('Name', 'OSN Telemetry Verification'); 
+
+% --- Subplot 1: X Position ---
+subplot(2, 2, 1);
 hold on;
+plot(step001.timestamp, step001.craft_x, '-r', 'LineWidth', 1.0, 'DisplayName', 'dt=0.001s');
+plot(step0001.timestamp, step0001.craft_x, '-g', 'LineWidth', 1.0, 'DisplayName', 'dt=0.0001s');
+plot(step00001.timestamp, step00001.craft_x, '-b', 'LineWidth', 1.0, 'DisplayName', 'dt=0.00001s');
+plot(NESC_telem.elapsedTime_s, NESC_telem.miPosition_m_X, '-w', 'LineWidth', 1.5, 'DisplayName', 'NESC Ref');
+grid on; grid minor;
+ylabel('X Position (m)', 'FontSize', 10, 'FontWeight', 'bold');
+title('X Position', 'FontSize', 12);
+legend('show','Location', 'southwest');
+hold off;
 
-% Simulation Runs (Data)
-plot(step001.timestamp, step001.craft_x, ...
-    '-r', 'LineWidth', 1.0, 'DisplayName', 'OSN (dt = 0.001s)');
+% --- Subplot 2: Y Position ---
+subplot(2, 2, 2);
+hold on;
+plot(step001.timestamp, step001.craft_y, '-r', 'LineWidth', 1.0);
+plot(step0001.timestamp, step0001.craft_y, '-g', 'LineWidth', 1.0);
+plot(step00001.timestamp, step00001.craft_y, '-b', 'LineWidth', 1.0);
+plot(NESC_telem.elapsedTime_s, NESC_telem.miPosition_m_Y, '-w', 'LineWidth', 1.5);
+grid on; grid minor;
+ylabel('Y Position (m)', 'FontSize', 10, 'FontWeight', 'bold');
+title('Y Position', 'FontSize', 12);
+hold off;
 
-plot(step0001.timestamp, step0001.craft_x, ...
-    '-g', 'LineWidth', 1.0, 'DisplayName', 'OSN (dt = 0.0001s)');
+% --- Subplot 3: X Velocity ---
+subplot(2, 2, 3);
+hold on;
+plot(step001.timestamp, step001.craft_vx, '-r', 'LineWidth', 1.0);
+plot(step0001.timestamp, step0001.craft_vx, '-g', 'LineWidth', 1.0);
+plot(step00001.timestamp, step00001.craft_vx, '-b', 'LineWidth', 1.0);
+plot(NESC_telem.elapsedTime_s, NESC_telem.miVelocity_m_s_X, '-w', 'LineWidth', 1.5);
+grid on; grid minor;
+xlabel('Time (s)', 'FontSize', 10, 'FontWeight', 'bold');
+ylabel('X Velocity (m/s)', 'FontSize', 10, 'FontWeight', 'bold');
+title('X Velocity', 'FontSize', 12);
+hold off;
 
-plot(step00001.timestamp, step00001.craft_x, ...
-    '-b', 'LineWidth', 1.0, 'DisplayName', 'OSN (dt = 0.00001s)');
-
-% NESC Reference
-plot(NESC_telem.elapsedTime_s, NESC_telem.miPosition_m_X, ...
-    '-w', 'LineWidth', 1.5, 'DisplayName', 'NESC Reference');
-
-grid on;
-grid minor;
-xlabel('Time (s)', 'FontSize', 12, 'FontWeight', 'bold');
-ylabel('X Position (m)', 'FontSize', 12, 'FontWeight', 'bold');
-title('X-Position Convergence: OSN vs NESC Benchmark', 'FontSize', 14);
-lgd = legend('show', 'Location', 'best');
+% --- Subplot 4: Y Velocity ---
+subplot(2, 2, 4);
+hold on;
+plot(step001.timestamp, step001.craft_vy, '-r', 'LineWidth', 1.0);
+plot(step0001.timestamp, step0001.craft_vy, '-g', 'LineWidth', 1.0);
+plot(step00001.timestamp, step00001.craft_vy, '-b', 'LineWidth', 1.0);
+plot(NESC_telem.elapsedTime_s, NESC_telem.miVelocity_m_s_Y, '-w', 'LineWidth', 1.5);
+grid on; grid minor;
+xlabel('Time (s)', 'FontSize', 10, 'FontWeight', 'bold');
+ylabel('Y Velocity (m/s)', 'FontSize', 10, 'FontWeight', 'bold');
+title('Y Velocity', 'FontSize', 12);
 hold off;

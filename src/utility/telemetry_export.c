@@ -7,7 +7,7 @@
 #include "../types.h"
 
 void writeCSVHeader(FILE* file) {
-    fprintf(file, "timestamp,body_name,planet_x,planet_y,planet_z,planet_vx,planet_vy,planet_vz,craft_name,craft_x,craft_y,craft_z,craft_vx,craft_vy,craft_vz\n");
+    fprintf(file, "timestamp,body_name,planet_x,planet_y,planet_z,planet_vx,planet_vy,planet_vz,craft_name,craft_x,craft_y,craft_z,craft_vx,craft_vy,craft_vz,,system_energy\n");
 }
 
 void exportTelemetryCSV(const binary_filenames_t filenames, const sim_properties_t sim) {
@@ -36,12 +36,14 @@ void exportTelemetryCSV(const binary_filenames_t filenames, const sim_properties
         // write craft data
         if (i < global_spacecraft->count) {
             const spacecraft_t* craft = &global_spacecraft->spacecraft[i];
-            fprintf(filenames.global_data_FILE, "%s,%f,%f,%f,%f,%f,%f\n",
+            fprintf(filenames.global_data_FILE, "%s,%f,%f,%f,%f,%f,%f",
                     craft->name,
                     craft->pos.x, craft->pos.y, craft->pos.z,
                     craft->vel.x, craft->vel.y, craft->vel.z);
         } else {
-            fprintf(filenames.global_data_FILE, ",,,,,,\n");
+            fprintf(filenames.global_data_FILE, ",,,,,,");
         }
+        // write energies
+        fprintf(filenames.global_data_FILE, ",,%f,\n", sim.global_bodies.total_system_energy);
     }
 }

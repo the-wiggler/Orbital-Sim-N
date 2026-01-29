@@ -293,6 +293,9 @@ void runCalculations(sim_properties_t* sim) {
             }
         }
 
+        // calculate the total energy of the system and store it for external use
+        sim->global_bodies.total_system_energy = calculateTotalSystemEnergy(sim);
+
         // increment simulation time
         if (global_bodies->count > 0) {
             window_params->sim_time += window_params->time_step;

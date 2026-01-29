@@ -32,7 +32,7 @@
 #include "gui/GL_renderer.h"
 #include "gui/models.h"
 
-#include <SDL3/SDL_hints.h>
+//#include <SDL3/SDL_hints.h> removed because clang tidy got mad... if there's an error on linux try uncommenting this first
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>

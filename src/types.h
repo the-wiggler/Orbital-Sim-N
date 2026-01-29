@@ -84,6 +84,7 @@ typedef struct {
 // container for all bodies
 typedef struct {
     int count;
+    double total_system_energy;
     body_t bodies[MAX_PLANETS];
 } body_properties_t;
 
@@ -192,7 +193,6 @@ typedef struct {
     spacecraft_properties_t global_spacecraft; // global spacecraft
     window_params_t window_params; // window properties
     console_t console; // in-window console
-    double system_kinetic_energy, system_potential_energy; // total energies of the whole system (reset each iteration)
 } sim_properties_t;
 
 typedef struct {
