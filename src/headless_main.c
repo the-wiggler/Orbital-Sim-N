@@ -96,7 +96,7 @@ void* commandInputThread(void* args) {
                 printf("[STATUS] Simulation is %s\n", sim->window_params.sim_running ? "RUNNING" : "PAUSED");
                 printf("[STATUS] Simulation time: %.2f s\n", sim->window_params.sim_time);
                 printf("[STATUS] Time step: %.6f s\n", sim->window_params.time_step);
-                printf("[STATUS] CSV update frequency: %.6f s\n", sim->window_params.csv_update_frequency);
+                printf("[STATUS] CSV update frequency: %.6f s\n", sim->window_params.csv_update_period);
                 printf("[STATUS] Bodies: %d, Spacecraft: %d\n", sim->global_bodies.count, sim->global_spacecraft.count);
                 mutex_unlock(&sim_mutex);
             }
@@ -136,7 +136,7 @@ void* commandInputThread(void* args) {
                 double new_freq = atof(arg);
                 if (new_freq > 0.0) {
                     mutex_lock(&sim_mutex);
-                    sim->window_params.csv_update_frequency = new_freq;
+                    sim->window_params.csv_update_period = new_freq;
                     mutex_unlock(&sim_mutex);
                     printf("[INFO] CSV update frequency changed to %.6f seconds.\n", new_freq);
                 } else {
@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////////////////////
     // default time step
     sim.window_params.time_step = 0.01;
-    sim.window_params.csv_update_frequency = 0.01;
+    sim.window_params.csv_update_period = 60.0F; // initially logs every 60 in sim seconds
 
 
     while (sim.window_params.window_open) {
@@ -273,9 +273,16 @@ int main(int argc, char *argv[]) {
 
         mutex_unlock(&sim_mutex);
 
-        // log data
+        // log data on interval
         if (sim.window_params.sim_running) {
-            exportTelemetryCSV(filenames, sim_copy);
+            double time_since_last_export = sim_copy.window_params.sim_time - sim_copy.window_params.last_csv_export_time;
+            if (time_since_last_export >= sim_copy.window_params.csv_update_period) {
+                exportTelemetryCSV(filenames, sim_copy);
+                // update last export time
+                mutex_lock(&sim_mutex);
+                sim.window_params.last_csv_export_time = sim_copy.window_params.sim_time;
+                mutex_unlock(&sim_mutex);
+            }
         }
 
         // check if sim needs to be reset

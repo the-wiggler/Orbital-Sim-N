@@ -32,7 +32,7 @@
 #include "gui/GL_renderer.h"
 #include "gui/models.h"
 
-//#include <SDL3/SDL_hints.h> removed because clang tidy got mad... if there's an error on linux try uncommenting this first
+//#include <SDL3/SDL_hints.h> removed because clang tidy got mad... if there's an error on linux try uncommenting this first!
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
@@ -202,6 +202,8 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////////////////////
     // default time step
     sim.window_params.time_step = 0.01;
+    double csv_update_period = 12960.0F; // updates every n seconds
+    double last_csv_update_time = 0;
 
     while (sim.window_params.window_open) {
         // clears previous frame from the screen
@@ -259,13 +261,17 @@ int main(int argc, char *argv[]) {
         // END OPENGL RENDERER
         ////////////////////////////////////////////////////////
 
-        // log data
-        if (sim.window_params.data_logging_enabled && sim.window_params.sim_running) {
-            exportTelemetryCSV(filenames, sim_copy);
+        // log data on interval
+        if (sim_copy.window_params.data_logging_enabled && sim_copy.window_params.sim_running) {
+            double time_since_last_export = sim_copy.window_params.sim_time - last_csv_update_time;
+            if (time_since_last_export >= csv_update_period) {
+                exportTelemetryCSV(filenames, sim_copy);
+                last_csv_update_time = sim_copy.window_params.sim_time;
+            }
         }
 
         // check if sim needs to be reset
-        if (sim.window_params.reset_sim) {
+        if (sim_copy.window_params.reset_sim) {
             mutex_lock(&sim_mutex);
 
             resetSim(&sim);
@@ -320,9 +326,8 @@ int main(int argc, char *argv[]) {
     freeFont(&font);
     glDeleteProgram(shaderProgram);
 
-    if (filenames.global_data_FILE != NULL) {
-        fclose(filenames.global_data_FILE);
-    }
+    fclose(filenames.global_data_FILE);
+
     SDL_GL_DestroyContext(glctx);
     SDL_DestroyWindow(window);
     SDL_Quit();

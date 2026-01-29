@@ -167,7 +167,6 @@ typedef struct {
 
     int planet_model_vertex_count;
     int frame_counter;
-    float csv_update_frequency; // how often (per second) the csv file should be updated with data
 
     bool is_dragging_orbit_view;
     vec2_f drag_last;
