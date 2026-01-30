@@ -115,7 +115,7 @@ if(ENABLE_GUI)
     add_compile_definitions(GUI_ENABLED)
     set(SOURCES ${COMMON_SOURCES} ${GUI_SOURCES} src/main.c)
 else()
-    set(SOURCES ${COMMON_SOURCES} src/main.c src/headless_main.c)
+    set(SOURCES ${COMMON_SOURCES} src/headless_main.c)
 endif()
 
 # --- 4. CREATE EXECUTABLE ---
