@@ -5,15 +5,14 @@
 #include <stdio.h>
 #ifdef GUI_ENABLED
 #include <SDL3/SDL.h>
-#endif
-#include <GL/glew.h>
-#include "globals.h"
-
+// #include <GL/glew.h>
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #else
 #include <GL/gl.h>
 #endif
+#endif
+#include "globals.h"
 
 typedef struct {
     float x, y;
@@ -242,7 +241,6 @@ typedef struct {
     SDL_Window* window;
     SDL_GLContext glContext;
 } SDL_GL_init_t;
-#endif
 
 typedef struct {
     GLuint VAO;
@@ -276,6 +274,7 @@ typedef struct {
     int capacity;
     int num_objects;
 } craft_path_storage_t;
+#endif
 
 
 #endif
