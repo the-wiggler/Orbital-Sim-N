@@ -27,17 +27,36 @@
     #include <pthread.h>
 #endif
 
-// External global mutex (defined in main.c)
-extern mutex_t sim_mutex;
+// Global mutex definition
+mutex_t sim_mutex;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// PHYSICS SIMULATION THREAD (imported from main.c)
+// PHYSICS SIMULATION THREAD
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _WIN32
-extern DWORD WINAPI physicsSim(LPVOID args);
+DWORD WINAPI physicsSim(LPVOID args) {
 #else
-extern void* physicsSim(void* args);
+void* physicsSim(void* args) {
 #endif
+    sim_properties_t* sim = (sim_properties_t*)args;
+    while (sim->window_params.window_open) {
+        while (sim->window_params.sim_running) {
+            // lock mutex before accessing data
+            mutex_lock(&sim_mutex);
+
+            // DOES ALL BODY AND CRAFT CALCULATIONS:
+            runCalculations(sim);
+
+            // unlock mutex when done :)
+            mutex_unlock(&sim_mutex);
+        }
+    }
+#ifdef _WIN32
+    return 0;
+#else
+    return NULL;
+#endif
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // HEADLESS ERROR DISPLAY (stub for GUI function)
