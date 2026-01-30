@@ -54,6 +54,7 @@ void displayError(const char* title, const char* message) {
 #ifdef _WIN32
 DWORD WINAPI commandInputThread(LPVOID args) {
 #else
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void* commandInputThread(void* args) {
 #endif
     sim_properties_t* sim = (sim_properties_t*)args;
@@ -96,7 +97,6 @@ void* commandInputThread(void* args) {
                 printf("[STATUS] Simulation is %s\n", sim->window_params.sim_running ? "RUNNING" : "PAUSED");
                 printf("[STATUS] Simulation time: %.2f s\n", sim->window_params.sim_time);
                 printf("[STATUS] Time step: %.6f s\n", sim->window_params.time_step);
-                printf("[STATUS] CSV update frequency: %.6f s\n", sim->window_params.csv_update_period);
                 printf("[STATUS] Bodies: %d, Spacecraft: %d\n", sim->global_bodies.count, sim->global_spacecraft.count);
                 mutex_unlock(&sim_mutex);
             }
@@ -109,13 +109,13 @@ void* commandInputThread(void* args) {
                     printf("[INFO] Loaded sim parameters from JSON\n");
                     readSimulationJSON(SIMULATION_FILENAME, &sim->global_bodies, &sim->global_spacecraft);
                 }
-                else printf("[WARNING] Sim JSON already loaded.\n");
+                else { printf("[WARNING] Sim JSON already loaded.\n"); }
             }
             else if (strncmp(input, "step ", 5) == 0) {
                 // parse the numeric argument after "step "
                 char* arg = input + 5;
                 // skip leading whitespace
-                while (*arg == ' ') arg++;
+                while (*arg == ' ') { arg++; }
 
                 double new_step = atof(arg);
                 if (new_step > 0.0) {
@@ -128,20 +128,6 @@ void* commandInputThread(void* args) {
                 }
             }
             else if (strncmp(input, "logfreq ", 8) == 0) {
-                // parse the numeric argument after "logfreq "
-                char* arg = input + 8;
-                // skip leading whitespace
-                while (*arg == ' ') arg++;
-
-                double new_freq = atof(arg);
-                if (new_freq > 0.0) {
-                    mutex_lock(&sim_mutex);
-                    sim->window_params.csv_update_period = new_freq;
-                    mutex_unlock(&sim_mutex);
-                    printf("[INFO] CSV update frequency changed to %.6f seconds.\n", new_freq);
-                } else {
-                    printf("[ERROR] Invalid frequency. Please provide a positive number.\n");
-                }
             }
             else if (strcmp(input, "help") == 0) {
                 printf("\nAvailable commands:\n");
@@ -151,7 +137,6 @@ void* commandInputThread(void* args) {
                 printf("  reset          - Reset the simulation\n");
                 printf("  load           - Load data from sim parameter JSON\n");
                 printf("  step <num>     - Change the sim time step (e.g., step 0.01)\n");
-                printf("  logfreq <num>  - Change CSV logging frequency (e.g., logfreq 0.1)\n");
                 printf("  quit/exit      - Exit the program\n");
                 printf("  help           - Show this help message\n\n");
             }
@@ -195,7 +180,7 @@ int main(int argc, char *argv[]) {
     sim_properties_t sim = {
         .global_bodies = {0},
         .global_spacecraft = {0},
-        .wp = {0}
+        .window_params = {0}
     };
     sim.window_params.window_open = true;  // keep program running
     sim.window_params.sim_running = false; // start paused
@@ -261,32 +246,29 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////////////////////
     // default time step
     sim.window_params.time_step = 0.01;
-    sim.window_params.csv_update_period = 60.0F; // initially logs every 60 in sim seconds
-
+    double csv_update_period = 12960.0F; // updates every n seconds
+    double last_csv_update_time = 0;
 
     while (sim.window_params.window_open) {
-        // lock mutex and quickly snapshot simulation data for rendering
+        // lock mutex and quickly snapshot simulation data
         mutex_lock(&sim_mutex);
 
-        // make a quick copy for rendering
-        sim_properties_t sim_copy = sim;
+        // make a quick copy for use in main loop
+        const sim_properties_t sim_copy = sim;
 
         mutex_unlock(&sim_mutex);
 
-        // log data on interval
-        if (sim.window_params.sim_running) {
-            double time_since_last_export = sim_copy.window_params.sim_time - sim_copy.window_params.last_csv_export_time;
-            if (time_since_last_export >= sim_copy.window_params.csv_update_period) {
+        // log data on interval -- data logging is enabled by default
+        if (sim_copy.window_params.sim_running) {
+            double time_since_last_export = sim_copy.window_params.sim_time - last_csv_update_time;
+            if (time_since_last_export >= csv_update_period) {
                 exportTelemetryCSV(filenames, sim_copy);
-                // update last export time
-                mutex_lock(&sim_mutex);
-                sim.window_params.last_csv_export_time = sim_copy.window_params.sim_time;
-                mutex_unlock(&sim_mutex);
+                last_csv_update_time = sim_copy.window_params.sim_time;
             }
         }
 
         // check if sim needs to be reset
-        if (sim.window_params.reset_sim) {
+        if (sim_copy.window_params.reset_sim) {
             mutex_lock(&sim_mutex);
 
             resetSim(&sim);

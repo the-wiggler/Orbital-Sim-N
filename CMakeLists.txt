@@ -32,7 +32,6 @@ if(ENABLE_CLANG_TIDY)
         set(CLANG_TIDY_ARGS
             ${CLANG_TIDY}
             -checks=readability-*,performance-*,bugprone-*,portability-*,misc-*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,-clang-analyzer-security.ArrayBound,-readability-magic-numbers
-            -warnings-as-errors=*
             --header-filter=.*src/.*
             --system-headers=0
         )

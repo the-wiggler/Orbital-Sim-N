@@ -1,21 +1,30 @@
-% analyze OSN telemetry
-%% LOAD CSV FILES
 % OSN CSV file
 telem = readtable('osn_telem.csv');
 
-%% PLOT CSV FILE DATA
-figure('Name', 'Telemetry Graph'); 
-hold on;
+figure('Name', 'Telemetry Analysis'); 
 
-% Plotting Energy vs Time
-% Ensure 'timestamp' and 'system_energy' match the headers in your CSV
+% Create a 2x1 grid (2 rows, 1 column)
+t = tiledlayout(2, 2); 
+
+nexttile; 
 plot(telem.Var1, telem.Var17, '-r', 'LineWidth', 1.0, 'DisplayName', 'Energy');
+title('OSN System Energy Over Time');
+ylabel('Energy (J)');
+legend
+grid on;
 
-% Formatting
-grid on; grid minor;
-xlabel('Time (s)', 'FontSize', 10, 'FontWeight', 'bold'); % Added essential x-label
-ylabel('Energy (J)', 'FontSize', 10, 'FontWeight', 'bold');
-title('OSN System Energy Over Time', 'FontSize', 12); % Added title for clarity
-legend('show', 'Location', 'southwest');
+nexttile;
+plot(telem.Var1, telem.Var3, '-b', 'LineWidth', 1.0, 'DisplayName', 'X Pos');
+hold on
+plot(telem.Var1, telem.Var4, '-g', 'LineWidth', 1., 'DisplayName', 'Y Pos');
+legend;
+title('');
+ylabel('Value (Units)');
+xlabel('Time (s)'); % Usually only need x-label on the bottom plot
+grid on;
 
-hold off;
+nexttile
+
+
+% Global formatting
+title(t, 'OSN Telemetry Overview'); % Overall title for the whole figure

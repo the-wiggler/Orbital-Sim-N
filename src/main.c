@@ -6,7 +6,7 @@
 *   \____/_/ |_/_____/___/ /_/       /____/___/_/  /_/    /_/ |_/       *
 *                                                                       *
 *   Author: toastyy-1                                                   *
-*   Description: This is the main file for the Orbital Sim N Software.  *
+*   This is the main file for the Orbital Sim N Software.               *
 *                                                                       *
 * ////////////////////////////////////////////////////////////////////  */
 
@@ -18,6 +18,10 @@
     #include <minwindef.h>
 #else
     #include <pthread.h>
+#endif
+
+#ifdef __linux__
+#include <SDL3/SDL_hints.h>
 #endif
 
 #include "globals.h"
@@ -325,8 +329,6 @@ int main(int argc, char *argv[]) {
     freeLines(&line_batch);
     freeFont(&font);
     glDeleteProgram(shaderProgram);
-
-    fclose(filenames.global_data_FILE);
 
     SDL_GL_DestroyContext(glctx);
     SDL_DestroyWindow(window);
