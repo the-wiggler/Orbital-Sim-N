@@ -16,7 +16,6 @@
 #include <string.h>
 #include <ctype.h>
 #include "globals.h"
-#include "types.h"
 #include "sim/simulation.h"
 #include "utility/json_loader.h"
 #include "utility/telemetry_export.h"
