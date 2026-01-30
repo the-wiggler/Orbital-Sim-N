@@ -1,0 +1,39 @@
+{
+  "bodies": [
+    {
+      "name": "Earth",
+      "mass": 5.9736e24,
+      "pos_x": 0,
+      "pos_y": 0,
+      "pos_z": 0,
+      "vel_x": 0,
+      "vel_y": 0,
+      "vel_z": 0,
+      "radius": 6371000,
+      "rotational_v": 7.2921159e-5,
+      "attitude_axis_x": 1.0,
+      "attitude_axis_y": 0.0,
+      "attitude_axis_z": 0.0,
+      "attitude_angle": 0.4101524
+    },
+    {
+      "name": "Moon",
+      "mass": 7.342e22,
+      "pos_x": 384000000,
+      "pos_y": 0,
+      "pos_z": 0,
+      "vel_x": 0,
+      "vel_y": 1022,
+      "vel_z": 0,
+      "radius": 1737000,
+      "rotational_v": 2.6617e-6,
+      "attitude_axis_x": 1.0,
+      "attitude_axis_y": 0.0,
+      "attitude_axis_z": 0.0,
+      "attitude_angle": 0.1
+    }
+  ],
+  "spacecraft": [
+
+  ]
+}
