@@ -3,7 +3,9 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#ifdef GUI_ENABLED
 #include <SDL3/SDL.h>
+#endif
 #include <GL/glew.h>
 #include "globals.h"
 
@@ -146,6 +148,7 @@ typedef struct {
     spacecraft_t spacecraft[MAX_SPACECRAFT];
 } spacecraft_properties_t;
 
+#ifdef GUI_ENABLED
 typedef struct {
     int screen_width, screen_height;
     double time_step;
@@ -185,6 +188,22 @@ typedef struct {
     bool draw_planet_SOI;
 
 } window_params_t;
+#else
+typedef struct {
+    double time_step;
+
+    volatile bool window_open;
+    bool data_logging_enabled;
+    volatile bool sim_running;
+    double sim_time;
+
+    bool reset_sim;
+
+    double meters_per_pixel;
+
+    int frame_counter;
+} window_params_t;
+#endif
 
 // container for all the sim elements
 typedef struct {
@@ -205,21 +224,6 @@ typedef struct {
 } stats_window_t;
 
 typedef struct {
-    float x, y, width, height;
-    bool is_hovered;
-    SDL_Color normal_color;
-    SDL_Color hover_color;
-} button_t;
-
-typedef struct {
-    button_t sc_button;
-    button_t csv_load_button;
-    button_t craft_view_button;
-    button_t show_stats_button;
-} button_storage_t;
-
-
-typedef struct {
     FILE* body_pos_FILE;
     FILE* global_data_FILE;
 } binary_filenames_t;
@@ -233,10 +237,12 @@ typedef struct {
     double force_data_x, force_data_y;
 } global_data_t;
 
+#ifdef GUI_ENABLED
 typedef struct {
     SDL_Window* window;
     SDL_GLContext glContext;
 } SDL_GL_init_t;
+#endif
 
 typedef struct {
     GLuint VAO;
@@ -270,5 +276,6 @@ typedef struct {
     int capacity;
     int num_objects;
 } craft_path_storage_t;
+
 
 #endif
