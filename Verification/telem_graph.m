@@ -4,7 +4,7 @@ telem = readtable('osn_telem.csv');
 figure('Name', 'Telemetry Analysis'); 
 
 % Create a 2x1 grid (2 rows, 1 column)
-t = tiledlayout(2, 2); 
+t = tiledlayout(2, 1); 
 
 nexttile; 
 plot(telem.Var1, telem.Var17, '-r', 'LineWidth', 1.0, 'DisplayName', 'Energy');
@@ -22,8 +22,6 @@ title('');
 ylabel('Value (Units)');
 xlabel('Time (s)'); % Usually only need x-label on the bottom plot
 grid on;
-
-nexttile
 
 
 % Global formatting

@@ -113,7 +113,7 @@ void* commandInputThread(void* args) {
             else if (strcmp(input, "status") == 0) {
                 mutex_lock(&sim_mutex);
                 printf("[STATUS] Simulation is %s\n", sim->window_params.sim_running ? "RUNNING" : "PAUSED");
-                printf("[STATUS] Simulation time: %.2f s\n", sim->window_params.sim_time);
+                printf("[STATUS] Simulation time: %.2e s\n", sim->window_params.sim_time);
                 printf("[STATUS] Time step: %.6f s\n", sim->window_params.time_step);
                 printf("[STATUS] Bodies: %d, Spacecraft: %d\n", sim->global_bodies.count, sim->global_spacecraft.count);
                 mutex_unlock(&sim_mutex);
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
     (void)argv;
 
     // welcome message
-    printf("==================================================================\n\n");
+    printf("==================================================================\n");
     printf("   ____  ____  ____  __________     _____ ______  ___     _   __\n");
     printf("  / __ \\/ __ \\/ __ )/  _/_  __/    / ___//  _/  |/  /    / | / /\n");
     printf(" / / / / /_/ / __  |/ /  / /       \\__ \\ / // /|_/ /    /  |/ /\n");
@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////////////////////
     // default time step
     sim.window_params.time_step = 0.01;
-    double csv_update_period = 12960.0F; // updates every n seconds
+    double csv_update_period = 300.0F; // updates every n seconds
     double last_csv_update_time = 0;
 
     while (sim.window_params.window_open) {
