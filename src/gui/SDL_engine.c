@@ -1,3 +1,10 @@
+#include <GL/glew.h>
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
+#include <GL/gl.h>
+#endif
+
 #include "../gui/SDL_engine.h"
 
 #include <stdio.h>
@@ -15,13 +22,8 @@
 
 #include "../globals.h"
 #include "../utility/json_loader.h"
+#include "../sim/bodies.h"
 #include "../gui/GL_renderer.h"
-#include <GL/glew.h>
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
 #include "../math/matrix.h"
 #include "../types.h"
 
@@ -258,6 +260,8 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
     if (strncmp(cmd, "step ", 4) == 0) {
         char* argument = cmd + 4;
         sim->window_params.time_step = strtod(argument, &argument);
+        // recompute rotations when timestep changes
+        body_precomputeRotations(&sim->global_bodies, sim->window_params.time_step);
 
         snprintf(console->log, sizeof(console->log), "step set to %f", sim->window_params.time_step);
     }
@@ -273,6 +277,8 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
         if (sim->global_bodies.count == 0) {
             sim->window_params.sim_running = false; // pauses before loading
             readSimulationJSON("simulation_data.json", &sim->global_bodies, &sim->global_spacecraft);
+            // precompute rotations for all bodies based on current timestep
+            body_precomputeRotations(&sim->global_bodies, sim->window_params.time_step);
             snprintf(console->log, sizeof(console->log), "%d planets and %d craft loaded from json file", sim->global_bodies.count, sim->global_spacecraft.count);
         } else {
             snprintf(console->log, sizeof(console->log), "Warning: system already loaded, reset before loading another");

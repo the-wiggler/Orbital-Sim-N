@@ -5,7 +5,11 @@
 #include <stdio.h>
 #ifdef GUI_ENABLED
 #include <SDL3/SDL.h>
-// #include <GL/glew.h>
+#ifdef __EMSCRIPTEN__
+    #include <GLES3/gl3.h>
+#else
+    #include <GL/glew.h>
+#endif
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #else
@@ -79,6 +83,8 @@ typedef struct {
     orbital_elements_t oe;
 
     double rotational_v;     // angular velocity (rad/s)
+    vec3 spin_axis;          // world-space rotation axis (cached)
+    quaternion_t delta_rotation_per_step;  // pre-computed rotation quaternion per timestep
     quaternion_t attitude;   // orientation quaternion
 } body_t;
 

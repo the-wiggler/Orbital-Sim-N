@@ -157,6 +157,10 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
                     attitude_axis_z->valuedouble
                 };
                 added_body->attitude = quaternionFromAxisAngle(axis, attitude_angle->valuedouble);
+
+                // update spin axis based on new attitude
+                const vec3 local_z = {0.0, 0.0, 1.0};
+                added_body->spin_axis = quaternionRotate(added_body->attitude, local_z);
             }
         }
     }

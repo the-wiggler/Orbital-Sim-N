@@ -17,6 +17,7 @@
 #include <ctype.h>
 #include "globals.h"
 #include "sim/simulation.h"
+#include "sim/bodies.h"
 #include "utility/json_loader.h"
 #include "utility/telemetry_export.h"
 #include "utility/sim_thread.h"
@@ -126,6 +127,8 @@ void* commandInputThread(void* args) {
                 if (sim->global_bodies.count == 0) {
                     printf("[INFO] Loaded sim parameters from JSON\n");
                     readSimulationJSON(SIMULATION_FILENAME, &sim->global_bodies, &sim->global_spacecraft);
+                    // precompute rotations for all bodies based on current timestep
+                    body_precomputeRotations(&sim->global_bodies, sim->window_params.time_step);
                 }
                 else { printf("[WARNING] Sim JSON already loaded.\n"); }
             }
@@ -139,6 +142,8 @@ void* commandInputThread(void* args) {
                 if (new_step > 0.0) {
                     mutex_lock(&sim_mutex);
                     sim->window_params.time_step = new_step;
+                    // recompute rotations when timestep changes
+                    body_precomputeRotations(&sim->global_bodies, new_step);
                     mutex_unlock(&sim_mutex);
                     printf("[INFO] Time step changed to %.6f seconds.\n", new_step);
                 } else {

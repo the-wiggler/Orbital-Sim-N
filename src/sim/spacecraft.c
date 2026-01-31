@@ -106,15 +106,6 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
     // apply the force to the craft
     const vec3 force = vec3_scale(delta_pos, force_factor);
     craft->grav_force = vec3_add(craft->grav_force, force);
-
-    // checks for new closest planet and checks if its in the SOI
-    if (r_squared < craft->oe.closest_r_squared) {
-        craft->oe.closest_r_squared = r_squared;
-        craft->oe.closest_planet_id = body_idx;
-        if (radius <= body->SOI_radius) {
-            craft->oe.SOI_planet_id = body_idx;
-        }
-    }
 }
 
 // updates the ID and distance of the closest planet

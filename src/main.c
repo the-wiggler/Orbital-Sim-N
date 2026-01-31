@@ -24,26 +24,7 @@
 #include <SDL3/SDL_hints.h>
 #endif
 
-#include "globals.h"
-#include "types.h"
-#include "sim/simulation.h"
-#include "utility/telemetry_export.h"
-#include "utility/sim_thread.h"
-
-// GUI INCLUDES
 #ifdef GUI_ENABLED
-#include "gui/SDL_engine.h"
-#include "gui/GL_renderer.h"
-#include "gui/models.h"
-
-//#include <SDL3/SDL_hints.h> removed because clang tidy got mad... if there's an error on linux try uncommenting this first!
-
-#ifdef __APPLE__
-    #include <OpenGL/gl.h>
-#else
-    #include <GL/gl.h>
-#endif
-
 #ifdef __EMSCRIPTEN__
     #include <emscripten/emscripten.h>
     #include <GLES3/gl3.h>
@@ -51,10 +32,27 @@
     #include <GL/glew.h>
 #endif
 
+#ifdef __APPLE__
+    #include <OpenGL/gl.h>
+#else
+    #include <GL/gl.h>
+#endif
+
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_video.h>
 #include <SDL3/SDL_events.h>
+#endif
 
+#include "globals.h"
+#include "types.h"
+#include "sim/simulation.h"
+#include "utility/telemetry_export.h"
+#include "utility/sim_thread.h"
+
+#ifdef GUI_ENABLED
+#include "gui/SDL_engine.h"
+#include "gui/GL_renderer.h"
+#include "gui/models.h"
 #endif
 // END GUI INCLUDES
 
@@ -67,7 +65,7 @@ mutex_t sim_mutex;
 // NOTE: ALL CALCULATIONS SHOULD BE DONE IN BASE SI UNITS
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// PHYSICS SIMULATION THREAD
+// PHYSICS SIMULATION THREAD!
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _WIN32
 DWORD WINAPI physicsSim(LPVOID args) {
@@ -214,12 +212,18 @@ int main(int argc, char *argv[]) {
         glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // user input event checking logic (modifies UI state, no lock needed)
+        // lock mutex and quickly snapshot simulation data for rendering
+        mutex_lock(&sim_mutex);
+
+        // user input event checking logic
         SDL_Event event;
         runEventCheck(&event, &sim);
 
-        // lock mutex and quickly snapshot simulation data for rendering
-        mutex_lock(&sim_mutex);
+        // updates the orbital elements for each orbital body and craft (for visual guidelines)
+        updateSystemOrbitalElements(&sim);
+
+        // calculate the total energy of the system and store it for external use
+        sim.global_bodies.total_system_energy = calculateTotalSystemEnergy(&sim);
 
         // make a quick copy for rendering
         const sim_properties_t sim_copy = sim;

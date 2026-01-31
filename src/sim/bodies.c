@@ -42,46 +42,29 @@ void body_calculateGravForce(sim_properties_t* sim, const int force_recipient, c
     // applies force to both bodies
     recipient_body->force = vec3_add(recipient_body->force, force);
     application_body->force = vec3_sub(application_body->force, force);
-
-    // closest planet and SOI tracking for recipient body
-    if (r_squared < recipient_body->oe.closest_r_squared) {
-        recipient_body->oe.closest_r_squared = r_squared;
-        recipient_body->oe.closest_planet_id = force_applier;
-        if (radius <= application_body->SOI_radius) {
-            recipient_body->oe.SOI_planet_id = force_applier;
-        }
-    }
-
-    // closest planet and SOI tracking for applier body
-    if (r_squared < application_body->oe.closest_r_squared) {
-        application_body->oe.closest_r_squared = r_squared;
-        application_body->oe.closest_planet_id = force_recipient;
-        if (radius <= recipient_body->SOI_radius) {
-            application_body->oe.SOI_planet_id = force_recipient;
-        }
-    }
 }
 
-// calculates the kinetic energy of a target body
-void body_calculateKineticEnergy(body_t* body) {
-    // calculate kinetic energy (0.5mv^2)
-
-    body->kinetic_energy = 0.5 * body->mass * body->vel_mag * body->vel_mag;
-}
-
-// updates the rotational attitude of a body based on its rotational velocity
+// updates the rotational attitude of a body using pre-computed rotation quaternion
 void body_updateRotation(body_t* body, const double delta_t) {
+    (void)delta_t; // delta_t is pre-baked into delta_rotation_per_step
     if (body->rotational_v != 0.0) {
-        // extract the rotation axis from the current attitude
-        const vec3 local_z = {0.0, 0.0, 1.0};
-        const vec3 world_spin_axis = quaternionRotate(body->attitude, local_z);
+        // apply pre-computed rotation (much faster than computing it each timestep)
+        body->attitude = quaternionMul(body->delta_rotation_per_step, body->attitude);
+    }
+}
 
-        // create a rotation around this world-space axis
-        const double rotation_angle = body->rotational_v * delta_t;
-        const quaternion_t delta_rotation = quaternionFromAxisAngle(world_spin_axis, rotation_angle);
-
-        // apply rotation in world frame
-        body->attitude = quaternionMul(delta_rotation, body->attitude);
+// pre calculates rotation quaternions for all bodies based on timestep
+// call this once when timestep is set, or when rotation parameters change
+void body_precomputeRotations(body_properties_t* global_bodies, const double delta_t) {
+    for (int i = 0; i < global_bodies->count; i++) {
+        body_t* body = &global_bodies->bodies[i];
+        if (body->rotational_v != 0.0) {
+            const double rotation_angle = body->rotational_v * delta_t;
+            body->delta_rotation_per_step = quaternionFromAxisAngle(body->spin_axis, rotation_angle);
+        } else {
+            // identity quaternion (no rotation)
+            body->delta_rotation_per_step = (quaternion_t){1.0, 0.0, 0.0, 0.0};
+        }
     }
 }
 
@@ -172,6 +155,14 @@ void body_addOrbitalBody(body_properties_t* global_bodies, const char* name, con
     body->kinetic_energy = 0.5 * mass * body->vel_mag * body->vel_mag;
     body->rotational_v = 0.0;
     body->attitude = (quaternion_t){1.0, 0.0, 0.0, 0.0};
+
+    // initialize rotation axis
+    // this will be rotated by the initial attitude to get the actual spin axis
+    const vec3 local_z = {0.0, 0.0, 1.0};
+    body->spin_axis = quaternionRotate(body->attitude, local_z);
+
+    // delta_rotation_per_step will be computed when timestep is set
+    body->delta_rotation_per_step = (quaternion_t){1.0, 0.0, 0.0, 0.0}; // identity for now
 
     global_bodies->count++;
 }
