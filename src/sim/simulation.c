@@ -149,7 +149,7 @@ void updateSystemOrbitalElements(sim_properties_t* sim) {
         body->oe.closest_r_squared = INFINITY;
         body->oe.closest_planet_id = 0;
 
-        // find closest body to this one
+        // find the closest body to this one
         for (int j = 0; j < global_bodies->count; j++) {
             if (i == j) { continue; }
 

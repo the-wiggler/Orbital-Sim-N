@@ -229,7 +229,8 @@ typedef struct {
 } stats_window_t;
 
 typedef struct {
-    FILE* body_pos_FILE;
+    double csv_update_period; // updates every n seconds
+    double last_csv_update_time;
     FILE* global_data_FILE;
 } binary_filenames_t;
 
@@ -280,6 +281,16 @@ typedef struct {
     int capacity;
     int num_objects;
 } craft_path_storage_t;
+
+typedef struct {
+    VBO_t unit_cube;
+    VBO_t cone;
+    VBO_t sphere;
+    line_batch_t lines;
+    craft_path_storage_t craft_paths;
+    font_t font;
+} GL_assets_t;
+
 #endif
 
 

@@ -9,10 +9,13 @@
 #include <math.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include "models.h"
 
 #include "../globals.h"
 #include "../math/matrix.h"
 #include "../types.h"
+
+extern void displayError(const char* title, const char* message);
 
 char* loadShaderSource(const char* filepath) {
     // use two alternating buffers to support loading vertex and fragment shaders simultaneously
@@ -141,6 +144,54 @@ VBO_t createVBO(const float* vertices, const size_t vertexDataSize) {
     glBindVertexArray(0);
 
     return vbo;
+}
+
+// initializes the openGL shader program with the .vert files we should have stored with the program. It also initializes
+// relevant things used by the renderer
+GLuint init_GL_shader() {
+    // create the shader programs
+    GLuint shaderProgram = createShaderProgram("shaders/simple.vert", "shaders/simple.frag");
+    if (shaderProgram == 0) {
+        displayError("Shader Error", "Failed to create shader program. Check console for details.");
+        return 1;
+    }
+
+    // enable depth testing
+    glEnable(GL_DEPTH_TEST);
+
+    // enable blending for transparency
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    return shaderProgram;
+}
+
+// initializes all the assets we would want to use for the program, such as the VBOs and their models and the fonts.
+GL_assets_t init_GL_assets(sim_properties_t* sim) {
+    GL_assets_t assets = {0};
+
+    // create buffer for cube shape
+    assets.unit_cube = createVBO(UNIT_CUBE_VERTICES, sizeof(UNIT_CUBE_VERTICES));
+
+    // create buffer for cone shape
+    assets.cone = createVBO(CONE_VERTICES, sizeof(CONE_VERTICES));
+
+    // create buffer for sphere shape
+    sphere_mesh_t sphere_mesh;
+    sphere_mesh = generateUnitSphere(15, 15);
+    assets.sphere = createVBO(sphere_mesh.vertices, sphere_mesh.data_size);
+    sim->window_params.planet_model_vertex_count = (int)sphere_mesh.vertex_count; // I couldn't think of a better way to do this ngl
+
+    // create batch to hold all the line geometries we would ever want to draw
+    assets.lines = createLineBatch(MAX_LINE_BATCH);
+
+    // // craft path tracking
+    // assets.craft_paths = {0};
+
+    // initialize font for text rendering
+    assets.font = initFont("assets/font.ttf", 24.0F);
+
+    return assets;
 }
 
 void deleteVBO(const VBO_t vbo) {
@@ -286,13 +337,6 @@ sphere_mesh_t generateUnitSphere(const unsigned int stacks, const unsigned int s
     return sphere;
 }
 
-void freeSphere(sphere_mesh_t* sphere) {
-    if (sphere) {
-        sphere->vertex_count = 0;
-        sphere->data_size = 0;
-    }
-}
-
 // line rendering stuff
 line_batch_t createLineBatch(const size_t max_lines) {
     line_batch_t batch = {0};
@@ -380,17 +424,6 @@ void renderLines(line_batch_t* batch, const GLuint shader_program) {
     glDrawArrays(GL_LINES, 0, (GLsizei)(batch->count * 2));
 
     // reset for next frame
-    batch->count = 0;
-}
-
-void freeLines(line_batch_t* batch) {
-    if (!batch) {
-        return;
-    }
-
-    deleteVBO(batch->vbo);
-
-    batch->capacity = 0;
     batch->count = 0;
 }
 
@@ -517,13 +550,6 @@ void renderText(font_t* font, const float window_width, const float window_heigh
 
     glEnable(GL_DEPTH_TEST);
     font->count = 0;
-}
-
-void freeFont(const font_t* font) {
-    glDeleteTextures(1, &font->tex);
-    glDeleteProgram(font->shader);
-    glDeleteVertexArrays(1, &font->vao);
-    glDeleteBuffers(1, &font->vbo);
 }
 
 

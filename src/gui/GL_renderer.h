@@ -13,6 +13,9 @@
 #endif
 #include "../types.h"
 
+GLuint init_GL_shader();
+GL_assets_t init_GL_assets(sim_properties_t* sim);
+
 char* loadShaderSource(const char* filepath);
 GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath);
 VBO_t createVBO(const float* vertices, size_t vertexDataSize);

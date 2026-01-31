@@ -12,16 +12,11 @@
 
 
 #include <stdio.h>
-#include <stdbool.h>
 
 #ifdef _WIN32
     #include <minwindef.h>
 #else
     #include <pthread.h>
-#endif
-
-#ifdef __linux__
-#include <SDL3/SDL_hints.h>
 #endif
 
 #ifdef GUI_ENABLED
@@ -43,7 +38,6 @@
 #include <SDL3/SDL_events.h>
 #endif
 
-#include "globals.h"
 #include "types.h"
 #include "sim/simulation.h"
 #include "utility/telemetry_export.h"
@@ -52,7 +46,6 @@
 #ifdef GUI_ENABLED
 #include "gui/SDL_engine.h"
 #include "gui/GL_renderer.h"
-#include "gui/models.h"
 #endif
 // END GUI INCLUDES
 
@@ -96,9 +89,7 @@ void* physicsSim(void* args) {
 // GUI MAIN :)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef GUI_ENABLED
-int main(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+int main() {
     ////////////////////////////////////////
     // INIT                               //
     ////////////////////////////////////////
@@ -111,6 +102,8 @@ int main(int argc, char *argv[]) {
 
     // CSV file creation
     binary_filenames_t filenames = {
+        .csv_update_period = 60.0F,
+        .last_csv_update_time = 0,
         .global_data_FILE = NULL
     };
 #ifdef _WIN32
@@ -120,68 +113,14 @@ int main(int argc, char *argv[]) {
 #endif
     writeCSVHeader(filenames.global_data_FILE);
 
-#ifdef __linux__
-    // force X11 on Linux (fixes SDL text input issues on wayland)
-    SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
-#endif
-
-    // initialize SDL
-    SDL_Init(SDL_INIT_VIDEO);
-
-    // window parameters & command prompt init
-    sim.window_params = init_window_params();
-    sim.console = init_console(sim.window_params);
-
     // SDL and OpenGL window
-    SDL_GL_init_t windowInit = init_SDL_OPENGL_window("Orbit Simulation N",
-        (int)sim.window_params.window_size_x, (int)sim.window_params.window_size_y, &sim.window_params.main_window_ID);
+    SDL_GL_init_t windowInit = init_SDL_OPENGL_window("Orbit Simulation N", &sim);
     SDL_Window* window = windowInit.window;
     SDL_GLContext glctx = windowInit.glContext;
 
-    // create the shader programs
-    GLuint shaderProgram = createShaderProgram("shaders/simple.vert", "shaders/simple.frag");
-    if (shaderProgram == 0) {
-        displayError("Shader Error", "Failed to create shader program. Check console for details.");
-        return 1;
-    }
+    GLuint shaderProgram = init_GL_shader();
 
-    // enable depth testing
-    glEnable(GL_DEPTH_TEST);
-
-    // enable blending for transparency
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    ////////////////////////////////////////
-    // MESH/BUFFER SETUP                  //
-    ////////////////////////////////////////
-
-    // create buffer for cube shape
-    VBO_t unit_cube_buffer = createVBO(UNIT_CUBE_VERTICES, sizeof(UNIT_CUBE_VERTICES));
-
-    // create buffer for cone shape
-    VBO_t cone_buffer = createVBO(CONE_VERTICES, sizeof(CONE_VERTICES));
-
-    // create buffer for sphere shape
-    sphere_mesh_t sphere_mesh;
-    sphere_mesh = generateUnitSphere(15, 15);
-    VBO_t sphere_buffer = createVBO(sphere_mesh.vertices, sphere_mesh.data_size);
-    sim.window_params.planet_model_vertex_count = (int)sphere_mesh.vertex_count; // I couldn't think of a better way to do this ngl
-
-    // create batch to hold all the line geometries we would ever want to draw
-    line_batch_t line_batch;
-    line_batch = createLineBatch(MAX_LINE_BATCH);
-
-    // craft path tracking
-    craft_path_storage_t craft_paths = {0};
-
-    // initialize font for text rendering
-    font_t font;
-    font = initFont("assets/font.ttf", 24.0F);
-    if (font.shader == 0) {
-        displayError("Font Error", "Failed to initialize font. Check console for details.");
-        return 1;
-    }
+    GL_assets_t assets = init_GL_assets(&sim);
 
     ////////////////////////////////////////
     // SIM THREAD INIT                    //
@@ -204,8 +143,6 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////////////////////
     // default time step
     sim.window_params.time_step = 0.01;
-    double csv_update_period = 12960.0F; // updates every n seconds
-    double last_csv_update_time = 0;
 
     while (sim.window_params.window_open) {
         // clears previous frame from the screen
@@ -217,7 +154,7 @@ int main(int argc, char *argv[]) {
 
         // user input event checking logic
         SDL_Event event;
-        runEventCheck(&event, &sim);
+        runEventCheck(&event, &sim, &filenames);
 
         // updates the orbital elements for each orbital body and craft (for visual guidelines)
         updateSystemOrbitalElements(&sim);
@@ -243,38 +180,38 @@ int main(int argc, char *argv[]) {
         castCamera(sim_copy, shaderProgram);
 
         // draw coordinate plane
-        renderCoordinatePlane(sim_copy, &line_batch);
+        renderCoordinatePlane(sim_copy, &assets.lines);
 
         // draw planets
-        renderPlanets(sim_copy, shaderProgram, sphere_buffer);
+        renderPlanets(sim_copy, shaderProgram, assets.sphere);
 
         // draw crafts
-        renderCrafts(sim_copy, shaderProgram, cone_buffer);
+        renderCrafts(sim_copy, shaderProgram, assets.cone);
 
         // stats display
-        renderStats(sim_copy, &font);
+        renderStats(sim_copy, &assets.font);
 
         // renders visuals things if they are enabled
-        renderVisuals(sim_copy, &line_batch, &craft_paths);
+        renderVisuals(sim_copy, &assets.lines, &assets.craft_paths);
 
         // command window display
-        renderCMDWindow(sim_copy, &font);
+        renderCMDWindow(sim_copy, &assets.font);
 
         // render all queued lines
-        renderLines(&line_batch, shaderProgram);
+        renderLines(&assets.lines, shaderProgram);
 
         // render all queued text
-        renderText(&font, sim_copy.window_params.window_size_x, sim_copy.window_params.window_size_y, 1, 1, 1);
+        renderText(&assets.font, sim_copy.window_params.window_size_x, sim_copy.window_params.window_size_y, 1, 1, 1);
         ////////////////////////////////////////////////////////
         // END OPENGL RENDERER
         ////////////////////////////////////////////////////////
 
         // log data on interval
         if (sim_copy.window_params.data_logging_enabled && sim_copy.window_params.sim_running) {
-            double time_since_last_export = sim_copy.window_params.sim_time - last_csv_update_time;
-            if (time_since_last_export >= csv_update_period) {
+            double time_since_last_export = sim_copy.window_params.sim_time - filenames.last_csv_update_time;
+            if (time_since_last_export >= filenames.csv_update_period) {
                 exportTelemetryCSV(filenames, sim_copy);
-                last_csv_update_time = sim_copy.window_params.sim_time;
+                filenames.last_csv_update_time = sim_copy.window_params.sim_time;
             }
         }
 
@@ -287,8 +224,8 @@ int main(int argc, char *argv[]) {
             mutex_unlock(&sim_mutex);
 
             // reset paths
-            for (int i = 0; i < craft_paths.num_objects; i++) {
-                craft_paths.counts[i] = 0;
+            for (int i = 0; i < assets.craft_paths.num_objects; i++) {
+                assets.craft_paths.counts[i] = 0;
             }
         }
 
@@ -327,11 +264,6 @@ int main(int argc, char *argv[]) {
     cleanup(&sim);
 
     // cleanup OpenGL resources
-    freeSphere(&sphere_mesh);
-    deleteVBO(unit_cube_buffer);
-    deleteVBO(sphere_buffer);
-    freeLines(&line_batch);
-    freeFont(&font);
     glDeleteProgram(shaderProgram);
 
     SDL_GL_DestroyContext(glctx);

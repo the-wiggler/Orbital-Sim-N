@@ -17,8 +17,9 @@
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_hints.h>
+#include <SDL3/SDL_init.h>
 
 #include "../globals.h"
 #include "../utility/json_loader.h"
@@ -96,8 +97,20 @@ console_t init_console(const window_params_t window_params) {
     return console;
 }
 
-SDL_GL_init_t init_SDL_OPENGL_window(const char* title, const int width, const int height, Uint32* outWindowID) {
+SDL_GL_init_t init_SDL_OPENGL_window(const char* title, sim_properties_t* sim) {
     SDL_GL_init_t result = {0};
+
+#ifdef __linux__
+    // force X11 on Linux (fixes SDL text input issues on wayland)
+    SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
+#endif
+
+    // initialize SDL
+    SDL_Init(SDL_INIT_VIDEO);
+
+    // window parameters & command prompt init
+    sim->window_params = init_window_params();
+    sim->console = init_console(sim->window_params);
 
     // set OpenGL attributes
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -111,13 +124,10 @@ SDL_GL_init_t init_SDL_OPENGL_window(const char* title, const int width, const i
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
     // create SDL window
-    result.window = SDL_CreateWindow(title, width, height,
-        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    result.window = SDL_CreateWindow(title, (int)sim->window_params.window_size_x, (int)sim->window_params.window_size_y, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
     // store window ID
-    if (outWindowID) {
-        *outWindowID = SDL_GetWindowID(result.window);
-    }
+    sim->window_params.main_window_ID = SDL_GetWindowID(result.window);
 
     // initialize OpenGL context and GLEW
     result.glContext = SDL_GL_CreateContext(result.window);
@@ -254,7 +264,7 @@ static void handleMouseWheelEvent(const SDL_Event* event, sim_properties_t* sim)
     }
 }
 
-static void parseRunCommands(char* cmd, sim_properties_t* sim) {
+static void parseRunCommands(char* cmd, sim_properties_t* sim, binary_filenames_t* filenames) {
     console_t* console = &sim->console;
 
     if (strncmp(cmd, "step ", 4) == 0) {
@@ -300,7 +310,8 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
         } else {
             snprintf(console->log, sizeof(console->log), "unknown argument after command: %s", argument);
         }
-    } else if (strncmp(cmd, "disable ", 8) == 0) {
+    }
+    else if (strncmp(cmd, "disable ", 8) == 0) {
         char* argument = cmd + 8;
         if (strcmp(argument, "guidance-lines") == 0) {
             sim->window_params.draw_lines_between_bodies = false;
@@ -314,6 +325,11 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
             snprintf(console->log, sizeof(console->log), "unknown argument after disable: %s", argument);
         }
     }
+    else if (strncmp(cmd, "sample-period ", 14) == 0) {
+        char* argument = cmd + 14;
+        filenames->csv_update_period = strtod(argument, &argument);
+        snprintf(console->log, sizeof(console->log), "CSV sample period changed to %fs", filenames->csv_update_period);
+    }
     else {
         snprintf(console->log, sizeof(console->log), "unknown command: %s", cmd);
     }
@@ -321,7 +337,7 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim) {
 }
 
 // handles keyboard events
-static void handleKeyboardEvent(const SDL_Event* event, sim_properties_t* sim) {
+static void handleKeyboardEvent(const SDL_Event* event, sim_properties_t* sim, binary_filenames_t* filenames) {
     console_t* console = &sim->console;
     //window_params_t* window_params = &sim->wp;
 
@@ -333,7 +349,7 @@ static void handleKeyboardEvent(const SDL_Event* event, sim_properties_t* sim) {
         // clear log because a new command will show a new log message!
         console->log[0] = '\0';
         // if the enter key is pressed, then the command should be queued!
-        parseRunCommands(console->cmd_text_box, sim);
+        parseRunCommands(console->cmd_text_box, sim, filenames);
         console->cmd_text_box[0] = '\0';
         console->cmd_text_box_length = 0;
     }
@@ -373,7 +389,7 @@ static void handleWindowResizeEvent(const SDL_Event* event, sim_properties_t* si
 // MAIN EVENT CHECKING FUNCTION
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // the event handling code... checks if events are happening for input and does a task based on that input
-void runEventCheck(SDL_Event* event, sim_properties_t* sim) {
+void runEventCheck(SDL_Event* event, sim_properties_t* sim, binary_filenames_t* filenames) {
     window_params_t* window_params = &sim->window_params;
 
     window_params->is_zooming = false; // reset zooming checks
@@ -405,7 +421,7 @@ void runEventCheck(SDL_Event* event, sim_properties_t* sim) {
         }
         // check if keyboard key is pressed
         else if (event->type == SDL_EVENT_KEY_DOWN && event->window.windowID == window_params->main_window_ID) {
-            handleKeyboardEvent(event, sim);
+            handleKeyboardEvent(event, sim, filenames);
         }
         // check if text input
         else if (event->type == SDL_EVENT_TEXT_INPUT && event->window.windowID == window_params->main_window_ID) {
