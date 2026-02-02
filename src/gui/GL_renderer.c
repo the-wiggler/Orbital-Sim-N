@@ -977,13 +977,24 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
         spacecraft_t craft = global_spacecraft.spacecraft[i];
         const vec3_f craft_pos = scaled_craft_pos[i];
         const vec3_f body_pos = scaled_body_pos[craft.oe.SOI_planet_id];
+        const body_t planet = global_bodies.bodies[craft.oe.SOI_planet_id];
 
-        // line from planet to craft!
+        // get planet's rotation axis (equatorial plane normal) and project spacecraft onto equatorial plane
+        const vec3 rotation_axis_norm = vec3_normalize(quaternionRotate(planet.attitude, (vec3){0.0, 0.0, 1.0}));
+        const vec3 rel_pos = vec3_sub(craft.pos, planet.pos);
+        const vec3 projected_rel = vec3_sub(rel_pos, vec3_scale(rotation_axis_norm, vec3_dot(rel_pos, rotation_axis_norm)));
+        const vec3_f projected_scaled = {
+            (float)((planet.pos.x + projected_rel.x) / SCALE),
+            (float)((planet.pos.y + projected_rel.y) / SCALE),
+            (float)((planet.pos.z + projected_rel.z) / SCALE)
+        };
+
+        // line from planet to craft
         addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, body_pos.x, body_pos.y, body_pos.z, 1.0F, 1.0F, 1.0F);
-        // line to view angle from equatorial plane
-        addLine(line_batch, craft_pos.x, craft_pos.y, body_pos.z, body_pos.x, body_pos.y, body_pos.z, 1.0F, 0.0F, 0.0F);
-        // line to connect the triangle
-        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, craft_pos.x, craft_pos.y, body_pos.z, 0.0F, 1.0F, 0.0F);
+        // line from projected point on equatorial plane to planet center
+        addLine(line_batch, projected_scaled.x, projected_scaled.y, projected_scaled.z, body_pos.x, body_pos.y, body_pos.z, 1.0F, 0.0F, 0.0F);
+        // line from craft to projected point (inclination height line)
+        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, projected_scaled.x, projected_scaled.y, projected_scaled.z, 0.0F, 1.0F, 0.0F);
     }
 
     renderCraftPaths(&sim, line_batch, craft_paths);

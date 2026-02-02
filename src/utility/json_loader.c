@@ -113,6 +113,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
             cJSON* name_item = cJSON_GetObjectItemCaseSensitive(body, "name");
             cJSON* mass_item = cJSON_GetObjectItemCaseSensitive(body, "mass");
             cJSON* radius_item = cJSON_GetObjectItemCaseSensitive(body, "radius");
+            cJSON* equatorial_radius_item = cJSON_GetObjectItemCaseSensitive(body, "equatorial_radius");
             cJSON* pos_x_item = cJSON_GetObjectItemCaseSensitive(body, "pos_x");
             cJSON* pos_y_item = cJSON_GetObjectItemCaseSensitive(body, "pos_y");
             cJSON* pos_z_item = cJSON_GetObjectItemCaseSensitive(body, "pos_z");
@@ -124,6 +125,8 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
             cJSON* attitude_axis_y = cJSON_GetObjectItemCaseSensitive(body, "attitude_axis_y");
             cJSON* attitude_axis_z = cJSON_GetObjectItemCaseSensitive(body, "attitude_axis_z");
             cJSON* attitude_angle = cJSON_GetObjectItemCaseSensitive(body, "attitude_angle");
+            cJSON* gravitational_parameter_item = cJSON_GetObjectItemCaseSensitive(body, "gravitational_parameter");
+            cJSON* J2_item = cJSON_GetObjectItemCaseSensitive(body, "J2");
 
             vec3 pos = {
                 pos_x_item->valuedouble,
@@ -161,6 +164,29 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
                 // update spin axis based on new attitude
                 const vec3 local_z = {0.0, 0.0, 1.0};
                 added_body->spin_axis = quaternionRotate(added_body->attitude, local_z);
+            }
+
+            // set gravitational parameter if present in JSON
+            if (gravitational_parameter_item != NULL) {
+                added_body->gravitational_parameter = gravitational_parameter_item->valuedouble;
+            }
+
+            // set J2 if present in JSON
+            if (J2_item != NULL) {
+                added_body->J2 = J2_item->valuedouble;
+            }
+
+            // set equatorial radius if present in JSON
+            if (equatorial_radius_item != NULL) {
+                added_body->equatorial_radius = equatorial_radius_item->valuedouble;
+            } else {
+                // fallback to regular radius if equatorial radius not specified
+                added_body->equatorial_radius = radius_item->valuedouble;
+            }
+
+            // set J2 perturbation coefficient numerator term because its constant
+            if (J2_item != NULL && gravitational_parameter_item != NULL) {
+                added_body->J2_per_coeff_numerator = 1.5 * added_body->gravitational_parameter * added_body->J2 * added_body->equatorial_radius * added_body->equatorial_radius;
             }
         }
     }

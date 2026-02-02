@@ -170,13 +170,13 @@ void updateSystemOrbitalElements(sim_properties_t* sim) {
         }
     }
 
-    // find closest planet and update SOI for all spacecraft
+    // find the closest planet and update SOI for all spacecraft
     for (int i = 0; i < global_spacecraft->count; i++) {
         spacecraft_t* craft = &global_spacecraft->spacecraft[i];
         craft->oe.closest_r_squared = INFINITY;
         craft->oe.closest_planet_id = 0;
 
-        // find closest body to this spacecraft
+        // find the closest body to this spacecraft
         for (int j = 0; j < global_bodies->count; j++) {
             const body_t* body = &global_bodies->bodies[j];
             const vec3 delta = vec3_sub(body->pos, craft->pos);
@@ -294,7 +294,13 @@ void runCalculations(sim_properties_t* sim) {
             }
             for (int i = 0; i < global_bodies->count; i++) {
                 for (int j = i + 1; j < global_bodies->count; j++) {
-                    body_calculateGravForce(sim, i, j);
+                    body_t* force_receiving_body = &global_bodies->bodies[i];
+                    body_t* force_applying_body = &global_bodies->bodies[j];
+
+                    // third law pair: the force is applied to both bodies
+                    const vec3 grav_force =  body_calculateGravForce(sim, i, j);
+                    force_receiving_body->force = vec3_add(force_receiving_body->force, grav_force);
+                    force_applying_body->force = vec3_sub(force_applying_body->force, grav_force);
                 }
             }
 
@@ -312,10 +318,10 @@ void runCalculations(sim_properties_t* sim) {
         }
 
         ////////////////////////////////////////////////////////////////
-        // calculate forces between spacecraft and bodies :)
+        // calculate forces between spacecraft and bodies
         ////////////////////////////////////////////////////////////////
         if (global_spacecraft->count > 0 && global_bodies->count > 0) {
-            const double delta_t= window_params->time_step;
+            const double delta_t = window_params->time_step;
 
             // Step 1: update all spacecraft positions
             // x(t + Δt) = x(t) + v(t) * Δt + 0.5 * a(t) * Δt^2
@@ -339,8 +345,12 @@ void runCalculations(sim_properties_t* sim) {
 
                 // calculate gravitational forces from all bodies
                 for (int j = 0; j < global_bodies->count; j++) {
-                    craft_calculateGravForce(sim, i, j);
+                    craft->current_total_mass = craft->fuel_mass + craft->dry_mass;
+                    craft->grav_force = vec3_add(craft->grav_force, craft_calculateGravForce(sim, i, j));
                 }
+                // add J2 perturbation force to craft
+                // apply J2 perturbation force for the closest body
+                craft->grav_force = vec3_add(craft->grav_force, craft_calculateJ2Force(sim, i, craft->oe.SOI_planet_id));
 
                 // apply thrust and consume fuel
                 craft_applyThrust(craft);

@@ -68,6 +68,7 @@ typedef struct {
 
     double mass;
     double radius;
+    double equatorial_radius;
     double SOI_radius;
     float pixel_radius;
 
@@ -82,10 +83,14 @@ typedef struct {
 
     orbital_elements_t oe;
 
-    double rotational_v;     // angular velocity (rad/s)
-    vec3 spin_axis;          // world-space rotation axis (cached)
-    quaternion_t delta_rotation_per_step;  // pre-computed rotation quaternion per timestep
-    quaternion_t attitude;   // orientation quaternion
+    double rotational_v;                    // angular velocity (rad/s)
+    vec3 spin_axis;                         // world-space rotation axis (cached)
+    quaternion_t delta_rotation_per_step;   // pre-computed rotation quaternion per timestep
+    quaternion_t attitude;                  // orientation quaternion
+
+    double gravitational_parameter;         // m^3/s^2
+    double J2;                              // oblateness coefficient
+    double J2_per_coeff_numerator;          // 1.5 * mu * J2 * Radius_of_planet -- this is done for efficiency since its constant. This value should be set when the JSON is loaded.
 } body_t;
 
 // container for all bodies

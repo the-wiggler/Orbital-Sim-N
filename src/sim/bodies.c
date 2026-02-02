@@ -12,9 +12,9 @@ void displayError(const char* title, const char* message);
 // calculates gravitational force between two bodies and applies it to both
 // i is the body that has the force applied to it, whilst j is the body applying force to i
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-void body_calculateGravForce(sim_properties_t* sim, const int force_recipient, const int force_applier) {
-    body_t* recipient_body = &sim->global_bodies.bodies[force_recipient]; // the body recieving the applied force
-    body_t* application_body = &sim->global_bodies.bodies[force_applier]; // the body applying the force
+vec3 body_calculateGravForce(const sim_properties_t* sim, const int force_recipient_id, const int force_applier_id) {
+    const body_t* recipient_body = &sim->global_bodies.bodies[force_recipient_id]; // the body receiving the applied force
+    const body_t* application_body = &sim->global_bodies.bodies[force_applier_id]; // the body applying the force
 
     // calculate the distance between the two bodies
     const vec3 delta_pos = vec3_sub(application_body->pos, recipient_body->pos);
@@ -24,12 +24,10 @@ void body_calculateGravForce(sim_properties_t* sim, const int force_recipient, c
     const double combined_radius = recipient_body->radius + application_body->radius;
     const double combined_radius_squared = combined_radius * combined_radius;
     if (r_squared < combined_radius_squared) {
-        sim->window_params.sim_running = false;
-        sim->window_params.reset_sim = true;
         char err_txt[MAX_ERR_SIZE];
         snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", recipient_body->name, application_body->name);
         displayError("PLANET COLLISION", err_txt);
-        return;
+        return vec3_zero();
     }
 
     // force = (G * m1 * m2) * delta / r^3
@@ -39,9 +37,7 @@ void body_calculateGravForce(sim_properties_t* sim, const int force_recipient, c
 
     const vec3 force = vec3_scale(delta_pos, force_factor);
 
-    // applies force to both bodies
-    recipient_body->force = vec3_add(recipient_body->force, force);
-    application_body->force = vec3_sub(application_body->force, force);
+    return force;
 }
 
 // updates the rotational attitude of a body using pre-computed rotation quaternion
@@ -53,7 +49,7 @@ void body_updateRotation(body_t* body, const double delta_t) {
     }
 }
 
-// pre calculates rotation quaternions for all bodies based on timestep
+// pre-calculates rotation quaternions for all bodies based on timestep
 // call this once when timestep is set, or when rotation parameters change
 void body_precomputeRotations(body_properties_t* global_bodies, const double delta_t) {
     for (int i = 0; i < global_bodies->count; i++) {

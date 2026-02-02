@@ -10,11 +10,14 @@
       "vel_y": 0,
       "vel_z": 0,
       "radius": 6371000,
+      "equatorial_radius": 6378137,
       "rotational_v": 7.2921159e-5,
       "attitude_axis_x": 1.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 0.0,
-      "attitude_angle": 0.4101524
+      "attitude_angle": 0.4101524,
+      "gravitational_parameter": 3.986004418e14,
+      "J2": 0.00108263
     },
     {
       "name": "Moon",
@@ -26,13 +29,40 @@
       "vel_y": 1022,
       "vel_z": 0,
       "radius": 1737000,
+      "equatorial_radius": 1738140,
       "rotational_v": 2.6617e-6,
       "attitude_axis_x": 1.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 0.0,
-      "attitude_angle": 0.1
+      "attitude_angle": 0.1,
+      "gravitational_parameter": 4.9028e12,
+      "J2": 0.000203
     }
   ],
   "spacecraft": [
+    {
+      "name": "Craft 1",
+
+      "position_relative_to": "Earth",
+      "pos_x": 20000000.0,
+      "pos_y": 0.0,
+      "pos_z": 0.0,
+      "vel_x": 0.0,
+      "vel_y": 3157.1,
+      "vel_z": 3157.1,
+
+      "dry_mass": 3954.0,
+      "fuel_mass": 11046.0,
+      "thrust": 91200.0,
+      "specific_impulse": 309.0,
+      "mass_flow_rate": 30.1,
+
+      "attitude": 0.0,
+      "moment_of_inertia": 23000.0,
+      "nozzle_gimbal_range": 0.105,
+
+      "burns": [
+      ]
+    }
   ]
 }

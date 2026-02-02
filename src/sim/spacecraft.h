@@ -3,7 +3,8 @@
 
 #include "../types.h"
 
-void craft_calculateGravForce(sim_properties_t* sim, int craft_idx, int body_idx);
+vec3 craft_calculateGravForce(const sim_properties_t* sim, int craft_idx, int body_idx);
+vec3 craft_calculateJ2Force(const sim_properties_t* sim, int craft_idx, int body_idx);
 void craft_updateMotion(spacecraft_t* craft, double delta_t);
 void craft_applyThrust(spacecraft_t* craft);
 void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* global_bodies, double sim_time);

@@ -77,8 +77,8 @@ void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* globa
 
 // calculates the force applied on a spacecraft by a specific body
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const int body_idx) {
-    spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_idx];
+vec3 craft_calculateGravForce(const sim_properties_t* sim, const int craft_idx, const int body_idx) {
+    const spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_idx];
     const body_t* body = &sim->global_bodies.bodies[body_idx];
 
     // calculate the distance between the spacecraft and the body
@@ -88,16 +88,11 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
 
     // planet collision logic
     if (radius < body->radius) {
-        sim->window_params.sim_running = false;
-        sim->window_params.reset_sim = true;
         char err_txt[MAX_ERR_SIZE];
         snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", craft->name, body->name);
         displayError("PLANET COLLISION", err_txt);
-        return;
+        return vec3_zero();
     }
-
-    // calculate the ship mass with the current amount of fuel
-    craft->current_total_mass = craft->fuel_mass + craft->dry_mass;
 
     // force = (G * m1 * m2) * delta / r^3
     const double r_cubed = r_squared * radius;
@@ -105,7 +100,43 @@ void craft_calculateGravForce(sim_properties_t* sim, const int craft_idx, const 
 
     // apply the force to the craft
     const vec3 force = vec3_scale(delta_pos, force_factor);
-    craft->grav_force = vec3_add(craft->grav_force, force);
+
+    return force;
+}
+
+// calculates the J2 perturbation force applied to a spacecraft
+// accounts for the body's axial tilt by transforming to body-fixed frame
+// derived from this equation: https://www.vcalc.com/equation/?uuid=1e5aa6ea-95a3-11e7-9770-bc764e2038f2 -- sorry this isn't a reliable source, but it's the best representation of the equation that I could easily find
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+vec3 craft_calculateJ2Force(const sim_properties_t* sim, const int craft_idx, const int body_idx) {
+    const spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_idx];
+    const body_t* body = &sim->global_bodies.bodies[body_idx];
+
+    // position relative to body in world space
+    const vec3 rel_pos_world = vec3_sub(craft->pos, body->pos);
+
+    // transform to body-fixed frame where Z is aligned with spin axis
+    // use conjugate of attitude to go from world -> body frame
+    const quaternion_t q_inv = quaternionConjugate(body->attitude);
+    const vec3 rel_pos_body = quaternionRotate(q_inv, rel_pos_world);
+
+    // apply J2 formula in body frame of reference
+    const double r = vec3_mag(rel_pos_body);
+    const double r_squared = r * r;
+    const double r_5 = r_squared * r_squared * r;
+
+    const double term1 = craft->current_total_mass * (body->J2_per_coeff_numerator / r_5);
+    const double z_r_ratio_sq = (rel_pos_body.z * rel_pos_body.z) / r_squared;
+    const double term2 = 5.0 * z_r_ratio_sq;
+
+    // J2 force in body frame
+    vec3 force_body;
+    force_body.x = term1 * (term2 - 1.0) * rel_pos_body.x;
+    force_body.y = term1 * (term2 - 1.0) * rel_pos_body.y;
+    force_body.z = term1 * (term2 - 3.0) * rel_pos_body.z;
+
+    // transform force back to world frame
+    return quaternionRotate(body->attitude, force_body);
 }
 
 // updates the ID and distance of the closest planet
