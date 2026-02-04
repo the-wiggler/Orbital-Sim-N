@@ -237,8 +237,8 @@ static inline quaternion_t quaternionFromAxisAngle(const vec3 axis, const double
 }
 
 // returns the conjugate of a quaternion (inverse rotation for unit quaternions)
-static inline quaternion_t quaternionConjugate(const quaternion_t q) {
-    return (quaternion_t){q.w, -q.x, -q.y, -q.z};
+static inline quaternion_t quaternionConjugate(const quaternion_t q_vec) {
+    return (quaternion_t){q_vec.w, -q_vec.x, -q_vec.y, -q_vec.z};
 }
 
 static inline vec3 quaternionRotate(const quaternion_t quaternion, const vec3 vec) {

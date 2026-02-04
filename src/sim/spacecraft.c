@@ -121,9 +121,9 @@ vec3 craft_calculateJ2Force(const sim_properties_t* sim, const int craft_idx, co
     const vec3 rel_pos_body = quaternionRotate(q_inv, rel_pos_world);
 
     // apply J2 formula in body frame of reference
-    const double r = vec3_mag(rel_pos_body);
-    const double r_squared = r * r;
-    const double r_5 = r_squared * r_squared * r;
+    const double radius = vec3_mag(rel_pos_body);
+    const double r_squared = radius * radius;
+    const double r_5 = r_squared * r_squared * radius;
 
     const double term1 = craft->current_total_mass * (body->J2_per_coeff_numerator / r_5);
     const double z_r_ratio_sq = (rel_pos_body.z * rel_pos_body.z) / r_squared;

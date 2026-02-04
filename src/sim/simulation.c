@@ -59,78 +59,78 @@ double calculateTotalSystemEnergy(const sim_properties_t* sim) {
 }
 
 // calculates orbital elements (this probably needs to be optimized somehow at some point because this seems very resource heavy)
-void calculateOrbitalElements(orbital_elements_t* target_orbital_elements, vec3 target_pos, vec3 target_vel, const body_t* body) {
-    orbital_elements_t* orbital_elements = target_orbital_elements;
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+void calculateOrbitalElements(orbital_elements_t* target_orbital_elements, const vec3* target_pos, const vec3* target_vel, const body_t* orbiting_body) {
     // first, the initial properties of the craft relative to the target planet should be calculated
-    const vec3 c_pos     = vec3_sub(target_pos, body->pos); // position vector
-    const vec3 c_vel     = vec3_sub(target_vel, body->vel); // velocity vector
+    const vec3 c_pos     = vec3_sub(*target_pos, orbiting_body->pos); // position vector
+    const vec3 c_vel     = vec3_sub(*target_vel, orbiting_body->vel); // velocity vector
     const double c_r     = vec3_mag(c_pos); // distance
     const double c_speed = vec3_mag(c_vel);
-    const double grav_p      = G_C * body->mass; // gravitational parameter
+    const double grav_p  = G_C * orbiting_body->mass; // gravitational parameter
     const vec3 c_h       = vec3_cross(c_pos, c_vel); // specific angular momentum
-    const vec3 z_direction         = { 0, 0, 1 };
-    const vec3 c_n       = vec3_cross(z_direction, c_h); // ascending node vector
+    const vec3 z_vec     = { 0, 0, 1 };
+    const vec3 c_n       = vec3_cross(z_vec, c_h); // ascending node vector
 
     const vec3 term1     = vec3_scalar_div(vec3_cross(c_vel, c_h), grav_p); // first term of e_vec
     const vec3 term2     = vec3_scalar_div(c_pos, c_r); // second term of e_vec
     const vec3 e_vec     = vec3_sub(term1, term2); // eccentricity vector
-    orbital_elements->specific_E    = ((c_speed * c_speed) / 2) - (grav_p / c_r); // specific orbital energy
+    target_orbital_elements->specific_E    = ((c_speed * c_speed) / 2) - (grav_p / c_r); // specific orbital energy
 
     // orbital elements
-    orbital_elements->semi_major_axis = -1.0 * (grav_p / (2 * orbital_elements->specific_E));
-    orbital_elements->eccentricity = vec3_mag(e_vec);
+    target_orbital_elements->semi_major_axis = -1.0 * (grav_p / (2 * target_orbital_elements->specific_E));
+    target_orbital_elements->eccentricity = vec3_mag(e_vec);
 
     const double h_mag = vec3_mag(c_h);
-    orbital_elements->inclination = acos(c_h.z / h_mag); // the angle between the orbital and equatorial planes
+    target_orbital_elements->inclination = acos(c_h.z / h_mag); // the angle between the orbital and equatorial planes
 
     // longitude of ascending node -- the angle from the vernal equinox vector to the ascending node on the equatorial plane
     const double n_mag = vec3_mag(c_n);
-    if (n_mag > EPSILON) {
-        orbital_elements->ascending_node = atan2(c_n.y, c_n.x);
-        if (orbital_elements->ascending_node < 0) {
-            orbital_elements->ascending_node += (2 * N_PI);
+    if (n_mag > NEAR_ZERO) {
+        target_orbital_elements->ascending_node = atan2(c_n.y, c_n.x);
+        if (target_orbital_elements->ascending_node < 0) {
+            target_orbital_elements->ascending_node += (2 * N_PI);
         }
     } else {
-        orbital_elements->ascending_node = 0.0; // undefined for equatorial orbits (probably unlikely to happen perfectly)
+        target_orbital_elements->ascending_node = 0.0; // undefined for equatorial orbits (probably unlikely to happen perfectly)
     }
 
     // argument of periapsis -- the angle measured between the ascending node and the perigee
-    if (orbital_elements->eccentricity > EPSILON && n_mag > EPSILON) {
-        const double cos_omega = vec3_dot(c_n, e_vec) / (n_mag * orbital_elements->eccentricity);
-        orbital_elements->arg_periapsis = acos(fmax(-1.0, fmin(1.0, cos_omega)));
+    if (target_orbital_elements->eccentricity > NEAR_ZERO && n_mag > NEAR_ZERO) {
+        const double cos_omega = vec3_dot(c_n, e_vec) / (n_mag * target_orbital_elements->eccentricity);
+        target_orbital_elements->arg_periapsis = acos(fmax(-1.0, fmin(1.0, cos_omega)));
         if (e_vec.z < 0) {
-            orbital_elements->arg_periapsis = (2 * N_PI) - orbital_elements->arg_periapsis;
+            target_orbital_elements->arg_periapsis = (2 * N_PI) - target_orbital_elements->arg_periapsis;
         }
-    } else if (orbital_elements->eccentricity > EPSILON) {
+    } else if (target_orbital_elements->eccentricity > NEAR_ZERO) {
         // equatorial orbit, use longitude of periapsis
-        orbital_elements->arg_periapsis = atan2(e_vec.y, e_vec.x);
-        if (orbital_elements->arg_periapsis < 0) {
-            orbital_elements->arg_periapsis += (2 * N_PI);
+        target_orbital_elements->arg_periapsis = atan2(e_vec.y, e_vec.x);
+        if (target_orbital_elements->arg_periapsis < 0) {
+            target_orbital_elements->arg_periapsis += (2 * N_PI);
         }
     } else {
-        orbital_elements->arg_periapsis = 0.0; // undefined for circular orbits
+        target_orbital_elements->arg_periapsis = 0.0; // undefined for circular orbits
     }
 
     // true anomaly -- the angle between perigee and satellite in the orbital plane at a specific time
-    if (orbital_elements->eccentricity > EPSILON) {
-        const double cos_nu = vec3_dot(e_vec, c_pos) / (orbital_elements->eccentricity * c_r);
-        orbital_elements->true_anomaly = acos(fmax(-1.0, fmin(1.0, cos_nu)));
+    if (target_orbital_elements->eccentricity > NEAR_ZERO) {
+        const double cos_nu = vec3_dot(e_vec, c_pos) / (target_orbital_elements->eccentricity * c_r);
+        target_orbital_elements->true_anomaly = acos(fmax(-1.0, fmin(1.0, cos_nu)));
         if (vec3_dot(c_pos, c_vel) < 0) {
-            orbital_elements->true_anomaly = (2 * N_PI) - orbital_elements->true_anomaly;
+            target_orbital_elements->true_anomaly = (2 * N_PI) - target_orbital_elements->true_anomaly;
         }
     } else {
         // circular orbit, use argument of latitude
-        if (n_mag > EPSILON) {
+        if (n_mag > NEAR_ZERO) {
             const double cos_u = vec3_dot(c_n, c_pos) / (n_mag * c_r);
-            orbital_elements->true_anomaly = acos(fmax(-1.0, fmin(1.0, cos_u)));
+            target_orbital_elements->true_anomaly = acos(fmax(-1.0, fmin(1.0, cos_u)));
             if (c_pos.z < 0) {
-                orbital_elements->true_anomaly = (2 * N_PI) - orbital_elements->true_anomaly;
+                target_orbital_elements->true_anomaly = (2 * N_PI) - target_orbital_elements->true_anomaly;
             }
         } else {
             // equatorial and circular, use true longitude
-            orbital_elements->true_anomaly = atan2(c_pos.y, c_pos.x);
-            if (orbital_elements->true_anomaly < 0) {
-                orbital_elements->true_anomaly += (2 * N_PI);
+            target_orbital_elements->true_anomaly = atan2(c_pos.y, c_pos.x);
+            if (target_orbital_elements->true_anomaly < 0) {
+                target_orbital_elements->true_anomaly += (2 * N_PI);
             }
         }
     }
@@ -143,7 +143,7 @@ void updateSystemOrbitalElements(sim_properties_t* sim) {
     body_properties_t* global_bodies = &sim->global_bodies;
     spacecraft_properties_t* global_spacecraft = &sim->global_spacecraft;
 
-    // find closest planet and update SOI for all bodies
+    // find the closest planet and update SOI for all bodies
     for (int i = 0; i < global_bodies->count; i++) {
         body_t* body = &global_bodies->bodies[i];
         body->oe.closest_r_squared = INFINITY;
@@ -213,7 +213,7 @@ void updateSystemOrbitalElements(sim_properties_t* sim) {
     for (int i = 1; i < global_bodies->count; i++) {
         body_t* body = &global_bodies->bodies[i];
         if (body->oe.SOI_planet_id != i && body->oe.SOI_planet_id >= 0 && body->oe.SOI_planet_id < global_bodies->count) {
-            calculateOrbitalElements(&body->oe, body->pos, body->vel, &global_bodies->bodies[body->oe.SOI_planet_id]);
+            calculateOrbitalElements(&body->oe, &body->pos, &body->vel, &global_bodies->bodies[body->oe.SOI_planet_id]);
         }
     }
 
@@ -230,11 +230,6 @@ void updateSystemOrbitalElements(sim_properties_t* sim) {
                 // exited SOI, fall back to the closest body
                 craft->oe.SOI_planet_id = craft->oe.closest_planet_id;
             }
-        }
-
-        // calculate orbital elements relative to the SOI body (or closest body)
-        if (craft->oe.SOI_planet_id >= 0 && craft->oe.SOI_planet_id < global_bodies->count) {
-            calculateOrbitalElements(&craft->oe, craft->pos, craft->vel, &global_bodies->bodies[craft->oe.SOI_planet_id]);
         }
     }
 }
@@ -365,6 +360,14 @@ void runCalculations(sim_properties_t* sim) {
                 const vec3 avg_acc = vec3_add(craft->acc_prev, craft->acc);
                 craft->vel = vec3_add(craft->vel, vec3_scale(avg_acc, 0.5 * delta_t));
                 craft->vel_mag = vec3_mag(craft->vel);
+
+                // calculate orbital elements relative to the SOI body (or closest body)
+                if (craft->oe.SOI_planet_id >= 0 && craft->oe.SOI_planet_id < global_bodies->count) {
+                    // while the orbital elements for bodies are calculated outside the sim thread, the spacecraft
+                    // elements are so the craft is "aware" of its actual position asap this is potentially useful
+                    // if the craft were to burn automatically to try and achieve a certain orbital parameter
+                    calculateOrbitalElements(&craft->oe, &craft->pos, &craft->vel, &global_bodies->bodies[craft->oe.SOI_planet_id]);
+                }
             }
         }
 

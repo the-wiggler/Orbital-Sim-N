@@ -6,7 +6,7 @@
 //////////////////////
 
 static const double G_C = 6.67430E-11;
-static const double EPSILON = 1e-10;  // Threshold for detecting near-zero values in numerical calculations
+static const double NEAR_ZERO = 1e-10;  // threshold for detecting near-zero values in numerical calculations
 
 static const double N_PI = 3.14159265358979323846;
 static const float PI_f = 3.14159265358979323846F;
