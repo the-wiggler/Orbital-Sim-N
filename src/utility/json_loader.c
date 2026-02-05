@@ -9,6 +9,7 @@
 #include "../sim/spacecraft.h"
 #include "../types.h"
 #include "../math/matrix.h"
+#include "../sim/simulation.h"
 
 void displayError(const char* title, const char* message);
 
@@ -303,7 +304,10 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
     }
     // set the initial closest planet on initialization
     for (int i = 0; i < global_spacecraft->count; i++) {
-        craft_findClosestPlanet(&global_spacecraft->spacecraft[i], global_bodies);
+        spacecraft_t* craft = &global_spacecraft->spacecraft[i];
+        craft_findClosestPlanet(craft, global_bodies);
+        // initially loads the orbital elements on the craft spawn in so it shows the orbit prediction when paused
+        calculateOrbitalElements(&craft->oe, &craft->pos, &craft->vel, &global_bodies->bodies[craft->oe.SOI_planet_id]);
     }
     for (int i = 0; i < global_bodies->count; i++) {
         body_findClosestPlanet(&global_bodies->bodies[i], global_bodies);
