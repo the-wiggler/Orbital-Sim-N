@@ -217,6 +217,14 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
             cJSON* moment_of_inertia_item = cJSON_GetObjectItemCaseSensitive(craft, "moment_of_inertia");
             cJSON* nozzle_gimbal_range_item = cJSON_GetObjectItemCaseSensitive(craft, "nozzle_gimbal_range");
 
+            // parse auto orbit target data
+            cJSON* auto_orbit_target_item = cJSON_GetObjectItemCaseSensitive(craft, "auto_orbit_target");
+            cJSON* semi_major_axis_item = cJSON_GetObjectItemCaseSensitive(craft, "semi-major-axis");
+            cJSON* eccentricity_item = cJSON_GetObjectItemCaseSensitive(craft, "eccentricity");
+            cJSON* inclination_item = cJSON_GetObjectItemCaseSensitive(craft, "inclination");
+            cJSON* ra_ascending_node_item = cJSON_GetObjectItemCaseSensitive(craft, "ra_of_ascending_node");
+            cJSON* arg_periapsis_item = cJSON_GetObjectItemCaseSensitive(craft, "argument_of_periapsis");
+
             // parse burns array
             cJSON* burns_array = cJSON_GetObjectItemCaseSensitive(craft, "burns");
             int num_burns = 0;
@@ -300,6 +308,36 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
                                 moment_of_inertia_item->valuedouble,
                                 nozzle_gimbal_range_item->valuedouble,
                                 burns, num_burns);
+
+            // populate auto orbit target data if present in JSON
+            spacecraft_t* added_craft = &global_spacecraft->spacecraft[global_spacecraft->count - 1];
+            if (auto_orbit_target_item != NULL && cJSON_IsString(auto_orbit_target_item)) {
+                const char* target_name = auto_orbit_target_item->valuestring;
+                const int target_id = findBurnTargetID(global_bodies, target_name);
+                if (target_id != -1) {
+                    added_craft->auto_target_data.target_body_id = target_id;
+                } else {
+                    added_craft->auto_target_data.target_body_id = -1;
+                }
+            } else {
+                added_craft->auto_target_data.target_body_id = -1;
+            }
+
+            if (semi_major_axis_item != NULL) {
+                added_craft->auto_target_data.semi_major_axis = semi_major_axis_item->valuedouble;
+            }
+            if (eccentricity_item != NULL) {
+                added_craft->auto_target_data.eccentricity = eccentricity_item->valuedouble;
+            }
+            if (inclination_item != NULL) {
+                added_craft->auto_target_data.inclination = inclination_item->valuedouble;
+            }
+            if (ra_ascending_node_item != NULL) {
+                added_craft->auto_target_data.ascending_node = ra_ascending_node_item->valuedouble;
+            }
+            if (arg_periapsis_item != NULL) {
+                added_craft->auto_target_data.arg_periapsis = arg_periapsis_item->valuedouble;
+            }
         }
     }
     // set the initial closest planet on initialization
@@ -307,7 +345,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
         spacecraft_t* craft = &global_spacecraft->spacecraft[i];
         craft_findClosestPlanet(craft, global_bodies);
         // initially loads the orbital elements on the craft spawn in so it shows the orbit prediction when paused
-        calculateOrbitalElements(&craft->oe, &craft->pos, &craft->vel, &global_bodies->bodies[craft->oe.SOI_planet_id]);
+        calculateOrbitalElements(&craft->orbital_elements, &craft->pos, &craft->vel, &global_bodies->bodies[craft->orbital_elements.SOI_planet_id]);
     }
     for (int i = 0; i < global_bodies->count; i++) {
         body_findClosestPlanet(&global_bodies->bodies[i], global_bodies);

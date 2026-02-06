@@ -173,8 +173,8 @@ void updateSystemOrbitalElements(sim_properties_t* sim) {
     // find the closest planet and update SOI for all spacecraft
     for (int i = 0; i < global_spacecraft->count; i++) {
         spacecraft_t* craft = &global_spacecraft->spacecraft[i];
-        craft->oe.closest_r_squared = INFINITY;
-        craft->oe.closest_planet_id = 0;
+        craft->orbital_elements.closest_r_squared = INFINITY;
+        craft->orbital_elements.closest_planet_id = 0;
 
         // find the closest body to this spacecraft
         for (int j = 0; j < global_bodies->count; j++) {
@@ -182,14 +182,14 @@ void updateSystemOrbitalElements(sim_properties_t* sim) {
             const vec3 delta = vec3_sub(body->pos, craft->pos);
             const double r_squared = vec3_mag_sq(delta);
 
-            if (r_squared < craft->oe.closest_r_squared) {
-                craft->oe.closest_r_squared = r_squared;
-                craft->oe.closest_planet_id = j;
+            if (r_squared < craft->orbital_elements.closest_r_squared) {
+                craft->orbital_elements.closest_r_squared = r_squared;
+                craft->orbital_elements.closest_planet_id = j;
 
                 // check if within SOI
                 const double radius = sqrt(r_squared);
                 if (radius <= body->SOI_radius) {
-                    craft->oe.SOI_planet_id = j;
+                    craft->orbital_elements.SOI_planet_id = j;
                 }
             }
         }
@@ -222,13 +222,13 @@ void updateSystemOrbitalElements(sim_properties_t* sim) {
         spacecraft_t* craft = &global_spacecraft->spacecraft[i];
 
         // check if spacecraft has exited its current SOI
-        if (craft->oe.SOI_planet_id > 0 && craft->oe.SOI_planet_id < global_bodies->count) {
-            const body_t* soi_body = &global_bodies->bodies[craft->oe.SOI_planet_id];
+        if (craft->orbital_elements.SOI_planet_id > 0 && craft->orbital_elements.SOI_planet_id < global_bodies->count) {
+            const body_t* soi_body = &global_bodies->bodies[craft->orbital_elements.SOI_planet_id];
             const vec3 delta = vec3_sub(soi_body->pos, craft->pos);
             const double dist = vec3_mag(delta);
             if (dist > soi_body->SOI_radius) {
                 // exited SOI, fall back to the closest body
-                craft->oe.SOI_planet_id = craft->oe.closest_planet_id;
+                craft->orbital_elements.SOI_planet_id = craft->orbital_elements.closest_planet_id;
             }
         }
     }
@@ -345,7 +345,7 @@ void runCalculations(sim_properties_t* sim) {
                 }
                 // add J2 perturbation force to craft
                 // apply J2 perturbation force for the closest body
-                craft->grav_force = vec3_add(craft->grav_force, craft_calculateJ2Force(sim, i, craft->oe.SOI_planet_id));
+                craft->grav_force = vec3_add(craft->grav_force, craft_calculateJ2Force(sim, i, craft->orbital_elements.SOI_planet_id));
 
                 // apply thrust and consume fuel
                 craft_applyThrust(craft);
@@ -362,11 +362,11 @@ void runCalculations(sim_properties_t* sim) {
                 craft->vel_mag = vec3_mag(craft->vel);
 
                 // calculate orbital elements relative to the SOI body (or closest body)
-                if (craft->oe.SOI_planet_id >= 0 && craft->oe.SOI_planet_id < global_bodies->count) {
+                if (craft->orbital_elements.SOI_planet_id >= 0 && craft->orbital_elements.SOI_planet_id < global_bodies->count) {
                     // while the orbital elements for bodies are calculated outside the sim thread, the spacecraft
                     // elements are so the craft is "aware" of its actual position asap this is potentially useful
                     // if the craft were to burn automatically to try and achieve a certain orbital parameter
-                    calculateOrbitalElements(&craft->oe, &craft->pos, &craft->vel, &global_bodies->bodies[craft->oe.SOI_planet_id]);
+                    calculateOrbitalElements(&craft->orbital_elements, &craft->pos, &craft->vel, &global_bodies->bodies[craft->orbital_elements.SOI_planet_id]);
                 }
             }
         }
@@ -376,10 +376,4 @@ void runCalculations(sim_properties_t* sim) {
             window_params->sim_time += window_params->time_step;
         }
     }
-}
-
-// cleanup for main
-void cleanup(const sim_properties_t* sim) {
-    // no memory cleanup needed with static allocation
-    (void)sim;  // suppress unused parameter warning
 }

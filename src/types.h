@@ -115,6 +115,17 @@ typedef struct {
     relative_burn_target_t relative_burn_target; // the axis of rotation the burn heading will be measured from
 } burn_properties_t;
 
+typedef struct {
+    int target_body_id; // index of the target body
+    double semi_major_axis; // m
+    double eccentricity;
+    double inclination; // rad
+    double ascending_node; // rad
+    double arg_periapsis; // rad
+    double true_anomaly; // rad
+    double specific_E; // specific energy
+} auto_target_data_t;
+
 // craft
 typedef struct {
     char name[MAX_NAME_LENGTH];
@@ -131,7 +142,7 @@ typedef struct {
     vec3 acc_prev;
     vec3 grav_force; // N
 
-    quaternion_t attitude; // oh jeez
+    quaternion_t attitude; // oh jeez!
     double rotational_v; // rad/s
     double rotational_a; // rad/s^2
     double momentum;
@@ -145,11 +156,12 @@ typedef struct {
     double nozzle_gimbal_range;
     double nozzle_velocity;
     bool engine_on;
-
-    orbital_elements_t oe;
-
     int num_burns;
     burn_properties_t burn_properties[MAX_BURNS_PER_SPACECRAFT];
+
+    orbital_elements_t orbital_elements;
+
+    auto_target_data_t auto_target_data;
 } spacecraft_t;
 
 // container for all spacecraft

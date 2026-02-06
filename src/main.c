@@ -260,9 +260,6 @@ int main() {
     // destroy mutex (cross-platform)
     mutex_destroy(&sim_mutex);
 
-    // cleanup all allocated sim memory
-    cleanup(&sim);
-
     // cleanup OpenGL resources
     glDeleteProgram(shaderProgram);
 

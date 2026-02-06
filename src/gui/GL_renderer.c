@@ -693,8 +693,8 @@ void renderStats(const sim_properties_t sim, font_t* font) {
     cursor_pos[1] += line_height;
 
     for (int i = 0; i < sim.global_spacecraft.count; i++) {
-        const int closest_id = sim.global_spacecraft.spacecraft[i].oe.closest_planet_id;
-        const int soi_id = sim.global_spacecraft.spacecraft[i].oe.SOI_planet_id;
+        const int closest_id = sim.global_spacecraft.spacecraft[i].orbital_elements.closest_planet_id;
+        const int soi_id = sim.global_spacecraft.spacecraft[i].orbital_elements.SOI_planet_id;
 
         snprintf(text_buffer, sizeof(text_buffer), "%s", sim.global_spacecraft.spacecraft[i].name);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.8F);
@@ -704,7 +704,7 @@ void renderStats(const sim_properties_t sim, font_t* font) {
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Distance: %.2F km", (sqrt(sim.global_spacecraft.spacecraft[i].oe.closest_r_squared) / 1000.0) - (sim.global_bodies.bodies[closest_id].radius / 1000.0));
+        snprintf(text_buffer, sizeof(text_buffer), "Distance: %.2F km", (sqrt(sim.global_spacecraft.spacecraft[i].orbital_elements.closest_r_squared) / 1000.0) - (sim.global_bodies.bodies[closest_id].radius / 1000.0));
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
 
@@ -712,31 +712,34 @@ void renderStats(const sim_properties_t sim, font_t* font) {
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Semi Major Axis: %.4g m", sim.global_spacecraft.spacecraft[i].oe.semi_major_axis);
+        snprintf(text_buffer, sizeof(text_buffer), "Semi Major Axis: %.4g m", sim.global_spacecraft.spacecraft[i].orbital_elements.semi_major_axis);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Eccentricity: %.6F", sim.global_spacecraft.spacecraft[i].oe.eccentricity);
+        snprintf(text_buffer, sizeof(text_buffer), "Eccentricity: %.6F", sim.global_spacecraft.spacecraft[i].orbital_elements.eccentricity);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Inclination: %.4F rad", sim.global_spacecraft.spacecraft[i].oe.inclination);
+        snprintf(text_buffer, sizeof(text_buffer), "Inclination: %.4F rad", sim.global_spacecraft.spacecraft[i].orbital_elements.inclination);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Ascending Node: %.4F rad", sim.global_spacecraft.spacecraft[i].oe.ascending_node);
+        snprintf(text_buffer, sizeof(text_buffer), "Ascending Node: %.4F rad", sim.global_spacecraft.spacecraft[i].orbital_elements.ascending_node);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Arg of Periapsis: %.4F rad", sim.global_spacecraft.spacecraft[i].oe.arg_periapsis);
+        snprintf(text_buffer, sizeof(text_buffer), "Arg of Periapsis: %.4F rad", sim.global_spacecraft.spacecraft[i].orbital_elements.arg_periapsis);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4F rad", sim.global_spacecraft.spacecraft[i].oe.true_anomaly);
+        snprintf(text_buffer, sizeof(text_buffer), "True Anomaly: %.4F rad", sim.global_spacecraft.spacecraft[i].orbital_elements.true_anomaly);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height;
-        snprintf(text_buffer, sizeof(text_buffer), "Specific Energy: %.4F J", sim.global_spacecraft.spacecraft[i].oe.specific_E);
+        snprintf(text_buffer, sizeof(text_buffer), "Specific Energy: %.4F J", sim.global_spacecraft.spacecraft[i].orbital_elements.specific_E);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height * 1.5F;
 
         snprintf(text_buffer, sizeof(text_buffer), "Fuel: %.1F kg", sim.global_spacecraft.spacecraft[i].fuel_mass);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
-        cursor_pos[1] += line_height;
+        cursor_pos[1] += line_height * 1.5F;
+
+        snprintf(text_buffer, sizeof(text_buffer), "Target Planet: %s", sim.global_bodies.bodies[sim.global_spacecraft.spacecraft[i].auto_target_data.target_body_id].name);
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
 
         cursor_pos[1] += line_height;
     }
@@ -846,31 +849,31 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
         for (int i = 0; i < sim.global_spacecraft.count; i++) {
             spacecraft_t craft = sim.global_spacecraft.spacecraft[i];
             vec3_f body_pos = {
-                (float)(sim.global_bodies.bodies[craft.oe.SOI_planet_id].pos.x / SCALE),
-                (float)(sim.global_bodies.bodies[craft.oe.SOI_planet_id].pos.y / SCALE),
-                (float)(sim.global_bodies.bodies[craft.oe.SOI_planet_id].pos.z / SCALE)
+                (float)(sim.global_bodies.bodies[craft.orbital_elements.SOI_planet_id].pos.x / SCALE),
+                (float)(sim.global_bodies.bodies[craft.orbital_elements.SOI_planet_id].pos.y / SCALE),
+                (float)(sim.global_bodies.bodies[craft.orbital_elements.SOI_planet_id].pos.z / SCALE)
             };
 
-            float semi_latus_rectum = (float)(craft.oe.semi_major_axis * (1 - craft.oe.eccentricity * craft.oe.eccentricity));
+            float semi_latus_rectum = (float)(craft.orbital_elements.semi_major_axis * (1 - craft.orbital_elements.eccentricity * craft.orbital_elements.eccentricity));
 
-            mat4 rotation_z_0 = mat4_rotationZ(-(float)craft.oe.ascending_node);
-            mat4 rotation_x_i = mat4_rotationX(-(float)craft.oe.inclination);
-            mat4 rotation_z_w = mat4_rotationZ(-(float)craft.oe.arg_periapsis);
+            mat4 rotation_z_0 = mat4_rotationZ(-(float)craft.orbital_elements.ascending_node);
+            mat4 rotation_x_i = mat4_rotationX(-(float)craft.orbital_elements.inclination);
+            mat4 rotation_z_w = mat4_rotationZ(-(float)craft.orbital_elements.arg_periapsis);
             mat4 rotation_matrix = mat4_mul(rotation_z_0, mat4_mul(rotation_x_i, rotation_z_w));
 
-            if (craft.oe.eccentricity >= 1.0) {
+            if (craft.orbital_elements.eccentricity >= 1.0) {
                 continue;
             }
 
             // increment through true anomaly values to build the orbit with given parameters
             int path_res = 100;
-            float periapsis_distance = semi_latus_rectum / (1 + (float)craft.oe.eccentricity);
+            float periapsis_distance = semi_latus_rectum / (1 + (float)craft.orbital_elements.eccentricity);
             vec3_f position_perifocal_0 = { periapsis_distance, 0, 0 };
             vec3_f prev_position_eci = vec3_transformByMat4(rotation_matrix, position_perifocal_0);
 
             for (int j = 1; j <= path_res; j++) {
                 float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
-                float orbital_radius = semi_latus_rectum / (1 + (float)craft.oe.eccentricity * cosf(true_anomaly));
+                float orbital_radius = semi_latus_rectum / (1 + (float)craft.orbital_elements.eccentricity * cosf(true_anomaly));
                 vec3_f position_perifocal = {
                     orbital_radius * cosf(true_anomaly),
                     orbital_radius * sinf(true_anomaly),
@@ -976,8 +979,8 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
     for (int i = 0; i < global_spacecraft.count; i++) {
         spacecraft_t craft = global_spacecraft.spacecraft[i];
         const vec3_f craft_pos = scaled_craft_pos[i];
-        const vec3_f body_pos = scaled_body_pos[craft.oe.SOI_planet_id];
-        const body_t planet = global_bodies.bodies[craft.oe.SOI_planet_id];
+        const vec3_f body_pos = scaled_body_pos[craft.orbital_elements.SOI_planet_id];
+        const body_t planet = global_bodies.bodies[craft.orbital_elements.SOI_planet_id];
 
         // get planet's rotation axis (equatorial plane normal) and project spacecraft onto equatorial plane
         const vec3 rotation_axis_norm = vec3_normalize(quaternionRotate(planet.attitude, (vec3){0.0, 0.0, 1.0}));

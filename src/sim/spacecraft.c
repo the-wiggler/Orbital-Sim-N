@@ -154,8 +154,8 @@ void craft_findClosestPlanet(spacecraft_t* craft, const body_properties_t* globa
             closest_planet_id = i;
         }
     }
-    craft->oe.closest_r_squared = closest_r_squared;
-    craft->oe.closest_planet_id = closest_planet_id;
+    craft->orbital_elements.closest_r_squared = closest_r_squared;
+    craft->orbital_elements.closest_planet_id = closest_planet_id;
 }
 
 // applies thrust force based on current attitude
@@ -186,6 +186,41 @@ void craft_consumeFuel(spacecraft_t* craft, const double delta_t) {
         craft->fuel_mass -= fuel_consumed;
         craft->current_total_mass = craft->dry_mass + craft->fuel_mass;
     }
+}
+
+vec3 craft_solveLambertProblem(const vec3 current_pos, const vec3 final_pos, const double time_of_flight, const double central_body_grav_param) {
+    // current position is where the craft currently is in space
+    // final position is where you think the craft should be
+
+    double current_pos_mag = vec3_mag(current_pos);
+    double final_pos_mag = vec3_mag(final_pos);
+    double dist = abs(final_pos_mag - current_pos_mag);
+
+    // the semi-perimeter of the triangle
+    double triangle_half_perim = (current_pos_mag + final_pos_mag + dist) / 2.0;
+
+    // determine transfer direction
+
+    // returns delta v vector
+}
+
+// function that generates a burn list for the craft based on the auto target designation from the JSON file
+void craft_createAutoTargetBurns(sim_properties_t* sim, const int craft_id) {
+    spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_id];
+    int* target_body_id = &craft->auto_target_data.target_body_id;
+
+    // TODO: grid search like method that determines optimal time of flight by solving lambert problem with like a
+    // billion different random delta_t values and just picking the one with the smallest delta_v
+
+    // one you pick a random time, then you determine where the moon will be at that time, simple 2 body problem
+    // (just steal the orbital params the sim calculated for simplicity, the craft is "calculating" these)
+
+    // lambert problem
+
+    // compare this to previous value you calculated (probably store the delta v value from before)
+    // and see if its bigger or smaller, if bigger throw it away and iterate at a different value opposite to the one
+    // you just picked
+
 }
 
 // adds a spacecraft to the spacecraft array
@@ -251,21 +286,17 @@ void craft_addSpacecraft(spacecraft_properties_t* global_spacecraft, const char*
     craft->torque = 0.0;
 
     // initialize SOI tracking
-    craft->oe.SOI_planet_id = 0;
-    craft->oe.closest_r_squared = INFINITY;
-    craft->oe.closest_planet_id = 0;
+    craft->orbital_elements.SOI_planet_id = 0;
+    craft->orbital_elements.closest_r_squared = INFINITY;
+    craft->orbital_elements.closest_planet_id = 0;
 
-    craft->oe.apoapsis = 0.0;
-    craft->oe.periapsis = 0.0;
-    craft->oe.semi_major_axis = 0.0;
-    craft->oe.eccentricity = 0.0;
+    craft->orbital_elements.apoapsis = 0.0;
+    craft->orbital_elements.periapsis = 0.0;
+    craft->orbital_elements.semi_major_axis = 0.0;
+    craft->orbital_elements.eccentricity = 0.0;
 
     // initialize burn schedule
     if (num_burns > MAX_BURNS_PER_SPACECRAFT) {
-        char err_txt[MAX_ERR_SIZE];
-        snprintf(err_txt, sizeof(err_txt), "Warning: Spacecraft '%s' has %d burns, exceeding maximum of %d. Truncating.",
-                 name, num_burns, MAX_BURNS_PER_SPACECRAFT);
-        displayError("WARNING", err_txt);
         craft->num_burns = MAX_BURNS_PER_SPACECRAFT;
     } else {
         craft->num_burns = num_burns;

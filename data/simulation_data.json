@@ -48,8 +48,8 @@
       "pos_y": 0.0,
       "pos_z": 0.0,
       "vel_x": 0.0,
-      "vel_y": 4157.1,
-      "vel_z": 4157.1,
+      "vel_y": 5000.0,
+      "vel_z": 0.0,
 
       "dry_mass": 3954.0,
       "fuel_mass": 11046.0,
@@ -62,7 +62,15 @@
       "nozzle_gimbal_range": 0.105,
 
       "burns": [
-      ]
+
+      ],
+
+      "auto_orbit_target": "Moon",
+      "semi-major-axis": 1894.0,
+      "eccentricity": 0.0,
+      "inclination": 0.0,
+      "ra_of_ascending_node": 0,
+      "argument_of_periapsis": 0
     }
   ]
 }
