@@ -216,6 +216,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
             cJSON* attitude_item = cJSON_GetObjectItemCaseSensitive(craft, "attitude");
             cJSON* moment_of_inertia_item = cJSON_GetObjectItemCaseSensitive(craft, "moment_of_inertia");
             cJSON* nozzle_gimbal_range_item = cJSON_GetObjectItemCaseSensitive(craft, "nozzle_gimbal_range");
+            cJSON* nozzle_velocity_item = cJSON_GetObjectItemCaseSensitive(craft, "nozzle_velocity");
 
             // parse auto orbit target data
             cJSON* auto_orbit_target_item = cJSON_GetObjectItemCaseSensitive(craft, "auto_orbit_target");
@@ -307,6 +308,7 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
                                 attitude_item->valuedouble,
                                 moment_of_inertia_item->valuedouble,
                                 nozzle_gimbal_range_item->valuedouble,
+                                nozzle_velocity_item->valuedouble,
                                 burns, num_burns);
 
             // populate auto orbit target data if present in JSON

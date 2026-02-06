@@ -26,7 +26,10 @@ void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* globa
             const int target_id = burn->burn_target_id;
             const body_t* target = &global_bodies->bodies[target_id];
 
-            if (burn->relative_burn_target.absolute) {
+            if (burn->relative_burn_target.direct) {
+                // direct: attitude quaternion is pre-computed
+                final_attitude = burn->burn_attitude;
+            } else if (burn->relative_burn_target.absolute) {
                 // absolute: heading is in absolute space coordinates
                 const vec3 absolute_axis = {0.0, 0.0, 1.0};
                 final_attitude = quaternionFromAxisAngle(absolute_axis, burn->burn_heading);
@@ -188,44 +191,118 @@ void craft_consumeFuel(spacecraft_t* craft, const double delta_t) {
     }
 }
 
-vec3 craft_solveLambertProblem(const vec3 current_pos, const vec3 final_pos, const double time_of_flight, const double central_body_grav_param) {
-    // current position is where the craft currently is in space
-    // final position is where you think the craft should be
+vec3 craft_solveLambertProblem(const spacecraft_t* craft, const vec3 final_pos, const double time_of_flight, const body_t* central_body) {
+    // position vectors relative to central body
+    const vec3 r1_rel = vec3_sub(craft->pos, central_body->pos);
+    const vec3 r2_rel = vec3_sub(final_pos, central_body->pos);
 
-    double current_pos_mag = vec3_mag(current_pos);
-    double final_pos_mag = vec3_mag(final_pos);
-    double dist = abs(final_pos_mag - current_pos_mag);
+    const double r1_mag = vec3_mag(r1_rel);
+    const double r2_mag = vec3_mag(r2_rel);
+
+    // chord distance (distance between the two position vectors)
+    const double dist = vec3_mag(vec3_sub(r2_rel, r1_rel));
 
     // the semi-perimeter of the triangle
-    double triangle_half_perim = (current_pos_mag + final_pos_mag + dist) / 2.0;
+    const double semi_perimeter = (r1_mag + r2_mag + dist) / 2.0;
 
-    // determine transfer direction
+    // transfer angle cosine
+    const double cos_delta_v = vec3_dot(r1_rel, r2_rel) / (r1_mag * r2_mag);
+
+    double a_guess = semi_perimeter / 2.0; // start at min possible value for a
+    const double a_step = a_guess * 0.01; // the step by which we should increase a until we reach tof
+    double tof_guess = 0.0; // calculated tof based on semi-major-axis iterations
+    double alpha = 0.0;
+    double beta = 0.0;
+
+    // iterate through values of semi-major-axis until the calculated value of tof_guess roughly matches that of time_of_flight
+    while ((tof_guess / time_of_flight) < 0.99 || (tof_guess / time_of_flight) > 1.01 ) {
+        alpha = 2.0 * asin( sqrt( semi_perimeter / (2.0 * a_guess) ) );
+        beta = 2.0 * asin( sqrt( (semi_perimeter - dist) / (2.0 * a_guess) ) );
+        tof_guess = sqrt( (a_guess * a_guess * a_guess) / central_body->gravitational_parameter ) * ( alpha - sin(alpha) - (beta - sin(beta)) );
+        a_guess += a_step;
+    }
+
+    // calculate orbital parameter (semi-latus rectum)
+    const double sin_half_ab = sin((alpha + beta) / 2.0);
+    const double orbital_parameter = ( (4.0 * a_guess) * (semi_perimeter - r2_mag) * (semi_perimeter - r1_mag) ) / (dist * dist) * (sin_half_ab * sin_half_ab);
+
+    // calculate lagrange coefficients
+    const double f_coeff = 1.0 - (r2_mag / orbital_parameter) * (1.0 - cos_delta_v);
+    const double g_coeff = (r1_mag * r2_mag * sin(acos(cos_delta_v))) / sqrt(central_body->gravitational_parameter * orbital_parameter);
+
+    // calculate v1 at departure
+    const vec3 f_times_r1 = vec3_scale(r1_rel, f_coeff);
+    const vec3 r2_minus_fr1 = vec3_sub(r2_rel, f_times_r1);
+    const vec3 v1 = vec3_scale(r2_minus_fr1, 1.0 / g_coeff);
+
+    // v1 is relative to central body, convert to absolute frame and compute delta-v
+    const vec3 v1_absolute = vec3_add(v1, central_body->vel);
+    const vec3 delta_v = vec3_sub(v1_absolute, craft->vel);
+
+    printf("Delta V Vector: (%f, %f, %f)", delta_v.x, delta_v.y, delta_v.z); // for debug
 
     // returns delta v vector
+    return delta_v;
 }
 
 // function that generates a burn list for the craft based on the auto target designation from the JSON file
-void craft_createAutoTargetBurns(sim_properties_t* sim, const int craft_id) {
-    spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_id];
-    int* target_body_id = &craft->auto_target_data.target_body_id;
+burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const int craft_id) {
+    const spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_id];
+    const body_t* target_body = &sim->global_bodies.bodies[craft->auto_target_data.target_body_id];
 
     // TODO: grid search like method that determines optimal time of flight by solving lambert problem with like a
     // billion different random delta_t values and just picking the one with the smallest delta_v
-
     // one you pick a random time, then you determine where the moon will be at that time, simple 2 body problem
     // (just steal the orbital params the sim calculated for simplicity, the craft is "calculating" these)
-
-    // lambert problem
-
     // compare this to previous value you calculated (probably store the delta v value from before)
     // and see if its bigger or smaller, if bigger throw it away and iterate at a different value opposite to the one
     // you just picked
 
+    // determine the final position that the craft should be at
+    vec3 final_pos = {0};
+
+    const int samples = 1000;
+    double time_samples[samples];
+
+    // populate time sample array with sample times
+    for (int i = 0; i < samples; i++) {
+        if (i != 0) {
+            time_samples[i] += (1.0/samples) + time_samples[i-1];
+        }
+    }
+
+    // iteratively solve lambert problem with different time values to try and find the smallest delta v value
+    vec3 calculated_delta_v = {INFINITY, INFINITY, INFINITY};
+    for (int i = 0; i < samples; i++) {
+        vec3 sample_delta_v = craft_solveLambertProblem(craft, final_pos, time_samples[i], target_body);
+        if (vec3_mag_sq(sample_delta_v) < vec3_mag_sq(calculated_delta_v)) {
+            calculated_delta_v = sample_delta_v;
+        }
+    }
+
+    printf("Final Delta V: %f\n", vec3_mag(calculated_delta_v));
+
+    // compute attitude quaternion that points the spacecraft along the delta-v direction
+    // default engine thrust direction is +Y
+    const vec3 default_forward = {0.0, 1.0, 0.0};
+    const quaternion_t burn_attitude = quaternionFromTwoVectors(default_forward, calculated_delta_v);
+
+    burn_properties_t burn_properties_to_achieve_target = (burn_properties_t){
+        .burn_start_time = sim->window_params.sim_time,
+        .burn_end_time = INFINITY,
+        .throttle = 1.0,
+        .burn_heading = 0.0,
+        .burn_attitude = burn_attitude,
+        .burn_target_id = craft->auto_target_data.target_body_id,
+        .relative_burn_target = { .direct = true }
+    };
+
+    return burn_properties_to_achieve_target;
 }
 
 // adds a spacecraft to the spacecraft array
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-void craft_addSpacecraft(spacecraft_properties_t* global_spacecraft, const char* name, const vec3 pos, const vec3 vel, const double dry_mass, const double fuel_mass, const double thrust, const double specific_impulse, const double mass_flow_rate, const double attitude_angle, const double moment_of_inertia, const double nozzle_gimbal_range, const burn_properties_t* burns, const int num_burns) {
+void craft_addSpacecraft(spacecraft_properties_t* global_spacecraft, const char* name, const vec3 pos, const vec3 vel, const double dry_mass, const double fuel_mass, const double thrust, const double specific_impulse, const double mass_flow_rate, const double attitude_angle, const double moment_of_inertia, const double nozzle_gimbal_range, const double nozzle_velocity, const burn_properties_t* burns, const int num_burns) {
 
     // check bounds
     if (global_spacecraft->count >= MAX_SPACECRAFT) {
@@ -276,7 +353,7 @@ void craft_addSpacecraft(spacecraft_properties_t* global_spacecraft, const char*
     craft->throttle = 0.0;
     craft->engine_on = false;
     craft->nozzle_gimbal_range = nozzle_gimbal_range;
-    craft->nozzle_velocity = 0.0;
+    craft->nozzle_velocity = nozzle_velocity;
 
     // initialize rotation/inertia
     craft->rotational_v = 0.0;

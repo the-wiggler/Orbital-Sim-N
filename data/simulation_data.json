@@ -60,6 +60,7 @@
       "attitude": 0.0,
       "moment_of_inertia": 23000.0,
       "nozzle_gimbal_range": 0.105,
+      "nozzle_velocity": 1000.0,
 
       "burns": [
 

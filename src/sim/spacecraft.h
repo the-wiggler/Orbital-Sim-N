@@ -14,7 +14,7 @@ void craft_addSpacecraft(spacecraft_properties_t* global_spacecraft, const char*
                         double dry_mass, double fuel_mass, double thrust,
                         double specific_impulse, double mass_flow_rate,
                         double attitude, double moment_of_inertia,
-                        double nozzle_gimbal_range,
+                        double nozzle_gimbal_range, double nozzle_velocity,
                         const burn_properties_t* burns, int num_burns);
 void craft_findClosestPlanet(spacecraft_t* craft, const body_properties_t* global_bodies);
 #endif

@@ -104,6 +104,7 @@ typedef struct {
     bool tangent;   // the burn axis heading beings tangent to the orbit
     bool normal;    // the burn axis heading begins normal to the orbit
     bool absolute;  // the burn axis heading is relative to the vertical axis of space
+    bool direct;    // the burn attitude is specified directly as a quaternion
 } relative_burn_target_t;
 
 typedef struct {
@@ -111,6 +112,7 @@ typedef struct {
     double burn_end_time;
     double throttle;
     double burn_heading;
+    quaternion_t burn_attitude; // used when relative_burn_target.direct is true
     int burn_target_id;
     relative_burn_target_t relative_burn_target; // the axis of rotation the burn heading will be measured from
 } burn_properties_t;
