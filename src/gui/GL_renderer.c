@@ -832,7 +832,16 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
         vec3_f prev_position_eci = vec3_transformByMat4(rotation_matrix, position_perifocal_0);
 
         for (int j = 1; j <= path_res; j++) {
-            float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
+            // adaptive sampling: sample eccentric anomaly uniformly for better distribution on high-e orbits
+            float eccentric_anomaly = TWO_PI_f * ((float)j / (float)path_res);
+
+            // convert eccentric anomaly to true anomaly
+            float true_anomaly = 2.0f * atanf(
+                sqrtf((1.0f + (float)body.oe.eccentricity) /
+                      (1.0f - (float)body.oe.eccentricity)) *
+                tanf(eccentric_anomaly / 2.0f)
+            );
+
             float orbital_radius = semi_latus_rectum / (1 + (float)body.oe.eccentricity * cosf(true_anomaly));
             vec3_f position_perifocal = {
                 orbital_radius * cosf(true_anomaly),
@@ -871,14 +880,24 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
                 continue;
             }
 
-            // increment through true anomaly values to build the orbit with given parameters
+            // increment through eccentric anomaly values to build the orbit with given parameters
+            // adaptive sampling: eccentric anomaly provides better distribution on high-e orbits
             int path_res = 100;
             float periapsis_distance = semi_latus_rectum / (1 + (float)craft.orbital_elements.eccentricity);
             vec3_f position_perifocal_0 = { periapsis_distance, 0, 0 };
             vec3_f prev_position_eci = vec3_transformByMat4(rotation_matrix, position_perifocal_0);
 
             for (int j = 1; j <= path_res; j++) {
-                float true_anomaly = TWO_PI_f * ((float)j / (float)path_res);
+                // sample eccentric anomaly uniformly for better distribution on high-e orbits
+                float eccentric_anomaly = TWO_PI_f * ((float)j / (float)path_res);
+
+                // convert eccentric anomaly to true anomaly
+                float true_anomaly = 2.0f * atanf(
+                    sqrtf((1.0f + (float)craft.orbital_elements.eccentricity) /
+                          (1.0f - (float)craft.orbital_elements.eccentricity)) *
+                    tanf(eccentric_anomaly / 2.0f)
+                );
+
                 float orbital_radius = semi_latus_rectum / (1 + (float)craft.orbital_elements.eccentricity * cosf(true_anomaly));
                 vec3_f position_perifocal = {
                     orbital_radius * cosf(true_anomaly),
