@@ -114,6 +114,8 @@ typedef struct {
     double burn_heading;
     quaternion_t burn_attitude; // used when relative_burn_target.direct is true
     int burn_target_id;
+    bool auto_burn; // is it an auto burn?
+    vec3 auto_burn_final_pos; // the burn's goal position relative to the target body
     relative_burn_target_t relative_burn_target; // the axis of rotation the burn heading will be measured from
 } burn_properties_t;
 

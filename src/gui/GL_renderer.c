@@ -736,6 +736,12 @@ void renderStats(const sim_properties_t sim, font_t* font) {
 
         snprintf(text_buffer, sizeof(text_buffer), "Fuel: %.1F kg", sim.global_spacecraft.spacecraft[i].fuel_mass);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "Engine: %s", (sim.global_spacecraft.spacecraft[i].engine_on) ? "on" : "off");
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
+        cursor_pos[1] += line_height;
+        snprintf(text_buffer, sizeof(text_buffer), "Absolute v: %f", vec3_mag(sim.global_spacecraft.spacecraft[i].vel));
+        addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height * 1.5F;
 
         snprintf(text_buffer, sizeof(text_buffer), "Target Planet: %s", sim.global_bodies.bodies[sim.global_spacecraft.spacecraft[i].auto_target_data.target_body_id].name);
@@ -998,6 +1004,18 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
         addLine(line_batch, projected_scaled.x, projected_scaled.y, projected_scaled.z, body_pos.x, body_pos.y, body_pos.z, 1.0F, 0.0F, 0.0F);
         // line from craft to projected point (inclination height line)
         addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, projected_scaled.x, projected_scaled.y, projected_scaled.z, 0.0F, 1.0F, 0.0F);
+
+        // draw line to auto burn target position
+        for (int j = 0; j < craft.num_burns; j++) {
+            if (craft.burn_properties[j].auto_burn) {
+                const vec3_f target_pos = {
+                    (float)(craft.burn_properties[j].auto_burn_final_pos.x / SCALE),
+                    (float)(craft.burn_properties[j].auto_burn_final_pos.y / SCALE),
+                    (float)(craft.burn_properties[j].auto_burn_final_pos.z / SCALE)
+                };
+                addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, target_pos.x, target_pos.y, target_pos.z, 0.0F, 1.0F, 1.0F);
+            }
+        }
     }
 
     renderCraftPaths(&sim, line_batch, craft_paths);

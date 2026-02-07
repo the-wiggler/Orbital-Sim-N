@@ -94,7 +94,7 @@ vec3 craft_calculateGravForce(const sim_properties_t* sim, const int craft_idx, 
         char err_txt[MAX_ERR_SIZE];
         snprintf(err_txt, sizeof(err_txt), "Warning: %s has collided with %s\n\nResetting Simulation...", craft->name, body->name);
         displayError("PLANET COLLISION", err_txt);
-        return vec3_zero();
+        return (vec3){NAN, NAN, NAN};
     }
 
     // force = (G * m1 * m2) * delta / r^3
@@ -224,13 +224,13 @@ vec3 craft_solveLambertProblem(const spacecraft_t* craft, const vec3 final_pos, 
         a_guess += a_step;
         printf("tof_guess: %f | a_guess: %f\n", tof_guess, a_guess);
 
-        // if tof is barely changing per step, it'll never converge to the target — bail out
+        // if tof is barely changing per step, it'll never converge to the target
         if (prev_tof != 0.0 && fabs(tof_guess - prev_tof) / fabs(tof_guess) < 1e-4) {
             return (vec3){INFINITY, INFINITY, INFINITY};
         }
     }
 
-    // calculate orbital parameter (semi-latus rectum)
+    // calculate orbital parameter
     const double sin_half_ab = sin((alpha + beta) / 2.0);
     const double orbital_parameter = ( (4.0 * a_guess) * (semi_perimeter - r2_mag) * (semi_perimeter - r1_mag) ) / (dist * dist) * (sin_half_ab * sin_half_ab);
 
@@ -266,8 +266,8 @@ burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const
     // and see if its bigger or smaller, if bigger throw it away and iterate at a different value opposite to the one
     // you just picked
 
-    // determine the final position that the craft should be at (relative to earth)
-    vec3 final_pos = {100000000, 0, 0};
+    // determine the final position that the craft should be at (relative to the target body at this current point in time)
+    vec3 final_pos = vec3_add((vec3){100000000, 100000000, 0}, target_body->pos);
 
     // estimate transfer time to set a realistic sample range
     const double r1 = vec3_mag(vec3_sub(craft->pos, target_body->pos));
@@ -275,7 +275,7 @@ burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const
     const double a_transfer = (r1 + r2) / 2.0;
     const double t_transfer = N_PI * sqrt((a_transfer * a_transfer * a_transfer) / target_body->gravitational_parameter);
     const double t_min = t_transfer * 0.5;
-    const double t_max = t_transfer * 10.0;
+    const double t_max = t_transfer * 2.0;
 
     const int samples = 1000;
     double time_samples[samples];
@@ -297,20 +297,27 @@ burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const
         }
     }
 
-    printf("Final Delta V: %f\n", vec3_mag(calculated_delta_v));
+    const double delta_v_magnitude = vec3_mag(calculated_delta_v);
+    printf("Final Delta V: %f\n", delta_v_magnitude);
 
     // compute attitude quaternion that points the spacecraft along the delta-v direction
     // default engine thrust direction is +Y
     const vec3 default_forward = {0.0, 1.0, 0.0};
     const quaternion_t burn_attitude = quaternionFromTwoVectors(default_forward, calculated_delta_v);
 
+    // calculate burn duration
+    const double burn_duration = craft->current_total_mass * (1.0 - exp(-delta_v_magnitude / (craft->specific_impulse * STANDARD_GRAVITY))) / craft->mass_flow_rate;
+
+    // performs the burn immediately when the function is run
     burn_properties_t burn_properties_to_achieve_target = (burn_properties_t){
         .burn_start_time = sim->window_params.sim_time,
-        .burn_end_time = INFINITY,
+        .burn_end_time = sim->window_params.sim_time + burn_duration,
         .throttle = 1.0,
         .burn_heading = 0.0,
         .burn_attitude = burn_attitude,
         .burn_target_id = craft->auto_target_data.target_body_id,
+        .auto_burn = true,
+        .auto_burn_final_pos = final_pos,
         .relative_burn_target = { .direct = true }
     };
 

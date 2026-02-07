@@ -42,10 +42,11 @@ if(ENABLE_CLANG_TIDY)
     endif()
 endif()
 
-# Force Release build type
+# Default to Release build type (use Debug for debugging with breakpoints)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # --- 1. BUILD OPTIONS ---
 # Option to enable/disable GUI (default: enabled)
@@ -151,31 +152,39 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
         add_compile_definitions(_AMD64_)
     endif()
     add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-function)
-    # Aggressive optimization flags for maximum performance
-    add_compile_options(
-            -O3
-            -march=native
-            -mtune=native
-            -flto=auto
-            -funroll-loops
-            -fno-math-errno -fno-trapping-math
-            -DNDEBUG
-    )
 
-    # Architecture-specific SIMD optimizations
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i686")
-        # x86/x64: Use AVX2 and FMA instructions
-        add_compile_options(-mavx2 -mfma)
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM64")
-        # ARM: Use NEON instructions (enabled by -march=native on ARM)
-        # No additional flags needed as -march=native handles this
-    endif()
+    # Conditional flags based on build type
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        # Debug mode: enable debug symbols, disable optimizations
+        add_compile_options(-g -O0)
+        message(STATUS "Debug mode enabled: breakpoints will work in CLion")
+    else()
+        # Release mode: aggressive optimization flags for maximum performance
+        add_compile_options(
+                -O3
+                -march=native
+                -mtune=native
+                -flto=auto
+                -funroll-loops
+                -fno-math-errno -fno-trapping-math
+                -DNDEBUG
+        )
 
-    add_link_options(-flto=auto)    # Enable LTO during linking
+        # Architecture-specific SIMD optimizations
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i686")
+            # x86/x64: Use AVX2 and FMA instructions
+            add_compile_options(-mavx2 -mfma)
+        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM64")
+            # ARM: Use NEON instructions (enabled by -march=native on ARM)
+            # No additional flags needed as -march=native handles this
+        endif()
 
-    # GCC-specific optimizations
-    if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-        add_compile_options(-fno-stack-protector)  # Remove stack protection overhead
+        add_link_options(-flto=auto)    # Enable LTO during linking
+
+        # GCC-specific optimizations
+        if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+            add_compile_options(-fno-stack-protector)  # Remove stack protection overhead
+        endif()
     endif()
 elseif(MSVC)
     # MSVC optimization flags (matched to Linux -O3 level)
