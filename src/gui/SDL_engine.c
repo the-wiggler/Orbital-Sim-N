@@ -27,6 +27,7 @@
 #include "../gui/GL_renderer.h"
 #include "../math/matrix.h"
 #include "../types.h"
+#include "../sim/spacecraft.h"
 
 // display error message using SDL dialog
 void displayError(const char* title, const char* message) {
@@ -329,6 +330,18 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim, binary_filenames_
         char* argument = cmd + 14;
         filenames->csv_update_period = strtod(argument, &argument);
         snprintf(console->log, sizeof(console->log), "CSV sample period changed to %fs", filenames->csv_update_period);
+    }
+    else if (strncmp(cmd, "auto ", 5) == 0) {
+        char* argument = cmd + 5;
+        const int craft_idx = findSpacecraftID(&sim->global_spacecraft, argument);
+        if (craft_idx != -1) {
+            spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_idx];
+            craft->burn_properties[craft->num_burns] = craft_createAutoTargetBurns(sim, craft_idx);
+            craft->num_burns++;
+            snprintf(console->log, sizeof(console->log), "Optimal target burn created for %s", argument);
+        } else {
+            snprintf(console->log, sizeof(console->log), "unknown spacecraft: %s", argument);
+        }
     }
     else {
         snprintf(console->log, sizeof(console->log), "unknown command: %s", cmd);

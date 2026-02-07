@@ -41,7 +41,7 @@
   ],
   "spacecraft": [
     {
-      "name": "Craft 1",
+      "name": "craft",
 
       "position_relative_to": "Earth",
       "pos_x": 20000000.0,

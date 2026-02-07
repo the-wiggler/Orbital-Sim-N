@@ -59,6 +59,15 @@ vec3 findBodyVelocity(const body_properties_t* global_bodies, const char* body_n
     return vec3_zero();
 }
 
+int findSpacecraftID(const spacecraft_properties_t* global_spacecraft, const char* craft_name) {
+    for (int i = 0; i < global_spacecraft->count; i++) {
+        if (strncmp(craft_name, global_spacecraft->spacecraft[i].name, MAX_NAME_LENGTH) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 // json handling logic for reading json files
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, spacecraft_properties_t* global_spacecraft) {

@@ -211,15 +211,23 @@ vec3 craft_solveLambertProblem(const spacecraft_t* craft, const vec3 final_pos, 
     double a_guess = semi_perimeter / 2.0; // start at min possible value for a
     const double a_step = a_guess * 0.01; // the step by which we should increase a until we reach tof
     double tof_guess = 0.0; // calculated tof based on semi-major-axis iterations
+    double prev_tof = 0.0;
     double alpha = 0.0;
     double beta = 0.0;
 
     // iterate through values of semi-major-axis until the calculated value of tof_guess roughly matches that of time_of_flight
-    while ((tof_guess / time_of_flight) < 0.99 || (tof_guess / time_of_flight) > 1.01 ) {
+    while ((tof_guess / time_of_flight) < 0.9 || (tof_guess / time_of_flight) > 1.1 ) {
+        prev_tof = tof_guess;
         alpha = 2.0 * asin( sqrt( semi_perimeter / (2.0 * a_guess) ) );
         beta = 2.0 * asin( sqrt( (semi_perimeter - dist) / (2.0 * a_guess) ) );
         tof_guess = sqrt( (a_guess * a_guess * a_guess) / central_body->gravitational_parameter ) * ( alpha - sin(alpha) - (beta - sin(beta)) );
         a_guess += a_step;
+        printf("tof_guess: %f | a_guess: %f\n", tof_guess, a_guess);
+
+        // if tof is barely changing per step, it'll never converge to the target — bail out
+        if (prev_tof != 0.0 && fabs(tof_guess - prev_tof) / fabs(tof_guess) < 1e-4) {
+            return (vec3){INFINITY, INFINITY, INFINITY};
+        }
     }
 
     // calculate orbital parameter (semi-latus rectum)
@@ -258,17 +266,25 @@ burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const
     // and see if its bigger or smaller, if bigger throw it away and iterate at a different value opposite to the one
     // you just picked
 
-    // determine the final position that the craft should be at
-    vec3 final_pos = {0};
+    // determine the final position that the craft should be at (relative to earth)
+    vec3 final_pos = {100000000, 0, 0};
+
+    // estimate transfer time to set a realistic sample range
+    const double r1 = vec3_mag(vec3_sub(craft->pos, target_body->pos));
+    const double r2 = vec3_mag(vec3_sub(final_pos, target_body->pos));
+    const double a_transfer = (r1 + r2) / 2.0;
+    const double t_transfer = N_PI * sqrt((a_transfer * a_transfer * a_transfer) / target_body->gravitational_parameter);
+    const double t_min = t_transfer * 0.5;
+    const double t_max = t_transfer * 10.0;
 
     const int samples = 1000;
     double time_samples[samples];
 
-    // populate time sample array with sample times
-    for (int i = 0; i < samples; i++) {
-        if (i != 0) {
-            time_samples[i] += (1.0/samples) + time_samples[i-1];
-        }
+    // populate time sample array with realistic transfer times
+    const double t_step = (t_max - t_min) / (double)samples;
+    time_samples[0] = t_min;
+    for (int i = 1; i < samples; i++) {
+        time_samples[i] = time_samples[i-1] + t_step;
     }
 
     // iteratively solve lambert problem with different time values to try and find the smallest delta v value
@@ -277,6 +293,7 @@ burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const
         vec3 sample_delta_v = craft_solveLambertProblem(craft, final_pos, time_samples[i], target_body);
         if (vec3_mag_sq(sample_delta_v) < vec3_mag_sq(calculated_delta_v)) {
             calculated_delta_v = sample_delta_v;
+            printf("calculated_delta_v: %f\n", vec3_mag_sq(calculated_delta_v));
         }
     }
 
