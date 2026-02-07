@@ -6,6 +6,7 @@ A real-time 3D gravitational physics simulator built in C with OpenGL and SDL3.
 
 ### Gravitational Physics
 - Real-time gravitational force calculations using F = GMm/r²
+- J2 Perturbation
 - Verlet Integration
 - Collision Detection
 - Adjustable simulation speed
@@ -27,6 +28,7 @@ A real-time 3D gravitational physics simulator built in C with OpenGL and SDL3.
     - **Absolute**: Burns relative to the inertial reference frame (space coordinates)
     - **Normal**: Perpendicular to orbit -- *currently unsupported :(*
   - Each burn type can be configured with a rotation heading offset
+  - **Auto-Targeting**: Automatically calculate optimal burns to reach target orbital parameters (semi-major axis, eccentricity, inclination, etc.)
 
 ## Usage
 
@@ -49,6 +51,8 @@ The program features a command-line interface at the bottom of the window. Avail
 | `step <value>`                  | Set simulation time step (e.g., `step 0.01`)              |
 | `enable/disable guidance-lines` | Toggles lines between celestial bodies                    |
 | `enable/disable export`         | Toggles writing of planetary kinematic data to a CSV file |
+| `sample-period <value>`         | Set CSV export sampling period in seconds                 |
+| `auto <spacecraft_name>`        | Create optimal burn to reach target orbital parameters    |
 
 **Note**: Type commands in the console at the bottom of the window and press Enter to execute.
 
@@ -70,7 +74,15 @@ The simulation is configured via `simulation_data.json`:
       "vel_x": 0,
       "vel_y": 0,
       "vel_z": 0,
-      "radius": 6371000
+      "radius": 6371000,
+      "equatorial_radius": 6378137,
+      "rotational_v": 7.2921159e-5,
+      "attitude_axis_x": 1.0,
+      "attitude_axis_y": 0.0,
+      "attitude_axis_z": 0.0,
+      "attitude_angle": 0.4101524,
+      "gravitational_parameter": 3.986004418e14,
+      "J2": 0.00108263
     }
   ]
 }
@@ -82,6 +94,12 @@ The simulation is configured via `simulation_data.json`:
 - `pos_x`, `pos_y`, `pos_z`: Position in meters (m) from the origin
 - `vel_x`, `vel_y`, `vel_z`: Initial velocity in meters per second
 - `radius`: Body radius in meters
+- `equatorial_radius`: Equatorial radius for J2 calculations (m) *(optional)*
+- `rotational_v`: Angular velocity (rad/s) *(optional)*
+- `attitude_axis_x`, `attitude_axis_y`, `attitude_axis_z`: Rotation axis *(optional)*
+- `attitude_angle`: Initial rotation angle (radians) *(optional)*
+- `gravitational_parameter`: Standard gravitational parameter μ (m³/s²) *(optional)*
+- `J2`: Oblateness coefficient for perturbation effects *(optional)*
 
 #### Adding Spacecraft
 
@@ -90,6 +108,7 @@ The simulation is configured via `simulation_data.json`:
   "spacecraft": [
     {
       "name": "Example Craft",
+      "position_relative_to": "Earth",
       "pos_x": 6671000.0,
       "pos_y": 0.0,
       "pos_z": 0.0,
@@ -104,6 +123,7 @@ The simulation is configured via `simulation_data.json`:
       "attitude": 0.0,
       "moment_of_inertia": 20000.0,
       "nozzle_gimbal_range": 0.105,
+      "nozzle_velocity": 1000.0,
       "burns": [
         {
           "burn_target": "Earth",
@@ -113,7 +133,13 @@ The simulation is configured via `simulation_data.json`:
           "heading": 0.0,
           "throttle": 1.0
         }
-      ]
+      ],
+      "auto_orbit_target": "Earth",
+      "semi-major-axis": 6671000.0,
+      "eccentricity": 0.0,
+      "inclination": 0.0,
+      "ra_of_ascending_node": 0,
+      "argument_of_periapsis": 0
     }
   ]
 }
@@ -121,6 +147,7 @@ The simulation is configured via `simulation_data.json`:
 
 **Spacecraft Parameters:**
 - **Position/Velocity**: 3D coordinates (m) and velocities (m/s)
+  - `position_relative_to`: Reference body for position/velocity *(optional, defaults to absolute coordinates)*
   - `pos_x`, `pos_y`, `pos_z`: Initial position
   - `vel_x`, `vel_y`, `vel_z`: Initial velocity
 - **Mass Properties**:
@@ -130,6 +157,7 @@ The simulation is configured via `simulation_data.json`:
   - `thrust`: Maximum engine thrust (N)
   - `specific_impulse`: Engine efficiency (s)
   - `mass_flow_rate`: Fuel consumption rate (kg/s)
+  - `nozzle_velocity`: Nozzle exhaust velocity (m/s)
 - **Attitude**:
   - `attitude`: Initial rotation angle about Z-axis (radians)
   - `moment_of_inertia`: Rotational inertia (kg⋅m²)
