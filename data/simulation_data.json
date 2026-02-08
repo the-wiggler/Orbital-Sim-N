@@ -66,12 +66,7 @@
 
       ],
 
-      "auto_orbit_target": "Earth",
-      "semi-major-axis": 1894.0,
-      "eccentricity": 0.0,
-      "inclination": 0.0,
-      "ra_of_ascending_node": 0,
-      "argument_of_periapsis": 0
+      "auto_orbit_target": "Moon"
     }
   ]
 }

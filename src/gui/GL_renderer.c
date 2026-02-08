@@ -744,7 +744,7 @@ void renderStats(const sim_properties_t sim, font_t* font) {
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
         cursor_pos[1] += line_height * 1.5F;
 
-        snprintf(text_buffer, sizeof(text_buffer), "Target Planet: %s", sim.global_bodies.bodies[sim.global_spacecraft.spacecraft[i].auto_target_data.target_body_id].name);
+        snprintf(text_buffer, sizeof(text_buffer), "Target Planet: %s", sim.global_bodies.bodies[sim.global_spacecraft.spacecraft[i].target_body_id].name);
         addText(font, cursor_pos[0], cursor_pos[1], text_buffer, 0.7F);
 
         cursor_pos[1] += line_height;

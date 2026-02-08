@@ -229,11 +229,6 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
 
             // parse auto orbit target data
             cJSON* auto_orbit_target_item = cJSON_GetObjectItemCaseSensitive(craft, "auto_orbit_target");
-            cJSON* semi_major_axis_item = cJSON_GetObjectItemCaseSensitive(craft, "semi-major-axis");
-            cJSON* eccentricity_item = cJSON_GetObjectItemCaseSensitive(craft, "eccentricity");
-            cJSON* inclination_item = cJSON_GetObjectItemCaseSensitive(craft, "inclination");
-            cJSON* ra_ascending_node_item = cJSON_GetObjectItemCaseSensitive(craft, "ra_of_ascending_node");
-            cJSON* arg_periapsis_item = cJSON_GetObjectItemCaseSensitive(craft, "argument_of_periapsis");
 
             // parse burns array
             cJSON* burns_array = cJSON_GetObjectItemCaseSensitive(craft, "burns");
@@ -326,28 +321,12 @@ void readSimulationJSON(const char* FILENAME, body_properties_t* global_bodies, 
                 const char* target_name = auto_orbit_target_item->valuestring;
                 const int target_id = findBurnTargetID(global_bodies, target_name);
                 if (target_id != -1) {
-                    added_craft->auto_target_data.target_body_id = target_id;
+                    added_craft->target_body_id = target_id;
                 } else {
-                    added_craft->auto_target_data.target_body_id = -1;
+                    added_craft->target_body_id = -1;
                 }
             } else {
-                added_craft->auto_target_data.target_body_id = -1;
-            }
-
-            if (semi_major_axis_item != NULL) {
-                added_craft->auto_target_data.semi_major_axis = semi_major_axis_item->valuedouble;
-            }
-            if (eccentricity_item != NULL) {
-                added_craft->auto_target_data.eccentricity = eccentricity_item->valuedouble;
-            }
-            if (inclination_item != NULL) {
-                added_craft->auto_target_data.inclination = inclination_item->valuedouble;
-            }
-            if (ra_ascending_node_item != NULL) {
-                added_craft->auto_target_data.ascending_node = ra_ascending_node_item->valuedouble;
-            }
-            if (arg_periapsis_item != NULL) {
-                added_craft->auto_target_data.arg_periapsis = arg_periapsis_item->valuedouble;
+                added_craft->target_body_id = -1;
             }
         }
     }

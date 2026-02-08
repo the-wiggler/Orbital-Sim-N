@@ -253,49 +253,62 @@ vec3 craft_solveLambertProblem(const spacecraft_t* craft, const vec3 final_pos, 
     return delta_v;
 }
 
-// function that generates a burn list for the craft based on the auto target designation from the JSON file
-burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const int craft_id) {
+// determines the time for a hohmann transfer
+double craft_calcualteHohmannTransTime(const double craft_orbit_radius, const double target_orbit_radius, const double central_grav_param) {
+    const double a_transfer = (craft_orbit_radius + target_orbit_radius) / 2.0;
+    const double transfer_time = N_PI * sqrt((a_transfer * a_transfer * a_transfer) / central_grav_param);
+    return transfer_time;
+}
+
+// function that generates a burn list for the craft based on the optimal delta v for the final desired position.
+burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, const int craft_id) {
     const spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_id];
     const body_t* central_body = &sim->global_bodies.bodies[craft->orbital_elements.SOI_planet_id];
+    const body_t* target_body = &sim->global_bodies.bodies[craft->target_body_id];
 
-    // TODO: grid search like method that determines optimal time of flight by solving lambert problem with like a
+    // grid search like method that determines optimal delta v by solving lambert problem with like a
     // billion different random delta_t values and just picking the one with the smallest delta_v
-    // one you pick a random time, then you determine where the moon will be at that time, simple 2 body problem
-    // (just steal the orbital params the sim calculated for simplicity, the craft is "calculating" these)
-    // compare this to previous value you calculated (probably store the delta v value from before)
-    // and see if its bigger or smaller, if bigger throw it away and iterate at a different value opposite to the one
-    // you just picked
+    const int ORBIT_INCREMENT_RES = 1000;
+    delta_v_with_time_t dvt[ORBIT_INCREMENT_RES] = {0};
 
-    // determine the final position that the craft should be at (relative to the target body at this current point in time)
-    vec3 final_pos = vec3_add((vec3){100000000, 100000000, 0}, central_body->pos);
+    // determine a proper timing to complete the orbit in 1000 iterations
+    const double craft_orbital_period = 2.0 * N_PI * sqrt((craft->orbital_elements.semi_major_axis *
+        craft->orbital_elements.semi_major_axis * craft->orbital_elements.semi_major_axis) / central_body->gravitational_parameter);
+    const double calc_time_step = craft_orbital_period / ORBIT_INCREMENT_RES;
 
-    // estimate transfer time to set a realistic sample range
-    const double r1 = vec3_mag(vec3_sub(craft->pos, central_body->pos));
-    const double r2 = vec3_mag(vec3_sub(final_pos, central_body->pos));
-    const double a_transfer = (r1 + r2) / 2.0;
-    const double t_transfer = N_PI * sqrt((a_transfer * a_transfer * a_transfer) / central_body->gravitational_parameter);
-    const double t_min = t_transfer * 0.5;
-    const double t_max = t_transfer * 2.0;
+    for (int i = 0; i < ORBIT_INCREMENT_RES; i++) {
+        const double dist_from_central_body = vec3_mag(vec3_sub(craft->pos, central_body->pos));
+        const double dist_from_target_body = vec3_mag(vec3_sub(craft->pos, target_body->pos));
 
-    const int samples = 5000;
-    double time_samples[samples];
+        // 1- determine ToF bounds of grid search using hohmann transfer
+        const double hohmann_time = craft_calcualteHohmannTransTime(dist_from_central_body, dist_from_target_body, central_body->gravitational_parameter);
+        const double tof_lower = hohmann_time * 0.5;
+        const double tof_upper = hohmann_time * 1.5;
 
-    // populate time sample array with realistic transfer times
-    const double t_step = (t_max - t_min) / (double)samples;
-    time_samples[0] = t_min;
-    for (int i = 1; i < samples; i++) {
-        time_samples[i] = time_samples[i-1] + t_step;
-    }
+        // 2- do a rough grid search at current point in the orbit to find where the planet is and lowest delta v
+        const int SAMPLES = 1000;
+        const double t_step = (tof_upper - tof_lower) / (double)SAMPLES;
+        double time_samples[SAMPLES];
+        time_samples[0] = tof_lower;
+        // populate time sample array with potential realistic transfer times
+        for (int j = 1; j < SAMPLES; j++) { time_samples[i] = time_samples[i - 1] + t_step; }
 
-    // iteratively solve lambert problem with different time values to try and find the smallest delta v value
-    vec3 calculated_delta_v = {INFINITY, INFINITY, INFINITY};
-    for (int i = 0; i < samples; i++) {
-        vec3 sample_delta_v = craft_solveLambertProblem(craft, final_pos, time_samples[i], central_body);
-        if (vec3_mag_sq(sample_delta_v) < vec3_mag_sq(calculated_delta_v)) {
-            calculated_delta_v = sample_delta_v;
-            printf("calculated_delta_v: %f\n", vec3_mag_sq(calculated_delta_v));
+        vec3 calculated_delta_v = {INFINITY, INFINITY, INFINITY};
+        for (int j = 0; j < SAMPLES; j++) {
+            // TODO: keep working on this...
+            vec3 target_body_location = {0}; // location of target planet at given time
+            // delta v to get to that planets location at given time
+            vec3 sample_delta_v = // solve lambert problem funtion
         }
+
+        // 3- unpause the simulation and iterate forward a certain amount of time
+
+        // 4- repeat steps 1-3 until you have a point in the orbit where you logged the smallest delta v
+
+        // 5- perform a comprehensive grid search at this point to determine close to true smallest delta v
     }
+
+    vec3 calculated_delta_v = {0};
 
     const double delta_v_magnitude = vec3_mag(calculated_delta_v);
     printf("Final Delta V: %f\n", delta_v_magnitude);
@@ -315,9 +328,8 @@ burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const
         .throttle = 1.0,
         .burn_heading = 0.0,
         .burn_attitude = burn_attitude,
-        .burn_target_id = craft->auto_target_data.target_body_id,
+        .burn_target_id = craft->target_body_id,
         .auto_burn = true,
-        .auto_burn_final_pos = final_pos,
         .relative_burn_target = { .direct = true }
     };
 

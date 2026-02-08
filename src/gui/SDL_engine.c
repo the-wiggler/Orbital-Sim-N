@@ -336,7 +336,7 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim, binary_filenames_
         const int craft_idx = findSpacecraftID(&sim->global_spacecraft, argument);
         if (craft_idx != -1) {
             spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_idx];
-            craft->burn_properties[craft->num_burns] = craft_createAutoTargetBurns(sim, craft_idx);
+            craft->burn_properties[craft->num_burns] = craft_autoDeltaVOptimization(sim, craft_idx);
             craft->num_burns++;
             snprintf(console->log, sizeof(console->log), "Optimal target burn created for %s", argument);
         } else {

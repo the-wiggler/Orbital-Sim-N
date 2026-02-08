@@ -9,7 +9,7 @@ void craft_updateMotion(spacecraft_t* craft, double delta_t);
 void craft_applyThrust(spacecraft_t* craft);
 void craft_checkBurnSchedule(spacecraft_t* craft, const body_properties_t* global_bodies, double sim_time);
 void craft_consumeFuel(spacecraft_t* craft, double delta_t);
-burn_properties_t craft_createAutoTargetBurns(const sim_properties_t* sim, const int craft_id);
+burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, const int craft_id);
 void craft_addSpacecraft(spacecraft_properties_t* global_spacecraft, const char* name,
                         vec3 pos, vec3 vel,
                         double dry_mass, double fuel_mass, double thrust,
