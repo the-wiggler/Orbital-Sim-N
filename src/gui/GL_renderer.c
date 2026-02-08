@@ -836,10 +836,10 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
             float eccentric_anomaly = TWO_PI_f * ((float)j / (float)path_res);
 
             // convert eccentric anomaly to true anomaly
-            float true_anomaly = 2.0f * atanf(
-                sqrtf((1.0f + (float)body.oe.eccentricity) /
-                      (1.0f - (float)body.oe.eccentricity)) *
-                tanf(eccentric_anomaly / 2.0f)
+            float true_anomaly = 2.0F * atanf(
+                sqrtf((1.0F + (float)body.oe.eccentricity) /
+                      (1.0F - (float)body.oe.eccentricity)) *
+                tanf(eccentric_anomaly / 2.0F)
             );
 
             float orbital_radius = semi_latus_rectum / (1 + (float)body.oe.eccentricity * cosf(true_anomaly));
@@ -892,10 +892,10 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
                 float eccentric_anomaly = TWO_PI_f * ((float)j / (float)path_res);
 
                 // convert eccentric anomaly to true anomaly
-                float true_anomaly = 2.0f * atanf(
-                    sqrtf((1.0f + (float)craft.orbital_elements.eccentricity) /
-                          (1.0f - (float)craft.orbital_elements.eccentricity)) *
-                    tanf(eccentric_anomaly / 2.0f)
+                float true_anomaly = 2.0F * atanf(
+                    sqrtf((1.0F + (float)craft.orbital_elements.eccentricity) /
+                          (1.0F - (float)craft.orbital_elements.eccentricity)) *
+                    tanf(eccentric_anomaly / 2.0F)
                 );
 
                 float orbital_radius = semi_latus_rectum / (1 + (float)craft.orbital_elements.eccentricity * cosf(true_anomaly));
@@ -1024,17 +1024,6 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
         // line from craft to projected point (inclination height line)
         addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, projected_scaled.x, projected_scaled.y, projected_scaled.z, 0.0F, 1.0F, 0.0F);
 
-        // draw line to auto burn target position
-        for (int j = 0; j < craft.num_burns; j++) {
-            if (craft.burn_properties[j].auto_burn) {
-                const vec3_f target_pos = {
-                    (float)(craft.burn_properties[j].auto_burn_final_pos.x / SCALE),
-                    (float)(craft.burn_properties[j].auto_burn_final_pos.y / SCALE),
-                    (float)(craft.burn_properties[j].auto_burn_final_pos.z / SCALE)
-                };
-                addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, target_pos.x, target_pos.y, target_pos.z, 0.0F, 1.0F, 1.0F);
-            }
-        }
     }
 
     renderCraftPaths(&sim, line_batch, craft_paths);

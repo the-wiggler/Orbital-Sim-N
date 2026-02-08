@@ -172,6 +172,7 @@ typedef struct {
     int screen_width, screen_height;
     double time_step;
     float window_size_x, window_size_y;
+    SDL_WindowID main_window_ID;
 
     // 3D camera
     vec3_f camera_pos;    // camera position in world space (defined by a unit vector, whereas the magnitude is changed by the viewport zoom)
@@ -181,9 +182,9 @@ typedef struct {
 
     volatile bool window_open;
     bool data_logging_enabled;
+
     volatile bool sim_running;
     double sim_time;
-    SDL_WindowID main_window_ID;
 
     double meters_per_pixel;
 

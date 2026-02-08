@@ -29,15 +29,16 @@ static const float SCALE = 1e7F; // scales in-sim meters to openGL coordinates -
 
 // memory limits
 #define MAX_PLANETS 32
-#define PATH_CAPACITY 1000
+#define PATH_CAPACITY 1024
 #define MAX_SPACECRAFT 16
 #define MAX_BURNS_PER_SPACECRAFT 16
 #define MAX_NAME_LENGTH 32
 #define JSON_BUFFER_SIZE 65536
 #define SHADER_BUFFER_SIZE 16384
 #define MAX_SPHERE_VERTICES 13500
-#define MAX_LINE_BATCH 2000
+#define MAX_LINE_BATCH 2048
 #define MAX_FONT_CHARS 512
+#define MAX_PAUSE_KEYFRAMES 1024
 
 #define MAX_ERR_SIZE 128
 

@@ -265,6 +265,7 @@ static void handleMouseWheelEvent(const SDL_Event* event, sim_properties_t* sim)
     }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 static void parseRunCommands(char* cmd, sim_properties_t* sim, binary_filenames_t* filenames) {
     console_t* console = &sim->console;
 

@@ -191,9 +191,11 @@ void craft_consumeFuel(spacecraft_t* craft, const double delta_t) {
     }
 }
 
-vec3 craft_solveLambertProblem(const spacecraft_t* craft, const vec3 final_pos, const double time_of_flight, const body_t* central_body) {
+// solves the lambert problem with position inputs and delta v as an output to get to the desired position
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+vec3 craft_solveLambertProblem(const vec3 craft_pos, const vec3 craft_vel, const vec3 final_pos, const double time_of_flight, const body_t* central_body) {
     // position vectors relative to central body
-    const vec3 r1_rel = vec3_sub(craft->pos, central_body->pos);
+    const vec3 r1_rel = vec3_sub(craft_pos, central_body->pos);
     const vec3 r2_rel = vec3_sub(final_pos, central_body->pos);
 
     const double r1_mag = vec3_mag(r1_rel);
@@ -208,6 +210,10 @@ vec3 craft_solveLambertProblem(const spacecraft_t* craft, const vec3 final_pos, 
     // transfer angle cosine
     const double cos_delta_v = vec3_dot(r1_rel, r2_rel) / (r1_mag * r2_mag);
 
+    // determine transfer direction (short-way vs long-way) for prograde transfers
+    const vec3 transfer_cross = cross_product_vec3(r1_rel, r2_rel);
+    const bool long_way = transfer_cross.z < 0.0;
+
     double a_guess = semi_perimeter / 2.0; // start at min possible value for a
     const double a_step = a_guess * 0.01; // the step by which we should increase a until we reach tof
     double tof_guess = 0.0; // calculated tof based on semi-major-axis iterations
@@ -216,36 +222,39 @@ vec3 craft_solveLambertProblem(const spacecraft_t* craft, const vec3 final_pos, 
     double beta = 0.0;
 
     // iterate through values of semi-major-axis until the calculated value of tof_guess roughly matches that of time_of_flight
-    while ((tof_guess / time_of_flight) < 0.99 || (tof_guess / time_of_flight) > 1.01 ) {
+    while ((tof_guess / time_of_flight) < 0.999 || (tof_guess / time_of_flight) > 1.001 ) {
         prev_tof = tof_guess;
         alpha = 2.0 * asin( sqrt( semi_perimeter / (2.0 * a_guess) ) );
         beta = 2.0 * asin( sqrt( (semi_perimeter - dist) / (2.0 * a_guess) ) );
+        if (long_way) { beta = -beta; }
         tof_guess = sqrt( (a_guess * a_guess * a_guess) / central_body->gravitational_parameter ) * ( alpha - sin(alpha) - (beta - sin(beta)) );
-        a_guess += a_step;
         printf("tof_guess: %f | a_guess: %f\n", tof_guess, a_guess);
 
         // if tof is barely changing per step, it'll never converge to the target
         if (prev_tof != 0.0 && fabs(tof_guess - prev_tof) / fabs(tof_guess) < 1e-4) {
             return (vec3){INFINITY, INFINITY, INFINITY};
         }
+        a_guess += a_step;
     }
+    a_guess -= a_step; // correct for the extra increment after convergence
 
     // calculate orbital parameter
     const double sin_half_ab = sin((alpha + beta) / 2.0);
     const double orbital_parameter = ( (4.0 * a_guess) * (semi_perimeter - r2_mag) * (semi_perimeter - r1_mag) ) / (dist * dist) * (sin_half_ab * sin_half_ab);
 
     // calculate lagrange coefficients
-    const double f_coeff = 1.0 - (r2_mag / orbital_parameter) * (1.0 - cos_delta_v);
-    const double g_coeff = (r1_mag * r2_mag * sin(acos(cos_delta_v))) / sqrt(central_body->gravitational_parameter * orbital_parameter);
+    const double f_coeff = 1.0 - ((r2_mag / orbital_parameter) * (1.0 - cos_delta_v));
+    const double sin_delta_nu = long_way ? -sqrt(1.0 - (cos_delta_v * cos_delta_v)) : sqrt(1.0 - (cos_delta_v * cos_delta_v));
+    const double g_coeff = (r1_mag * r2_mag * sin_delta_nu) / sqrt(central_body->gravitational_parameter * orbital_parameter);
 
-    // calculate v1 at departure
+    // calculate vel1 at departure
     const vec3 f_times_r1 = vec3_scale(r1_rel, f_coeff);
     const vec3 r2_minus_fr1 = vec3_sub(r2_rel, f_times_r1);
-    const vec3 v1 = vec3_scale(r2_minus_fr1, 1.0 / g_coeff);
+    const vec3 vel1 = vec3_scale(r2_minus_fr1, 1.0 / g_coeff);
 
-    // v1 is relative to central body, convert to absolute frame and compute delta-v
-    const vec3 v1_absolute = vec3_add(v1, central_body->vel);
-    const vec3 delta_v = vec3_sub(v1_absolute, craft->vel);
+    // vel1 is relative to central body, convert to absolute frame and compute delta-v
+    const vec3 v1_absolute = vec3_add(vel1, central_body->vel);
+    const vec3 delta_v = vec3_sub(v1_absolute, craft_vel);
 
     printf("Delta V Vector: (%f, %f, %f)", delta_v.x, delta_v.y, delta_v.z); // for debug
 
@@ -254,13 +263,68 @@ vec3 craft_solveLambertProblem(const spacecraft_t* craft, const vec3 final_pos, 
 }
 
 // determines the time for a hohmann transfer
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 double craft_calcualteHohmannTransTime(const double craft_orbit_radius, const double target_orbit_radius, const double central_grav_param) {
     const double a_transfer = (craft_orbit_radius + target_orbit_radius) / 2.0;
     const double transfer_time = N_PI * sqrt((a_transfer * a_transfer * a_transfer) / central_grav_param);
     return transfer_time;
 }
 
+// solves kepler's equation M = E - e*sin(E) for eccentric anomaly
+static double solveKeplerEquation(double mean_anomaly, const double eccentricity) {
+    mean_anomaly = fmod(mean_anomaly, TWO_PI);
+    if (mean_anomaly < 0.0) { mean_anomaly += TWO_PI; }
+
+    double eccentric_anomaly = mean_anomaly;
+    for (int iter = 0; iter < 50; iter++) {
+        const double d_eccentric_anomaly = (eccentric_anomaly - eccentricity * sin(eccentric_anomaly) - mean_anomaly) / (1.0 - eccentricity * cos(eccentric_anomaly));
+        eccentric_anomaly -= d_eccentric_anomaly;
+        if (fabs(d_eccentric_anomaly) < 1e-12) { break; }
+    }
+    return eccentric_anomaly;
+}
+
+// propagates an orbit forward by dt seconds using kepler's equation and returns position and velocity
+// in the absolute ref frame. central_pos/vel are the central body's current position/velocity
+// thank you clanker 😍
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+static void propagateOrbitState(const orbital_elements_t* orbital_elements, const double grav_param, const vec3 central_pos, const vec3 central_vel, const double delta_t, vec3* out_pos, vec3* out_vel) {
+    const double sma = orbital_elements->semi_major_axis;
+    const double eccentricity = orbital_elements->eccentricity;
+    const double inc = orbital_elements->inclination;
+    const double Omega = orbital_elements->ascending_node;
+    const double omega = orbital_elements->arg_periapsis;
+    const double nu0 = orbital_elements->true_anomaly;
+    const double mean_motion = sqrt(grav_param / (sma * sma * sma));
+
+    const double initial_E = atan2(sqrt(1.0 - (eccentricity * eccentricity)) * sin(nu0), eccentricity + cos(nu0));
+    const double initial_M = initial_E - (eccentricity * sin(initial_E));
+
+    const double eccentric_anomaly = solveKeplerEquation(initial_M + (mean_motion * delta_t), eccentricity);
+
+    const double true_anomaly = atan2(sqrt(1.0 - (eccentricity * eccentricity)) * sin(eccentric_anomaly), cos(eccentric_anomaly) - eccentricity);
+    const double radius = sma * (1.0 - (eccentricity * cos(eccentric_anomaly)));
+
+    const vec3 z_axis = {0.0, 0.0, 1.0};
+    const vec3 x_axis = {1.0, 0.0, 0.0};
+    const quaternion_t q_frame = quaternionMul(quaternionMul(
+        quaternionFromAxisAngle(z_axis, Omega),
+        quaternionFromAxisAngle(x_axis, inc)),
+        quaternionFromAxisAngle(z_axis, omega));
+
+    const vec3 pos_orb = {radius * cos(true_anomaly), radius * sin(true_anomaly), 0.0};
+    const vec3 pos_rel = quaternionRotate(q_frame, pos_orb);
+    *out_pos = vec3_add(pos_rel, central_pos);
+
+    const double semi_latus = sma * (1.0 - eccentricity * eccentricity);
+    const double sqrt_mu_over_p = sqrt(grav_param / semi_latus);
+    const vec3 vel_orb = {-sqrt_mu_over_p * sin(true_anomaly), sqrt_mu_over_p * (eccentricity + cos(true_anomaly)), 0.0};
+    const vec3 vel_rel = quaternionRotate(q_frame, vel_orb);
+    *out_vel = vec3_add(vel_rel, central_vel);
+}
+
 // function that generates a burn list for the craft based on the optimal delta v for the final desired position.
+// IMPORTANT: THIS FUNCTION SHOULD ONLY BE RUN ON THE MAIN THREAD, NOT THE SIM THREAD. THE RESULT IS UNKNOWN AND POTENTIALLY DANGEROUS IF RUN ON THE SIM THREAD
 burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, const int craft_id) {
     const spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_id];
     const body_t* central_body = &sim->global_bodies.bodies[craft->orbital_elements.SOI_planet_id];
@@ -268,63 +332,103 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
 
     // grid search like method that determines optimal delta v by solving lambert problem with like a
     // billion different random delta_t values and just picking the one with the smallest delta_v
-    const int ORBIT_INCREMENT_RES = 1000;
-    delta_v_with_time_t dvt[ORBIT_INCREMENT_RES] = {0};
+    const int ORBIT_INCREMENT_RES = 100;
+    const double grav_param = central_body->gravitational_parameter;
 
-    // determine a proper timing to complete the orbit in 1000 iterations
+    // determine the orbital period for the craft
     const double craft_orbital_period = 2.0 * N_PI * sqrt((craft->orbital_elements.semi_major_axis *
-        craft->orbital_elements.semi_major_axis * craft->orbital_elements.semi_major_axis) / central_body->gravitational_parameter);
-    const double calc_time_step = craft_orbital_period / ORBIT_INCREMENT_RES;
+        craft->orbital_elements.semi_major_axis * craft->orbital_elements.semi_major_axis) / grav_param);
+    const double craft_orbit_time_step = craft_orbital_period / ORBIT_INCREMENT_RES;
+
+    // propagate craft orbit using Kepler's equation to get position AND velocity at each time step
+    vec3 craft_locations[ORBIT_INCREMENT_RES];
+    vec3 craft_velocities[ORBIT_INCREMENT_RES];
 
     for (int i = 0; i < ORBIT_INCREMENT_RES; i++) {
-        const double dist_from_central_body = vec3_mag(vec3_sub(craft->pos, central_body->pos));
-        const double dist_from_target_body = vec3_mag(vec3_sub(craft->pos, target_body->pos));
+        const double delta_t = i * craft_orbit_time_step;
+        propagateOrbitState(&craft->orbital_elements, grav_param, central_body->pos, central_body->vel,
+                           delta_t, &craft_locations[i], &craft_velocities[i]);
+    }
+
+    // target body orbital radius (for hohmann estimate)
+    const double target_orbit_radius = vec3_mag(vec3_sub(target_body->pos, central_body->pos));
+
+    // increment over different times in the craft's orbit to determine where in the orbit the most optimal delta v exists
+    vec3 best_delta_v = {INFINITY, INFINITY, INFINITY};
+    double expected_time_of_contact = 0;
+    int best_i = 0;
+    for (int i = 0; i < ORBIT_INCREMENT_RES; i++) {
+        const double dist_from_central_body = vec3_mag(vec3_sub(craft_locations[i], central_body->pos));
 
         // 1- determine ToF bounds of grid search using hohmann transfer
-        const double hohmann_time = craft_calcualteHohmannTransTime(dist_from_central_body, dist_from_target_body, central_body->gravitational_parameter);
+        const double hohmann_time = craft_calcualteHohmannTransTime(dist_from_central_body, target_orbit_radius, grav_param);
         const double tof_lower = hohmann_time * 0.5;
         const double tof_upper = hohmann_time * 1.5;
 
         // 2- do a rough grid search at current point in the orbit to find where the planet is and lowest delta v
-        const int SAMPLES = 1000;
+        const int SAMPLES = 50;
         const double t_step = (tof_upper - tof_lower) / (double)SAMPLES;
+
+        // populate time sample array with potential realistic transfer times
+        // and determine where the planet's position is at every potential transfer time
         double time_samples[SAMPLES];
         time_samples[0] = tof_lower;
-        // populate time sample array with potential realistic transfer times
-        for (int j = 1; j < SAMPLES; j++) { time_samples[i] = time_samples[i - 1] + t_step; }
+        vec3 target_body_location[SAMPLES];
 
-        vec3 calculated_delta_v = {INFINITY, INFINITY, INFINITY};
         for (int j = 0; j < SAMPLES; j++) {
-            // TODO: keep working on this...
-            vec3 target_body_location = {0}; // location of target planet at given time
-            // delta v to get to that planets location at given time
-            vec3 sample_delta_v = // solve lambert problem funtion
+            if (j > 0) {time_samples[j] = time_samples[j - 1] + t_step;}
+
+            // propagate target body forward by time for craft to reach orbit point i + transfer time
+            const double total_dt = (i * craft_orbit_time_step) + time_samples[j];
+            vec3 tgt_vel_unused;
+            propagateOrbitState(&target_body->oe, grav_param, central_body->pos, central_body->vel,
+                               total_dt, &target_body_location[j], &tgt_vel_unused);
         }
 
-        // 3- unpause the simulation and iterate forward a certain amount of time
+        // determine how much delta v is needed for this circumstance
+        vec3 calculated_delta_v = {INFINITY, INFINITY, INFINITY};
+        double best_tof_at_i = 0.0;
+        for (int j = 0; j < SAMPLES; j++) {
+            // delta v to get to that planets location at given time by solving lambert problem
+            vec3 sample_delta_v = craft_solveLambertProblem(craft_locations[i], craft_velocities[i], target_body_location[j], time_samples[j], central_body);
 
-        // 4- repeat steps 1-3 until you have a point in the orbit where you logged the smallest delta v
+            // if this sample delta v is smaller than our smallest yet, we make this one the new smallest ever (you are the smallest delta_v ever!)
+            if (vec3_mag_sq(sample_delta_v) < vec3_mag_sq(calculated_delta_v)) {
+                calculated_delta_v = sample_delta_v;
+                best_tof_at_i = time_samples[j];
+            }
+        }
 
-        // 5- perform a comprehensive grid search at this point to determine close to true smallest delta v
+        // 3- check if this calculated optimal delta v is smaller than the one previously calculated at a different point in the orbit
+        if (vec3_mag_sq(calculated_delta_v) < vec3_mag_sq(best_delta_v)) {
+            best_delta_v = calculated_delta_v;
+            best_i = i;
+            expected_time_of_contact = best_tof_at_i;
+        }
+    
+        // advance to a farther time in the orbit to see if any of the possible delta v values are better there, meaning that the ideal time
+        // to burn might be in the future and not immediately
     }
 
-    vec3 calculated_delta_v = {0};
-
-    const double delta_v_magnitude = vec3_mag(calculated_delta_v);
-    printf("Final Delta V: %f\n", delta_v_magnitude);
+    const double best_delta_v_magnitude = vec3_mag(best_delta_v);
 
     // compute attitude quaternion that points the spacecraft along the delta-v direction
     // default engine thrust direction is +Y
     const vec3 default_forward = {0.0, 1.0, 0.0};
-    const quaternion_t burn_attitude = quaternionFromTwoVectors(default_forward, calculated_delta_v);
+    const quaternion_t burn_attitude = quaternionFromTwoVectors(default_forward, best_delta_v);
 
     // calculate burn duration
-    const double burn_duration = craft->current_total_mass * (1.0 - exp(-delta_v_magnitude / (craft->specific_impulse * STANDARD_GRAVITY))) / craft->mass_flow_rate;
+    const double burn_duration = craft->current_total_mass * (1.0 - exp(-best_delta_v_magnitude / (craft->specific_impulse * STANDARD_GRAVITY))) / craft->mass_flow_rate;
 
-    // performs the burn immediately when the function is run
+    // schedule the burn centered on the optimal point in the orbit
+    const double burn_start_time = sim->window_params.sim_time + (best_i * craft_orbit_time_step) - (burn_duration / 2.0);
+
+    printf("Final Delta V: %f m/s | Burn occurs in %e s | Transfer time: %e s | Burn time: %f\n",
+       best_delta_v_magnitude, best_i * craft_orbit_time_step, expected_time_of_contact, burn_duration);
+
     burn_properties_t burn_properties_to_achieve_target = (burn_properties_t){
-        .burn_start_time = sim->window_params.sim_time,
-        .burn_end_time = sim->window_params.sim_time + burn_duration,
+        .burn_start_time = burn_start_time,
+        .burn_end_time = burn_start_time + burn_duration,
         .throttle = 1.0,
         .burn_heading = 0.0,
         .burn_attitude = burn_attitude,
