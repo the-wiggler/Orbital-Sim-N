@@ -221,14 +221,14 @@ vec3 craft_solveLambertProblem(const vec3 craft_pos, const vec3 craft_vel, const
     double alpha = 0.0;
     double beta = 0.0;
 
-    // iterate through values of semi-major-axis until the calculated value of tof_guess roughly matches that of time_of_flight
-    while ((tof_guess / time_of_flight) < 0.999 || (tof_guess / time_of_flight) > 1.001 ) {
+    // iterate through values of semi-major-axis until the calculated value of tof_guess closely matches that of time_of_flight
+    while ((tof_guess / time_of_flight) < 0.99999 || (tof_guess / time_of_flight) > 1.00001 ) {
         prev_tof = tof_guess;
         alpha = 2.0 * asin( sqrt( semi_perimeter / (2.0 * a_guess) ) );
         beta = 2.0 * asin( sqrt( (semi_perimeter - dist) / (2.0 * a_guess) ) );
         if (long_way) { beta = -beta; }
         tof_guess = sqrt( (a_guess * a_guess * a_guess) / central_body->gravitational_parameter ) * ( alpha - sin(alpha) - (beta - sin(beta)) );
-        printf("tof_guess: %f | a_guess: %f\n", tof_guess, a_guess);
+        //printf("tof_guess: %f | a_guess: %f\n", tof_guess, a_guess); // debug info -- only turn this on if necessary it prints A LOT of lines
 
         // if tof is barely changing per step, it'll never converge to the target
         if (prev_tof != 0.0 && fabs(tof_guess - prev_tof) / fabs(tof_guess) < 1e-4) {
@@ -255,8 +255,6 @@ vec3 craft_solveLambertProblem(const vec3 craft_pos, const vec3 craft_vel, const
     // vel1 is relative to central body, convert to absolute frame and compute delta-v
     const vec3 v1_absolute = vec3_add(vel1, central_body->vel);
     const vec3 delta_v = vec3_sub(v1_absolute, craft_vel);
-
-    printf("Delta V Vector: (%f, %f, %f)", delta_v.x, delta_v.y, delta_v.z); // for debug
 
     // returns delta v vector
     return delta_v;
@@ -332,7 +330,7 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
 
     // grid search like method that determines optimal delta v by solving lambert problem with like a
     // billion different random delta_t values and just picking the one with the smallest delta_v
-    const int ORBIT_INCREMENT_RES = 100;
+    const int ORBIT_INCREMENT_RES = 1000;
     const double grav_param = central_body->gravitational_parameter;
 
     // determine the orbital period for the craft
@@ -340,7 +338,7 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
         craft->orbital_elements.semi_major_axis * craft->orbital_elements.semi_major_axis) / grav_param);
     const double craft_orbit_time_step = craft_orbital_period / ORBIT_INCREMENT_RES;
 
-    // propagate craft orbit using Kepler's equation to get position AND velocity at each time step
+    // propagate craft orbit using kepler's equation to get position AND velocity at each time step
     vec3 craft_locations[ORBIT_INCREMENT_RES];
     vec3 craft_velocities[ORBIT_INCREMENT_RES];
 
@@ -366,7 +364,7 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
         const double tof_upper = hohmann_time * 1.5;
 
         // 2- do a rough grid search at current point in the orbit to find where the planet is and lowest delta v
-        const int SAMPLES = 50;
+        const int SAMPLES = 1000;
         const double t_step = (tof_upper - tof_lower) / (double)SAMPLES;
 
         // populate time sample array with potential realistic transfer times
@@ -406,8 +404,8 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
             expected_time_of_contact = best_tof_at_i;
         }
     
-        // advance to a farther time in the orbit to see if any of the possible delta v values are better there, meaning that the ideal time
-        // to burn might be in the future and not immediately
+        // advance to a farther time in the orbit to see if any of the possible delta v values are better there, because the ideal time
+        // to burn COULD be in the future and not immediately
     }
 
     const double best_delta_v_magnitude = vec3_mag(best_delta_v);
