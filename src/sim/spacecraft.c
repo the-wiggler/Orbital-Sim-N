@@ -328,6 +328,8 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
     const body_t* central_body = &sim->global_bodies.bodies[craft->orbital_elements.SOI_planet_id];
     const body_t* target_body = &sim->global_bodies.bodies[craft->target_body_id];
 
+    printf("Started Burn Optimization...\n");
+
     // grid search like method that determines optimal delta v by solving lambert problem with like a
     // billion different random delta_t values and just picking the one with the smallest delta_v
     const int ORBIT_INCREMENT_RES = 1000;
@@ -406,7 +408,10 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
     
         // advance to a farther time in the orbit to see if any of the possible delta v values are better there, because the ideal time
         // to burn COULD be in the future and not immediately
+        printf("\rProgress: %.1f%%", (float)i / (float)ORBIT_INCREMENT_RES * 100.0F);
+        fflush(stdout);
     }
+    printf("\n");
 
     const double best_delta_v_magnitude = vec3_mag(best_delta_v);
 
