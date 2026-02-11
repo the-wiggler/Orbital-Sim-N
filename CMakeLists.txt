@@ -71,13 +71,13 @@ find_package(cJSON CONFIG REQUIRED)
 # Only require GUI dependencies if GUI is enabled
 if(ENABLE_GUI)
     find_package(SDL3 CONFIG REQUIRED)
-    if(NOT EMSCRIPTEN)
+    if(NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         find_package(OpenGL REQUIRED)
         find_package(GLEW REQUIRED)
     endif()
 endif()
 
-if(NOT EMSCRIPTEN)
+if(NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
 endif()
@@ -128,7 +128,8 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 #endif()
 
 # --- 5. COMPILER FLAGS & OPTIMIZATIONS ---
-if(EMSCRIPTEN)
+# Check for Emscripten build (either via EMSCRIPTEN var or CMAKE_SYSTEM_NAME)
+if(EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # --- WEB ASSEMBLY FLAGS ---
     target_compile_options(${PROJECT_NAME} PRIVATE -msimd128 -pthread)
 
@@ -219,7 +220,7 @@ set(EXTRA_LIBS "")
 # Link GUI libraries only if GUI is enabled
 if(ENABLE_GUI)
     list(APPEND EXTRA_LIBS SDL3::SDL3)
-    if(NOT EMSCRIPTEN)
+    if(NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         list(APPEND EXTRA_LIBS OpenGL::GL GLEW::GLEW)
     endif()
 endif()
@@ -229,7 +230,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         ${EXTRA_LIBS}
 )
 
-if(NOT EMSCRIPTEN)
+if(NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
     # Link math library on Unix-like systems (not needed on Windows)
     if(UNIX)
@@ -316,7 +317,7 @@ if(WIN32)
 endif()
 
 # WASM: Copy files to build directory
-if(EMSCRIPTEN)
+if(EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy
             "${CMAKE_SOURCE_DIR}/web/index.html"

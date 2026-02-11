@@ -24,7 +24,13 @@ jobs:
         cd build
         conan install .. --build=missing -s build_type=Release -pr ../web/conan_profile
         source ./Release/generators/conanbuild.sh
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+        # Ensure emcc is in PATH for Emscripten builds
+        emcc --version
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=Release/generators/conan_toolchain.cmake \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_GUI=ON \
+          -DCMAKE_SYSTEM_NAME=Emscripten
         cmake --build .
 
     - name: Cleanup to specific files only
