@@ -25,8 +25,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # --- CLANG-TIDY STATIC ANALYSIS (Linux/macOS only) ---
 # Disabled on Windows: CMake forces --driver-mode=gcc for clang-tidy which is
 # incompatible with Windows SDK headers.
+# Disabled on Emscripten: clang-tidy doesn't understand WASM-specific flags
 option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" ON)
-if(ENABLE_CLANG_TIDY)
+if(ENABLE_CLANG_TIDY AND NOT EMSCRIPTEN AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     find_program(CLANG_TIDY clang-tidy)
     if(CLANG_TIDY)
         set(CLANG_TIDY_ARGS
@@ -40,6 +41,8 @@ if(ENABLE_CLANG_TIDY)
     else()
         message(WARNING "clang-tidy not found. Install with: brew install llvm (macOS) or apt install clang-tidy (Linux)")
     endif()
+else()
+    message(STATUS "clang-tidy disabled (Emscripten or Windows build)")
 endif()
 
 # Default to Release build type (use Debug for debugging with breakpoints)
