@@ -162,6 +162,14 @@ int main() {
         // calculate the total energy of the system and store it for external use
         sim.global_bodies.total_system_energy = calculateTotalSystemEnergy(&sim);
 
+        // update camera target if tracking a spacecraft
+        if (sim.window_params.track_craft_id >= 0 && sim.window_params.track_craft_id < sim.global_spacecraft.count) {
+            const vec3 craft_pos = sim.global_spacecraft.spacecraft[sim.window_params.track_craft_id].pos;
+            sim.window_params.cam_target.x = (float)(craft_pos.x / SCALE);
+            sim.window_params.cam_target.y = (float)(craft_pos.y / SCALE);
+            sim.window_params.cam_target.z = (float)(craft_pos.z / SCALE);
+        }
+
         // make a quick copy for rendering
         const sim_properties_t sim_copy = sim;
 

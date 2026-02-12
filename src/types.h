@@ -207,6 +207,9 @@ typedef struct {
     bool draw_craft_path;
     bool draw_planet_SOI;
 
+    // camera tracking
+    int track_craft_id; // -1 = not tracking, otherwise index into spacecraft array
+
 } window_params_t;
 #else
 typedef struct {

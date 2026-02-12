@@ -362,8 +362,8 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
 
         // 1- determine ToF bounds of grid search using hohmann transfer
         const double hohmann_time = craft_calcualteHohmannTransTime(dist_from_central_body, target_orbit_radius, grav_param);
-        const double tof_lower = hohmann_time * 0.5;
-        const double tof_upper = hohmann_time * 1.5;
+        const double tof_lower = hohmann_time * 0.6;
+        const double tof_upper = hohmann_time * 1.4;
 
         // 2- do a rough grid search at current point in the orbit to find where the planet is and lowest delta v
         const int SAMPLES = 1000;
@@ -385,7 +385,7 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
                                total_dt, &target_body_location[j], &tgt_vel_unused);
         }
 
-        // determine how much delta v is needed for this circumstance
+        // determine how much delta v is needed for this circumstance//
         vec3 calculated_delta_v = {INFINITY, INFINITY, INFINITY};
         double best_tof_at_i = 0.0;
         for (int j = 0; j < SAMPLES; j++) {

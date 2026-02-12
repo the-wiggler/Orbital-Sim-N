@@ -77,6 +77,7 @@ window_params_t init_window_params(void) {
     window_params.cam_target.x = 0; window_params.cam_target.y = 0; window_params.cam_target.z = 0;
 
     window_params.frame_counter = 0;
+    window_params.track_craft_id = -1;
 
     return window_params;
 }
@@ -331,6 +332,20 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim, binary_filenames_
         char* argument = cmd + 14;
         filenames->csv_update_period = strtod(argument, &argument);
         snprintf(console->log, sizeof(console->log), "CSV sample period changed to %fs", filenames->csv_update_period);
+    }
+    else if (strncmp(cmd, "track ", 6) == 0) {
+        char* argument = cmd + 6;//
+        const int craft_idx = findSpacecraftID(&sim->global_spacecraft, argument);
+        if (craft_idx != -1) {
+            sim->window_params.track_craft_id = craft_idx;
+            snprintf(console->log, sizeof(console->log), "tracking %s", argument);
+        } else {
+            snprintf(console->log, sizeof(console->log), "unknown spacecraft: %s", argument);
+        }
+    }
+    else if (strcmp(cmd, "untrack") == 0) {
+        sim->window_params.track_craft_id = -1;
+        snprintf(console->log, sizeof(console->log), "camera tracking disabled");
     }
     else if (strncmp(cmd, "auto ", 5) == 0) {
         char* argument = cmd + 5;

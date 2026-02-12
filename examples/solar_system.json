@@ -10,11 +10,14 @@
       "vel_y": 0.0,
       "vel_z": 0.0,
       "radius": 695700000.0,
+      "equatorial_radius": 696000000.0,
       "rotational_v": 2.865e-6,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 0.0
+      "attitude_angle": 0.0,
+      "gravitational_parameter": 1.32712440018e20,
+      "J2": 0.0000020
     },
     {
       "name": "Mercury",
@@ -26,11 +29,14 @@
       "vel_y": 47870.0,
       "vel_z": 0.0,
       "radius": 2439500.0,
+      "equatorial_radius": 2440530.0,
       "rotational_v": 1.240e-6,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 0.0
+      "attitude_angle": 0.0,
+      "gravitational_parameter": 2.2032e13,
+      "J2": 0.000051
     },
     {
       "name": "Venus",
@@ -42,11 +48,14 @@
       "vel_y": 35020.0,
       "vel_z": 0.0,
       "radius": 6051800.0,
+      "equatorial_radius": 6051800.0,
       "rotational_v": -2.992e-7,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 177.0
+      "attitude_angle": 177.0,
+      "gravitational_parameter": 3.2486e14,
+      "J2": 0.0000048
     },
     {
       "name": "Earth",
@@ -58,11 +67,14 @@
       "vel_y": 29780.0,
       "vel_z": 0.0,
       "radius": 6371000.0,
+      "equatorial_radius": 6378137.0,
       "rotational_v": 7.2921159e-5,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 23.44
+      "attitude_angle": 23.44,
+      "gravitational_parameter": 3.986004418e14,
+      "J2": 0.00108263
     },
     {
       "name": "Mars",
@@ -74,11 +86,14 @@
       "vel_y": 24070.0,
       "vel_z": 0.0,
       "radius": 3389500.0,
+      "equatorial_radius": 3396190.0,
       "rotational_v": 7.088e-5,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 25.19
+      "attitude_angle": 25.19,
+      "gravitational_parameter": 4.282837e13,
+      "J2": 0.00019635
     },
     {
       "name": "Jupiter",
@@ -90,11 +105,14 @@
       "vel_y": 13070.0,
       "vel_z": 0.0,
       "radius": 69911000.0,
+      "equatorial_radius": 71492000.0,
       "rotational_v": 1.758e-4,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 3.13
+      "attitude_angle": 3.13,
+      "gravitational_parameter": 1.26686534e17,
+      "J2": 0.0148
     },
     {
       "name": "Saturn",
@@ -106,11 +124,14 @@
       "vel_y": 9690.0,
       "vel_z": 0.0,
       "radius": 58232000.0,
+      "equatorial_radius": 60268000.0,
       "rotational_v": 1.637e-4,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 26.73
+      "attitude_angle": 26.73,
+      "gravitational_parameter": 3.7931187e16,
+      "J2": 0.01645
     },
     {
       "name": "Uranus",
@@ -122,11 +143,14 @@
       "vel_y": 6810.0,
       "vel_z": 0.0,
       "radius": 25362000.0,
+      "equatorial_radius": 25559000.0,
       "rotational_v": -1.012e-4,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 97.77
+      "attitude_angle": 97.77,
+      "gravitational_parameter": 5.793939e15,
+      "J2": 0.0089
     },
     {
       "name": "Neptune",
@@ -138,11 +162,14 @@
       "vel_y": 5430.0,
       "vel_z": 0.0,
       "radius": 24622000.0,
+      "equatorial_radius": 24764000.0,
       "rotational_v": 1.083e-4,
       "attitude_axis_x": 0.0,
       "attitude_axis_y": 0.0,
       "attitude_axis_z": 1.0,
-      "attitude_angle": 28.32
+      "attitude_angle": 28.32,
+      "gravitational_parameter": 6.836529e15,
+      "J2": 0.0034
     }
   ],
   "spacecraft": [
@@ -163,6 +190,7 @@
       "attitude": 0.0,
       "moment_of_inertia": 50.0,
       "nozzle_gimbal_range": 0.0,
+      "nozzle_velocity": 1000.0,
       "burns": []
     }
   ]
