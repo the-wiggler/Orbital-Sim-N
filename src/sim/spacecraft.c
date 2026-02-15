@@ -332,7 +332,7 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
 
     // grid search like method that determines optimal delta v by solving lambert problem with like a
     // billion different random delta_t values and just picking the one with the smallest delta_v
-    const int ORBIT_INCREMENT_RES = 1000;
+    const int ORBIT_INCREMENT_RES = 500;
     const double grav_param = central_body->gravitational_parameter;
 
     // determine the orbital period for the craft
@@ -362,11 +362,11 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
 
         // 1- determine ToF bounds of grid search using hohmann transfer
         const double hohmann_time = craft_calcualteHohmannTransTime(dist_from_central_body, target_orbit_radius, grav_param);
-        const double tof_lower = hohmann_time * 0.6;
-        const double tof_upper = hohmann_time * 1.4;
+        const double tof_lower = hohmann_time * 0.8;
+        const double tof_upper = hohmann_time * 1.2;
 
         // 2- do a rough grid search at current point in the orbit to find where the planet is and lowest delta v
-        const int SAMPLES = 1000;
+        const int SAMPLES = 500;
         const double t_step = (tof_upper - tof_lower) / (double)SAMPLES;
 
         // populate time sample array with potential realistic transfer times

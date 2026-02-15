@@ -46,6 +46,7 @@
 #ifdef GUI_ENABLED
 #include "gui/SDL_engine.h"
 #include "gui/GL_renderer.h"
+#include "globals.h"
 #endif
 // END GUI INCLUDES
 
@@ -146,7 +147,7 @@ int main() {
 
     while (sim.window_params.window_open) {
         // clears previous frame from the screen
-        glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+        glClearColor(BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, 0.0F);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // lock mutex and quickly snapshot simulation data for rendering
@@ -209,7 +210,7 @@ int main() {
         renderLines(&assets.lines, shaderProgram);
 
         // render all queued text
-        renderText(&assets.font, sim_copy.window_params.window_size_x, sim_copy.window_params.window_size_y, 1, 1, 1);
+        renderText(&assets.font, sim_copy.window_params.window_size_x, sim_copy.window_params.window_size_y, HUD_TEXT_COLOR.r, HUD_TEXT_COLOR.g, HUD_TEXT_COLOR.b);
         ////////////////////////////////////////////////////////
         // END OPENGL RENDERER
         ////////////////////////////////////////////////////////

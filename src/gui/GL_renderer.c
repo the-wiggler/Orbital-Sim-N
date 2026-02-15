@@ -3,6 +3,7 @@
 //
 
 #include "GL_renderer.h"
+#include "SDL_engine.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,8 +15,6 @@
 #include "../globals.h"
 #include "../math/matrix.h"
 #include "../types.h"
-
-extern void displayError(const char* title, const char* message);
 
 char* loadShaderSource(const char* filepath) {
     // use two alternating buffers to support loading vertex and fragment shaders simultaneously
@@ -275,7 +274,9 @@ void castCamera(const sim_properties_t sim, const GLuint shaderProgram) {
 
     // create projection matrix
     const float aspect = sim.window_params.window_size_x / sim.window_params.window_size_y;
-    const mat4 projMatrix = createProjectionMatrix(PI_OVER_4_f, aspect, 0.1F, 1000000000.0F);
+    const float near_plane = 0.1F * sim.window_params.zoom;
+    const float far_plane = 10000.0F * sim.window_params.zoom;
+    const mat4 projMatrix = createProjectionMatrix(PI_OVER_4_f, aspect, near_plane, far_plane);
 
     // set matrices in shader
     GL_setMatrixUniform(shaderProgram, "view", &viewMatrix);
@@ -564,17 +565,17 @@ void renderCoordinatePlane(const sim_properties_t sim, line_batch_t* line_batch)
     const float scale = sim.window_params.zoom;
 
     // X axis (red) - horizontal
-    addLine(line_batch, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, 0.0F, 0.0F, 0.3F, 0.0F, 0.0F);
+    addLine(line_batch, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, 0.0F, 0.0F, GRID_X_AXIS_COLOR.r, GRID_X_AXIS_COLOR.g, GRID_X_AXIS_COLOR.b);
 
     // Y axis (green) - horizontal
-    addLine(line_batch, 0.0F, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, 0.0F, 0.0F, 0.3F, 0.0F);
+    addLine(line_batch, 0.0F, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, 0.0F, GRID_Y_AXIS_COLOR.r, GRID_Y_AXIS_COLOR.g, GRID_Y_AXIS_COLOR.b);
 
     // Z axis (blue) - vertical "up"
-    addLine(line_batch, 0.0F, 0.0F, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, 0.0F, 0.0F, 0.3F);
+    addLine(line_batch, 0.0F, 0.0F, -10.0F * scale, 0.0F, 0.0F, 10.0F * scale, GRID_Z_AXIS_COLOR.r, GRID_Z_AXIS_COLOR.g, GRID_Z_AXIS_COLOR.b);
 
     // perspective lines in X-Y plane (gray)
-    addLine(line_batch, 10.0F * scale, 10.0F * scale, 0.0F, -10.0F * scale, -10.0F * scale, 0.0F, 0.3F, 0.3F, 0.3F);
-    addLine(line_batch, 10.0F * scale, -10.0F * scale, 0.0F, -10.0F * scale, 10.0F * scale, 0.0F, 0.3F, 0.3F, 0.3F);
+    addLine(line_batch, 10.0F * scale, 10.0F * scale, 0.0F, -10.0F * scale, -10.0F * scale, 0.0F, GRID_DIAGONAL_COLOR.r, GRID_DIAGONAL_COLOR.g, GRID_DIAGONAL_COLOR.b);
+    addLine(line_batch, 10.0F * scale, -10.0F * scale, 0.0F, -10.0F * scale, 10.0F * scale, 0.0F, GRID_DIAGONAL_COLOR.r, GRID_DIAGONAL_COLOR.g, GRID_DIAGONAL_COLOR.b);
 }
 
 // render the sim planets to the screen
@@ -611,7 +612,7 @@ void renderPlanets(const sim_properties_t sim, const GLuint shader_program, cons
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask(GL_FALSE);
         glUniform1i(glGetUniformLocation(shader_program, "useOverride"), 1);
-        glUniform4f(glGetUniformLocation(shader_program, "colorOverride"), 0.0F, 0.5F, 1.0F, 0.2F);
+        glUniform4f(glGetUniformLocation(shader_program, "colorOverride"), SOI_OVERLAY_COLOR.r, SOI_OVERLAY_COLOR.g, SOI_OVERLAY_COLOR.b, SOI_OVERLAY_COLOR.a);
         glBindVertexArray(planet_shape_buffer.VAO);
         for (int i = 0; i < sim.global_bodies.count; i++) {
             const body_t* body = &sim.global_bodies.bodies[i];
@@ -763,7 +764,7 @@ void renderCraftPaths(const sim_properties_t* sim, line_batch_t* line_batch, cra
                 const vec3 prev_pos = craft_paths->positions[base + i - 1];
                 const vec3 curr_pos = craft_paths->positions[base + i];
                 addLine(line_batch, (float)prev_pos.x, (float)prev_pos.y, (float)prev_pos.z,
-                                    (float)curr_pos.x, (float)curr_pos.y, (float)curr_pos.z, 1.0F, 1.0F, 0.5F);
+                                    (float)curr_pos.x, (float)curr_pos.y, (float)curr_pos.z, CRAFT_PATH_COLOR.r, CRAFT_PATH_COLOR.g, CRAFT_PATH_COLOR.b);
             }
         }
     }
@@ -853,7 +854,7 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
             addLine(line_batch,
                 parent_pos.x + (prev_position_eci.x / SCALE), parent_pos.y + (prev_position_eci.y / SCALE), parent_pos.z + (prev_position_eci.z / SCALE),
                 parent_pos.x + (position_eci.x / SCALE), parent_pos.y + (position_eci.y / SCALE), parent_pos.z + (position_eci.z / SCALE),
-                0.5F, 0.5F, 0.5F);
+                BODY_ORBIT_COLOR.r, BODY_ORBIT_COLOR.g, BODY_ORBIT_COLOR.b);
 
             prev_position_eci = position_eci;
         }
@@ -909,7 +910,7 @@ void renderPredictedOrbits(sim_properties_t sim, line_batch_t* line_batch) {
                 addLine(line_batch,
                     body_pos.x + (prev_position_eci.x / SCALE), body_pos.y + (prev_position_eci.y / SCALE), body_pos.z + (prev_position_eci.z / SCALE),
                     body_pos.x + (position_eci.x / SCALE), body_pos.y + (position_eci.y / SCALE), body_pos.z + (position_eci.z / SCALE),
-                    0.0F, 0.0F, 1.0F);
+                    CRAFT_ORBIT_COLOR.r, CRAFT_ORBIT_COLOR.g, CRAFT_ORBIT_COLOR.b);
 
                 prev_position_eci = position_eci;
             }
@@ -948,21 +949,17 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
                 other_body_index = 0;
             }
             const vec3_f body_pos_2 = scaled_body_pos[other_body_index];
-            addLine(line_batch, body_pos_1.x, body_pos_1.y, body_pos_1.z, body_pos_2.x, body_pos_2.y, body_pos_2.z, 1.0F, 1.0F, 1.0F);
+            addLine(line_batch, body_pos_1.x, body_pos_1.y, body_pos_1.z, body_pos_2.x, body_pos_2.y, body_pos_2.z, BODY_LINE_COLOR.r, BODY_LINE_COLOR.g, BODY_LINE_COLOR.b);
         }
     }
     if (window_params.draw_inclination_height) {
         for (int i = 0; i < global_bodies.count; i++) {
             const vec3_f body_scaled_pos = scaled_body_pos[i];
-            float red = 1.0F;
-            float green = 0.5F;
-            float blue = 0.5F;
+            gl_color3_t incl_color = INCLINATION_BELOW_COLOR;
             if (body_scaled_pos.z > 0) {
-                red = 0.5F;
-                green = 0.5F;
-                blue = 1.0F;
+                incl_color = INCLINATION_ABOVE_COLOR;
             }
-            addLine(line_batch, body_scaled_pos.x, body_scaled_pos.y, body_scaled_pos.z, body_scaled_pos.x, body_scaled_pos.y, 0.0F, red, green, blue);
+            addLine(line_batch, body_scaled_pos.x, body_scaled_pos.y, body_scaled_pos.z, body_scaled_pos.x, body_scaled_pos.y, 0.0F, incl_color.r, incl_color.g, incl_color.b);
         }
     }
 
@@ -993,7 +990,7 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
             // draw the rotation axis line
             addLine(line_batch, axis_end1.x, axis_end1.y, axis_end1.z,
                                axis_end2.x, axis_end2.y, axis_end2.z,
-                               0.0F, 1.0F, 1.0F);
+                               ROTATION_AXIS_COLOR.r, ROTATION_AXIS_COLOR.g, ROTATION_AXIS_COLOR.b);
         }
     }
 
@@ -1018,11 +1015,11 @@ void renderVisuals(sim_properties_t sim, line_batch_t* line_batch, craft_path_st
         };
 
         // line from planet to craft
-        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, body_pos.x, body_pos.y, body_pos.z, 1.0F, 1.0F, 1.0F);
+        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, body_pos.x, body_pos.y, body_pos.z, CRAFT_RADIUS_COLOR.r, CRAFT_RADIUS_COLOR.g, CRAFT_RADIUS_COLOR.b);
         // line from projected point on equatorial plane to planet center
-        addLine(line_batch, projected_scaled.x, projected_scaled.y, projected_scaled.z, body_pos.x, body_pos.y, body_pos.z, 1.0F, 0.0F, 0.0F);
+        addLine(line_batch, projected_scaled.x, projected_scaled.y, projected_scaled.z, body_pos.x, body_pos.y, body_pos.z, CRAFT_EQUATORIAL_COLOR.r, CRAFT_EQUATORIAL_COLOR.g, CRAFT_EQUATORIAL_COLOR.b);
         // line from craft to projected point (inclination height line)
-        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, projected_scaled.x, projected_scaled.y, projected_scaled.z, 0.0F, 1.0F, 0.0F);
+        addLine(line_batch, craft_pos.x, craft_pos.y, craft_pos.z, projected_scaled.x, projected_scaled.y, projected_scaled.z, CRAFT_INCLINATION_COLOR.r, CRAFT_INCLINATION_COLOR.g, CRAFT_INCLINATION_COLOR.b);
 
     }
 
