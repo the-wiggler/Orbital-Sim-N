@@ -29,6 +29,8 @@
 #include "../types.h"
 #include "../sim/spacecraft.h"
 
+#include "../utility/sim_thread.h"
+
 // display error message using SDL dialog
 void displayError(const char* title, const char* message) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, message, NULL);
@@ -266,6 +268,66 @@ static void handleMouseWheelEvent(const SDL_Event* event, sim_properties_t* sim)
     }
 }
 
+// parallel delta-v optimization debug sweep
+typedef struct {
+    const sim_properties_t* sim;
+    delta_v_optimizer_data* results;
+    int start;
+    int end;
+    int point_samples;
+} dvo_thread_arg_t;
+
+#ifdef _WIN32
+static DWORD WINAPI dvo_worker(LPVOID arg) {
+#else
+static void* dvo_worker(void* arg) {
+#endif
+    dvo_thread_arg_t* aaa = (dvo_thread_arg_t*)arg;
+    for (int i = aaa->start; i < aaa->end; i++) {
+        aaa->results[i] = craft_findOptimalDeltaV(aaa->sim, 0, i, aaa->point_samples);
+    }
+    return 0;
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+static int run_dvo_sweep(const sim_properties_t* sim, int iterations, int point_samples) {
+    int num_threads = thread_get_cpu_count();
+    if (num_threads > iterations) num_threads = iterations;
+
+    delta_v_optimizer_data* results = malloc((size_t)iterations * sizeof(*results));
+    thread_t* threads = malloc((size_t)num_threads * sizeof(*threads));
+    dvo_thread_arg_t* args = malloc((size_t)num_threads * sizeof(*args));
+    if (!results || !threads || !args) { free(results); free(threads); free(args); return -1; }
+
+    // distribute iterations across threads, spreading the remainder evenly
+    int offset = 0;
+    for (int i = 0; i < num_threads; i++) {
+        int count = iterations / num_threads + (i < iterations % num_threads ? 1 : 0);
+        args[i] = (dvo_thread_arg_t){
+            .sim = sim, .results = results,
+            .start = offset, .end = offset + count,
+            .point_samples = point_samples
+        };
+        offset += count;
+        thread_create(&threads[i], dvo_worker, &args[i]);
+    }
+
+    for (int i = 0; i < num_threads; i++) thread_join(&threads[i]);
+
+    FILE *output = fopen("delta_v_optimization.csv", "w");
+    if (output) {
+        fprintf(output, "orbit_samples,point_samples,delta_v\n");
+        for (int i = 0; i < iterations; i++)
+            fprintf(output, "%d,%d,%f\n", i, point_samples, vec3_mag(results[i].optimal_delta_v));
+        fclose(output);
+    }
+
+    free(results);
+    free(threads);
+    free(args);
+    return num_threads;
+}
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 static void parseRunCommands(char* cmd, sim_properties_t* sim, binary_filenames_t* filenames) {
     console_t* console = &sim->console;
@@ -352,11 +414,23 @@ static void parseRunCommands(char* cmd, sim_properties_t* sim, binary_filenames_
         const int craft_idx = findSpacecraftID(&sim->global_spacecraft, argument);
         if (craft_idx != -1) {
             spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_idx];
-            craft->burn_properties[craft->num_burns] = craft_autoDeltaVOptimization(sim, craft_idx);
+            craft->burn_properties[craft->num_burns] = craft_autoDeltaVOptimization(sim, craft_idx, 500, 500);
             craft->num_burns++;
             snprintf(console->log, sizeof(console->log), "Optimal target burn created for %s", argument);
         } else {
             snprintf(console->log, sizeof(console->log), "unknown spacecraft: %s", argument);
+        }
+    }
+    else if (strncmp(cmd, "DEBUG_OPT_DVO", 13) == 0) {
+        const int threads_used = run_dvo_sweep(sim, 500, 500);
+        snprintf(console->log, sizeof(console->log), "DVO complete (%d threads)", threads_used);
+    }
+    else if (strncmp(cmd, "memoryleak!", 11) == 0) {
+        unsigned long awesomeness_count = 0;
+        while (1) {
+            void *poop = malloc(4096);
+            awesomeness_count++;
+            printf("We've created %lu kB of AWESOMENESS together :D | Latest awesomeness: %p\n", awesomeness_count, poop);
         }
     }
     else {

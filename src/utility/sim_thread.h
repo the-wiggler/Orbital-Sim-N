@@ -9,6 +9,10 @@
     #include <windows.h>
 #else
 #include <pthread.h>
+#include <unistd.h>
+#ifdef __linux__
+#include <sys/sysinfo.h>
+#endif
 #endif
 
 typedef struct {
@@ -54,6 +58,53 @@ static inline void mutex_destroy(mutex_t *mutex) {
     DeleteCriticalSection(&mutex->u.win_cs);
 #else
     pthread_mutex_destroy(&mutex->u.posix_mtx);
+#endif
+}
+
+// --- thread abstraction ---
+typedef struct {
+#ifdef _WIN32
+    HANDLE handle;
+#else
+    pthread_t handle;
+#endif
+} thread_t;
+
+#ifdef _WIN32
+typedef DWORD (WINAPI *thread_func_t)(LPVOID);
+#else
+typedef void* (*thread_func_t)(void*);
+#endif
+
+static inline void thread_create(thread_t *thead, thread_func_t func, void *arg) {
+#ifdef _WIN32
+    thead->handle = CreateThread(NULL, 0, func, arg, 0, NULL);
+#else
+    pthread_create(&thead->handle, NULL, func, arg);
+#endif
+}
+
+static inline void thread_join(thread_t *thread) {
+#ifdef _WIN32
+    WaitForSingleObject(thread->handle, INFINITE);
+    CloseHandle(thread->handle);
+#else
+    pthread_join(thread->handle, NULL);
+#endif
+}
+
+static inline int thread_get_cpu_count(void) {
+#ifdef _WIN32
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    return (int)si.dwNumberOfProcessors;
+#elif defined(__linux__)
+    return get_nprocs();
+#elif defined(__APPLE__)
+    int n = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    return n > 0 ? n : 4;
+#else
+    return 4;
 #endif
 }
 

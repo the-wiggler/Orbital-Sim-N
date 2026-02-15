@@ -321,18 +321,16 @@ static void propagateOrbitState(const orbital_elements_t* orbital_elements, cons
     *out_vel = vec3_add(vel_rel, central_vel);
 }
 
-// function that generates a burn list for the craft based on the optimal delta v for the final desired position.
-// IMPORTANT: THIS FUNCTION SHOULD ONLY BE RUN ON THE MAIN THREAD, NOT THE SIM THREAD. THE RESULT IS UNKNOWN AND POTENTIALLY DANGEROUS IF RUN ON THE SIM THREAD
-burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, const int craft_id) {
+// performs a grid search to determine the optimal delta V to hit a certain target in space
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+delta_v_optimizer_data craft_findOptimalDeltaV(const sim_properties_t* sim, const int craft_id, const int orbit_sample_points, const int point_samples) {
     const spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_id];
     const body_t* central_body = &sim->global_bodies.bodies[craft->orbital_elements.SOI_planet_id];
     const body_t* target_body = &sim->global_bodies.bodies[craft->target_body_id];
 
-    printf("Started Burn Optimization...\n");
-
     // grid search like method that determines optimal delta v by solving lambert problem with like a
     // billion different random delta_t values and just picking the one with the smallest delta_v
-    const int ORBIT_INCREMENT_RES = 500;
+    const int ORBIT_INCREMENT_RES = orbit_sample_points;
     const double grav_param = central_body->gravitational_parameter;
 
     // determine the orbital period for the craft
@@ -366,7 +364,7 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
         const double tof_upper = hohmann_time * 1.2;
 
         // 2- do a rough grid search at current point in the orbit to find where the planet is and lowest delta v
-        const int SAMPLES = 500;
+        const int SAMPLES = point_samples;
         const double t_step = (tof_upper - tof_lower) / (double)SAMPLES;
 
         // populate time sample array with potential realistic transfer times
@@ -413,21 +411,45 @@ burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, cons
     }
     printf("\n");
 
-    const double best_delta_v_magnitude = vec3_mag(best_delta_v);
+    return (delta_v_optimizer_data){
+        .optimal_delta_v = best_delta_v,
+        .steps_until_burn = best_i,
+        .orbit_time_step = craft_orbit_time_step,
+        .expected_time_of_contact = expected_time_of_contact
+    };
+}
+
+// function that generates a burn list for the craft based on the optimal delta v for the final desired position.
+// IMPORTANT: THIS FUNCTION SHOULD ONLY BE RUN ON THE MAIN THREAD, NOT THE SIM THREAD. THE RESULT IS UNKNOWN AND POTENTIALLY DANGEROUS IF RUN ON THE SIM THREAD
+/**
+ * @param orbit_sample_points - how many samples along the craft's current orbit path should the optimizer take to optimize delta v?
+ * @param point_samples - how many time guess samples should the optimizer take at that point?
+ */
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+burn_properties_t craft_autoDeltaVOptimization(const sim_properties_t* sim, const int craft_id, const int orbit_sample_points, const int point_samples) {
+    const spacecraft_t* craft = &sim->global_spacecraft.spacecraft[craft_id];
+
+    printf("Started Burn Optimization...\n");
+
+    // delta v optimizing function
+    const delta_v_optimizer_data result = craft_findOptimalDeltaV(sim, craft_id, orbit_sample_points, point_samples);
+
+    const double best_delta_v_magnitude = vec3_mag(result.optimal_delta_v);
 
     // compute attitude quaternion that points the spacecraft along the delta-v direction
     // default engine thrust direction is +Y
     const vec3 default_forward = {0.0, 1.0, 0.0};
-    const quaternion_t burn_attitude = quaternionFromTwoVectors(default_forward, best_delta_v);
+    const quaternion_t burn_attitude = quaternionFromTwoVectors(default_forward, result.optimal_delta_v);
 
     // calculate burn duration
     const double burn_duration = craft->current_total_mass * (1.0 - exp(-best_delta_v_magnitude / (craft->specific_impulse * STANDARD_GRAVITY))) / craft->mass_flow_rate;
 
     // schedule the burn centered on the optimal point in the orbit
-    const double burn_start_time = sim->window_params.sim_time + (best_i * craft_orbit_time_step) - (burn_duration / 2.0);
+    const double time_until_burn = result.steps_until_burn * result.orbit_time_step;
+    const double burn_start_time = sim->window_params.sim_time + time_until_burn - (burn_duration / 2.0);
 
     printf("Final Delta V: %f m/s | Burn occurs in %e s | Transfer time: %e s | Burn time: %f\n",
-       best_delta_v_magnitude, best_i * craft_orbit_time_step, expected_time_of_contact, burn_duration);
+       best_delta_v_magnitude, time_until_burn, result.expected_time_of_contact, burn_duration);
 
     burn_properties_t burn_properties_to_achieve_target = (burn_properties_t){
         .burn_start_time = burn_start_time,
