@@ -292,7 +292,7 @@ static void* dvo_worker(void* arg) {
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 static int run_dvo_sweep(const sim_properties_t* sim, int iterations, int point_samples) {
     int num_threads = thread_get_cpu_count();
-    if (num_threads > iterations) num_threads = iterations;
+    if (num_threads > iterations) { num_threads = iterations; }
 
     delta_v_optimizer_data* results = malloc((size_t)iterations * sizeof(*results));
     thread_t* threads = malloc((size_t)num_threads * sizeof(*threads));
@@ -302,7 +302,7 @@ static int run_dvo_sweep(const sim_properties_t* sim, int iterations, int point_
     // distribute iterations across threads, spreading the remainder evenly
     int offset = 0;
     for (int i = 0; i < num_threads; i++) {
-        int count = iterations / num_threads + (i < iterations % num_threads ? 1 : 0);
+        int count = (iterations / num_threads) + (i < iterations % num_threads ? 1 : 0);
         args[i] = (dvo_thread_arg_t){
             .sim = sim, .results = results,
             .start = offset, .end = offset + count,
@@ -312,13 +312,14 @@ static int run_dvo_sweep(const sim_properties_t* sim, int iterations, int point_
         thread_create(&threads[i], dvo_worker, &args[i]);
     }
 
-    for (int i = 0; i < num_threads; i++) thread_join(&threads[i]);
+    for (int i = 0; i < num_threads; i++) {thread_join(&threads[i]);}
 
     FILE *output = fopen("delta_v_optimization.csv", "w");
     if (output) {
         fprintf(output, "orbit_samples,point_samples,delta_v\n");
-        for (int i = 0; i < iterations; i++)
+        for (int i = 0; i < iterations; i++) {
             fprintf(output, "%d,%d,%f\n", i, point_samples, vec3_mag(results[i].optimal_delta_v));
+        }
         fclose(output);
     }
 
